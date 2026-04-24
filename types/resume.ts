@@ -17,7 +17,7 @@ export interface ResumeData {
   summary: string;
   experience: Experience[];
   education: string;
-  skills: string;
+  skills: string[];
   templateId: "minimal" | "modern" | "professional";
   lastModified: number;
 }
@@ -51,5 +51,5 @@ export const initialResumeData: ResumeData = {
     }
   ],
   education: "Bachelor of Science in Computer Science\nUniversity of Technology, San Francisco, CA (2014 - 2018)",
-  skills: "Frameworks: React, Next.js, Tailwind CSS, Framer Motion\nLanguages: JavaScript, TypeScript, HTML/CSS, GraphQL"
+  skills: ["React", "Next.js", "TypeScript", "Tailwind CSS", "JavaScript", "HTML/CSS", "GraphQL"]
 };

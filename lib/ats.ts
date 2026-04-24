@@ -47,7 +47,7 @@ export function matchKeywords(resume: ResumeData, jobDescription: string) {
   return { matched, missing, percentage };
 }
 
-export function calculateATSScore(resume: ResumeData, jobDescription?: string) {
+export function calculateLocalATSScore(resume: ResumeData, jobDescription?: string) {
   let score = 100;
   const suggestions: string[] = [];
 
@@ -111,3 +111,33 @@ export function calculateATSScore(resume: ResumeData, jobDescription?: string) {
     keywordMatchData
   };
 }
+
+export async function calculateATSScore(resume: ResumeData, jobDescription?: string) {
+  try {
+    const response = await fetch("/api/ats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resumeData: resume, jobDescription })
+    });
+
+    console.log("ATS API STATUS:", response.status);
+
+    if (!response.ok) {
+      throw new Error("API route returned an error");
+    }
+
+    const data = await response.json();
+    console.log("ATS RAW RESPONSE:", data);
+    
+    if (typeof data.score === "number") {
+      data.score = Math.min(data.score, 92);
+      return data;
+    }
+    
+    throw new Error("Invalid format from AI");
+  } catch (error) {
+    console.warn("AI ATS Engine failed, falling back to local scoring:", error);
+    return calculateLocalATSScore(resume, jobDescription);
+  }
+}
+

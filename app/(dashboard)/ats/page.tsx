@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { storage, ResumeData } from "@/lib/storage";
 import { useRouter } from "next/navigation";
 import { calculateATSScore } from "@/lib/ats";
+import { optimizeResumeForJob } from "@/lib/ai";
 
 export default function ATSPage() {
   const [resumes, setResumes] = useState<ResumeData[]>([]);
   const [selectedResumeId, setSelectedResumeId] = useState<string>("");
   const [jobDescription, setJobDescription] = useState<string>("");
   const [isScanning, setIsScanning] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
   const [result, setResult] = useState<{ 
     score: number; 
     suggestions: string[]; 
@@ -31,7 +33,7 @@ export default function ATSPage() {
     }
   }, []);
 
-  const handleScan = () => {
+  const handleScan = async () => {
     if (!selectedResumeId) return;
     const resume = resumes.find(r => r.id === selectedResumeId);
     if (!resume) return;
@@ -39,12 +41,42 @@ export default function ATSPage() {
     setIsScanning(true);
     setResult(null);
 
-    // Simulate AI scan delay
-    setTimeout(() => {
-      const atsResult = calculateATSScore(resume, jobDescription);
+    try {
+      const atsResult = await calculateATSScore(resume, jobDescription);
       setResult(atsResult as any);
+    } catch (error) {
+      console.error("ATS Scan Error:", error);
+      alert("Failed to scan resume. Please try again.");
+    } finally {
       setIsScanning(false);
-    }, 1500);
+    }
+  };
+
+  const handleOptimize = async () => {
+    if (!selectedResumeId || !jobDescription) return;
+    const resume = resumes.find(r => r.id === selectedResumeId);
+    if (!resume) return;
+
+    setIsOptimizing(true);
+    
+    try {
+      const optimized = await optimizeResumeForJob(resume, jobDescription);
+      
+      // Save optimized resume
+      storage.saveResume(optimized);
+      storage.saveVersion(optimized);
+      
+      // Re-calculate the score using the new optimized resume to show the boost instantly
+      const atsResult = await calculateATSScore(optimized, jobDescription);
+      setResult(atsResult as any);
+      
+      alert("Success! Your resume has been optimized for this job.");
+    } catch (error) {
+      console.error("Optimization Error:", error);
+      alert("Failed to optimize resume. Please try again.");
+    } finally {
+      setIsOptimizing(false);
+    }
   };
 
   return (
@@ -215,6 +247,35 @@ export default function ATSPage() {
               <p className="text-sm text-gray-500 italic">No suggestions! Your resume looks perfect.</p>
             )}
           </div>
+
+          {/* AUTO-OPTIMIZE CTA */}
+          {jobDescription && result.score < 95 && (
+            <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-8 rounded-xl shadow-lg text-center text-white mt-8 animate-in fade-in duration-700">
+              <h3 className="text-2xl font-bold mb-2">Want a higher score?</h3>
+              <p className="text-indigo-100 mb-6">Let our AI automatically weave the missing keywords into your experience and summary.</p>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <Button 
+                  onClick={handleOptimize} 
+                  disabled={isOptimizing}
+                  size="lg"
+                  className="bg-white text-indigo-600 hover:bg-gray-50 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 font-bold"
+                >
+                  <Sparkles className={`mr-2 h-5 w-5 ${isOptimizing ? 'animate-spin text-indigo-400' : 'text-indigo-600'}`} />
+                  {isOptimizing ? "Optimizing Resume..." : "✨ Auto-Optimize for this Job"}
+                </Button>
+                
+                <Button 
+                  onClick={() => router.push(`/builder?id=${selectedResumeId}`)}
+                  size="lg"
+                  variant="outline"
+                  className="border-white/30 text-white hover:bg-white/10"
+                >
+                  Return to Builder
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
