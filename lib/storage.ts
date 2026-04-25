@@ -1,3 +1,5 @@
+import { normalizeResume } from "./normalizeResume";
+
 export interface ResumeData {
   id: string;
   title: string;
@@ -39,12 +41,18 @@ const STORAGE_KEY = "saas_resumes";
 export const storage = {
   getResumes: (): ResumeData[] => {
     if (typeof window === "undefined") return [];
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEY);
+      const parsed = data ? JSON.parse(data) : [];
+      return Array.isArray(parsed) ? parsed.map(normalizeResume) : [];
+    } catch {
+      return [];
+    }
   },
 
   getResume: (id: string): ResumeData | undefined => {
-    return storage.getResumes().find((r) => r.id === id);
+    const found = storage.getResumes().find((r) => r.id === id);
+    return found ? normalizeResume(found) : undefined;
   },
 
   saveResume: (resume: ResumeData): void => {

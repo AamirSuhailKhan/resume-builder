@@ -1,27 +1,32 @@
-import { ResumeData } from "./storage";
+import { ResumeData } from "@/lib/storage";
+import { normalizeResume } from "./normalizeResume";
 
 export function extractKeywords(text: string): string[] {
   if (!text) return [];
-  const lowercase = text.toLowerCase();
-  const withoutPunctuation = lowercase.replace(/[^\w\s]/g, " ");
-  const words = withoutPunctuation.split(/\s+/);
-  
+
+  const words = text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/);
+
   const stopWords = new Set([
-    "and", "the", "with", "for", "a", "an", "to", "of", "in", 
-    "is", "at", "by", "from", "or", "as", "be", "this", "that", 
-    "are", "it", "will", "your", "we", "you", "our", "have", 
-    "not", "but", "what", "all", "were", "when", "can", "if", "their"
+    "and", "the", "with", "for", "a", "an", "to", "of", "in", "is", "at", "by", "from",
+    "or", "as", "be", "this", "that", "are", "it", "will", "your", "we", "you", "our",
+    "have", "not", "but", "what", "all", "were", "when", "can", "if", "their"
   ]);
-  
-  const keywords = words.filter(w => w.length >= 3 && !stopWords.has(w));
-  return Array.from(new Set(keywords));
+
+  return Array.from(
+    new Set(words.filter(w => w.length >= 3 && !stopWords.has(w)))
+  );
 }
 
 export function matchKeywords(resume: ResumeData, jobDescription: string) {
+  const safe = normalizeResume(resume);
+
   const resumeText = [
-    resume.personal?.summary || "",
-    ...(resume.skills || []),
-    ...(resume.experience || []).map(e => `${e.role} ${e.company} ${e.points}`)
+    safe.personal?.summary || "",
+    ...safe.skills,
+    ...safe.experience.map(e => `${e.role} ${e.company} ${e.points}`)
   ].join(" ");
 
   const resumeKeywords = new Set(extractKeywords(resumeText));
@@ -34,79 +39,75 @@ export function matchKeywords(resume: ResumeData, jobDescription: string) {
   const matched: string[] = [];
   const missing: string[] = [];
 
-  for (const kw of jobKeywords) {
-    if (resumeKeywords.has(kw)) {
-      matched.push(kw);
-    } else {
-      missing.push(kw);
-    }
-  }
+  jobKeywords.forEach(kw => {
+    resumeKeywords.has(kw) ? matched.push(kw) : missing.push(kw);
+  });
 
-  const percentage = Math.round((matched.length / jobKeywords.length) * 100);
-
-  return { matched, missing, percentage };
+  return {
+    matched,
+    missing,
+    percentage: Math.round((matched.length / jobKeywords.length) * 100)
+  };
 }
 
 export function calculateLocalATSScore(resume: ResumeData, jobDescription?: string) {
+  const r = normalizeResume(resume);
+
   let score = 100;
   const suggestions: string[] = [];
 
-  // Deductions
-  if (!resume.personal?.summary || resume.personal.summary.trim() === "") {
+  if (!r.personal?.summary?.trim()) {
     score -= 10;
-    suggestions.push("Add a professional summary to highlight your high-level value.");
+    suggestions.push("Add a professional summary.");
   }
 
-  if (!resume.experience || resume.experience.length === 0) {
+  if (r.experience.length === 0) {
     score -= 20;
-    suggestions.push("Add your work experience. ATS systems heavily weigh professional history.");
+    suggestions.push("Add work experience.");
   }
 
-  if (!resume.skills || resume.skills.length < 3) {
+  if (r.skills.length < 3) {
     score -= 10;
-    suggestions.push("Add more relevant skills (aim for at least 5-10 core skills).");
+    suggestions.push("Add more skills.");
   }
 
-  if (!resume.education || resume.education.length === 0) {
+  if (r.education.length === 0) {
     score -= 10;
-    suggestions.push("Include your education history, even if it's just a relevant certification.");
+    suggestions.push("Add education.");
   }
 
-  // Bonus: Measurable numbers
-  const expText = resume.experience?.map(e => `${e.role} ${e.company} ${e.points}`).join(" ") || "";
+  const expText = r.experience
+    .map(e => `${e.role} ${e.company} ${e.points}`)
+    .join(" ");
+
   if (/\d+%?/.test(expText)) {
     score += 10;
-  } else if (resume.experience && resume.experience.length > 0) {
-    suggestions.push("Include measurable achievements in your experience (e.g., 'increased sales by 20%').");
+  } else if (r.experience.length > 0) {
+    suggestions.push("Add measurable results (e.g. +30%).");
   }
 
-  // Bonus: 3+ experience entries
-  if (resume.experience && resume.experience.length >= 3) {
+  if (r.experience.length >= 3) {
     score += 10;
   }
 
   let keywordMatchData = null;
 
-  // Keyword scoring based on Job Description
-  if (jobDescription && jobDescription.trim().length > 0) {
-    keywordMatchData = matchKeywords(resume, jobDescription);
-    const keywordScore = Math.round((keywordMatchData.percentage / 100) * 20);
-    score += keywordScore;
+  if (jobDescription?.trim()) {
+    keywordMatchData = matchKeywords(r, jobDescription);
+
+    score += Math.round((keywordMatchData.percentage / 100) * 20);
 
     if (keywordMatchData.percentage < 50) {
-      suggestions.push(`Improve keyword matching. You matched only ${keywordMatchData.percentage}% of the job description keywords.`);
+      suggestions.push(`Low keyword match (${keywordMatchData.percentage}%).`);
     } else if (keywordMatchData.percentage >= 80) {
-      suggestions.push("Great job! Your resume is highly optimized for this job description.");
+      suggestions.push("Strong keyword alignment.");
     }
   } else {
-    suggestions.push("Paste a job description to get a tailored keyword optimization score.");
+    suggestions.push("Add job description for better scoring.");
   }
 
-  // Final Clamp
-  score = Math.max(0, Math.min(100, score));
-
   return {
-    score,
+    score: Math.max(0, Math.min(100, score)),
     suggestions,
     keywordMatchData
   };
@@ -120,24 +121,28 @@ export async function calculateATSScore(resume: ResumeData, jobDescription?: str
       body: JSON.stringify({ resumeData: resume, jobDescription })
     });
 
-    console.log("ATS API STATUS:", response.status);
-
-    if (!response.ok) {
-      throw new Error("API route returned an error");
-    }
+    if (!response.ok) throw new Error("API error");
 
     const data = await response.json();
-    console.log("ATS RAW RESPONSE:", data);
-    
-    if (typeof data.score === "number") {
-      data.score = Math.min(data.score, 92);
-      return data;
+    console.log("ATS RESPONSE:", data);
+
+    // ✅ SUPPORT BOTH FORMATS (important)
+    const result = data.atsResult || data;
+
+    if (
+      typeof result?.score === "number" &&
+      Array.isArray(result?.suggestions)
+    ) {
+      return {
+        score: Math.max(0, Math.min(100, result.score)),
+        suggestions: result.suggestions,
+        keywordMatchData: result.keywordMatchData || null
+      };
     }
-    
-    throw new Error("Invalid format from AI");
-  } catch (error) {
-    console.warn("AI ATS Engine failed, falling back to local scoring:", error);
+
+    throw new Error("Invalid AI response");
+  } catch (err) {
+    console.warn("Fallback ATS:", err);
     return calculateLocalATSScore(resume, jobDescription);
   }
 }
-
