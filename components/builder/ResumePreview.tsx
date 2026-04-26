@@ -1,37 +1,36 @@
 "use client";
-console.log("🔥 ResumePreview RENDERED");
+
 import { forwardRef, ForwardedRef } from "react";
 import { ModernTemplate } from "@/components/templates/ModernTemplate";
 import { MinimalTemplate } from "@/components/templates/MinimalTemplate";
 import { ProfessionalTemplate } from "@/components/templates/ProfessionalTemplate";
 
-type Props = {
+export type RenderMode = "edit" | "preview" | "pdf";
+
+interface Props {
   data: any;
-  isEditing?: boolean;
-};
+  /** Controls how the resume is rendered. Edit adds interactivity, others are read-only. */
+  renderMode?: RenderMode;
+}
 
 export const ResumePreview = forwardRef(
-  ({ data, isEditing = false }: Props, ref: ForwardedRef<HTMLDivElement>) => {
+  ({ data, renderMode = "edit" }: Props, ref: ForwardedRef<HTMLDivElement>) => {
     const template = data?.template || "modern";
-
-    // 🔍 Debug (remove later)
-    console.log("Current Template:", template);
+    
+    // Migration safe: pass both renderMode and isEditing (derived) down to templates
+    const isEditing = renderMode === "edit";
 
     return (
       <div
         ref={ref}
         className="w-[794px] min-h-[1123px] bg-white"
-        style={{
-          backgroundColor: "#ffffff",
-        }}
+        style={{ backgroundColor: "#ffffff" }}
       >
-        {/* 🔥 IMPORTANT: No shared padding/wrapper here */}
-
-        {template === "modern" && <ModernTemplate data={data} isEditing={isEditing} />}
-        {template === "minimal" && <MinimalTemplate data={data} />}
-        {template === "professional" && (
-          <ProfessionalTemplate data={data} />
+        {template === "modern" && (
+          <ModernTemplate data={data} renderMode={renderMode} isEditing={isEditing} />
         )}
+        {template === "minimal" && <MinimalTemplate data={data} />}
+        {template === "professional" && <ProfessionalTemplate data={data} />}
       </div>
     );
   }

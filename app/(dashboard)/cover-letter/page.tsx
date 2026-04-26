@@ -9,7 +9,8 @@ import { useRouter } from "next/navigation";
 import { generateApplicationPackage, ApplicationPackageResult } from "@/lib/ai";
 import {
   useResumeStore,
-  selectResumes,
+  selectResumesById,
+  selectResumeIds,
   selectHydrate,
 } from "@/store/useResumeStore";
 import { normalizeResume } from "@/lib/normalizeResume";
@@ -17,8 +18,15 @@ import { normalizeResume } from "@/lib/normalizeResume";
 export default function CoverLetterPage() {
   const router = useRouter();
 
-  const resumes = useResumeStore(selectResumes);
+  const resumesById = useResumeStore(selectResumesById);
+  const resumeIds   = useResumeStore(selectResumeIds);
   const hydrate = useResumeStore(selectHydrate);
+
+  // Ordered, stable list — no Object.values, recomputes only on add/delete
+  const resumes = useMemo(
+    () => resumeIds.map((id) => resumesById[id]).filter(Boolean),
+    [resumeIds, resumesById]
+  );
 
   const hydrated = useRef(false);
   useEffect(() => {
@@ -38,9 +46,10 @@ export default function CoverLetterPage() {
   const [activeTab, setActiveTab] = useState<"cover" | "email">("cover");
 
   const resume = useMemo(() => {
-    const r = resumes.find(r => r.id === selectedId);
+    // O(1) dictionary lookup instead of O(n) .find()
+    const r = selectedId ? resumesById[selectedId] : undefined;
     return r ? normalizeResume(r) : null;
-  }, [resumes, selectedId]);
+  }, [resumesById, selectedId]);
 
   const handleGenerate = useCallback(async () => {
     if (!resume || !job.trim()) return;

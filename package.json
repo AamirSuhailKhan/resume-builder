@@ -19,6 +19,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "html2canvas": "^1.4.1",
+    "immer": "^11.1.4",
     "jspdf": "^4.2.1",
     "lodash.get": "^4.4.2",
     "lodash.set": "^4.3.2",

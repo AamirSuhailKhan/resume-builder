@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { analyzeJobDescription, optimizeResume, JobAnalysisResult, OptimizeResult, mergeOptimizedResume } from "@/lib/ai";
-import { useResumeStore, selectResumes, selectHydrate, selectUpsertResume } from "@/store/useResumeStore";
+import { useResumeStore, selectResumesById, selectResumeIds, selectHydrate, selectUpsertResume } from "@/store/useResumeStore";
 import { normalizeResume } from "@/lib/normalizeResume";
 
 // Keep existing step types
@@ -51,9 +51,16 @@ Requirements:
 export default function JobOptimizerPage() {
   const router = useRouter();
   
-  const resumes = useResumeStore(selectResumes);
+  const resumesById = useResumeStore(selectResumesById);
+  const resumeIds   = useResumeStore(selectResumeIds);
   const hydrate = useResumeStore(selectHydrate);
   const upsertResume = useResumeStore(selectUpsertResume);
+
+  // Ordered, stable list — no Object.values, recomputes only on add/delete
+  const resumes = useMemo(
+    () => resumeIds.map((id) => resumesById[id]).filter(Boolean),
+    [resumeIds, resumesById]
+  );
 
   const hydrated = useRef(false);
   useEffect(() => {
@@ -76,11 +83,11 @@ export default function JobOptimizerPage() {
   const [uploadedFileName, setUploadedFileName] = useState("");
 
   const resume = useMemo(() => {
-    // If demo is running, we might inject a demo resume, but for now let's just use store
     if (selectedId === "demo-resume-1") return normalizeResume(SAMPLE_RESUME);
-    const r = resumes.find((r) => r.id === selectedId);
+    // O(1) dictionary lookup instead of O(n) .find()
+    const r = selectedId ? resumesById[selectedId] : undefined;
     return r ? normalizeResume(r) : null;
-  }, [resumes, selectedId]);
+  }, [resumesById, selectedId]);
 
   const isBusy = step !== "idle" && step !== "done" && step !== "error";
 

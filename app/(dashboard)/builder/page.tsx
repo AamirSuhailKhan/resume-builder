@@ -16,9 +16,20 @@ import {
   selectHydrate,
   selectUpsertResume,
   selectCreateResume,
-  selectResumes,
+  selectActiveResume,
   selectSetActiveId,
 } from "@/store/useResumeStore";
+import {
+  useUIStore,
+  selectIsImproving,
+  selectIsHistoryOpen,
+  selectIsGeneratingPDF,
+  selectCurrentTemplate,
+  selectSetIsImproving,
+  selectSetIsHistoryOpen,
+  selectSetIsGeneratingPDF,
+  selectSetCurrentTemplate,
+} from "@/store/useUIStore";
 import { normalizeResume } from "@/lib/normalizeResume";
 
 function BuilderContent() {
@@ -26,18 +37,24 @@ function BuilderContent() {
   const searchParams = useSearchParams();
   const resumeId = searchParams.get("id");
 
-  // ── Fine-grained selectors — only re-renders when the specific slice changes
+  // Data store — only re-renders when resume data changes
   const isHydrated    = useResumeStore(selectIsHydrated);
   const hydrate       = useResumeStore(selectHydrate);
   const upsertResume  = useResumeStore(selectUpsertResume);
   const createResume  = useResumeStore(selectCreateResume);
-  const resumes       = useResumeStore(selectResumes);
+  const activeResume  = useResumeStore(selectActiveResume);
   const setActiveId   = useResumeStore(selectSetActiveId);
 
-  // Local UI state — does NOT affect store
-  const [isImproving, setIsImproving] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  // UI store — isolated: changing these CANNOT re-render ModernTemplate
+  const isImproving      = useUIStore(selectIsImproving);
+  const isHistoryOpen    = useUIStore(selectIsHistoryOpen);
+  const isGeneratingPDF  = useUIStore(selectIsGeneratingPDF);
+  const currentTemplate  = useUIStore(selectCurrentTemplate);
+  const setIsImproving   = useUIStore(selectSetIsImproving);
+  const setIsHistoryOpen = useUIStore(selectSetIsHistoryOpen);
+  const setIsGeneratingPDF = useUIStore(selectSetIsGeneratingPDF);
+  const setCurrentTemplate = useUIStore(selectSetCurrentTemplate);
+
   const [versions, setVersions] = useState<ResumeVersion[]>([]);
 
   // ── ONE-SHOT hydration via ref guard ─────────────────────────────────────
@@ -60,7 +77,7 @@ function BuilderContent() {
 
     if (resumeId) {
       // Check if resume exists; if not, redirect
-      const exists = useResumeStore.getState().resumes.find((r) => r.id === resumeId);
+      const exists = useResumeStore.getState().resumesById[resumeId];
       if (!exists) {
         router.push("/dashboard");
       } else {
@@ -77,9 +94,8 @@ function BuilderContent() {
 
   // ── Derive active resume (memoized) ───────────────────────────────────────
   const resumeData = useMemo(() => {
-    const found = resumes.find((r) => r.id === resumeId);
-    return found ? normalizeResume(found) : null;
-  }, [resumes, resumeId]);
+    return activeResume ? normalizeResume(activeResume) : null;
+  }, [activeResume]);
 
   // PDF setup — filename updates when name changes but ref is stable
   const { toPDF, targetRef } = usePDF({
@@ -171,8 +187,6 @@ function BuilderContent() {
       </div>
     );
   }
-
-  const currentTemplate = resumeData.template || "modern";
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
@@ -335,7 +349,7 @@ function BuilderContent() {
 
           <div className={`shadow-2xl bg-white transition-all duration-500 ${isGeneratingPDF ? 'scale-[1] ring-4 ring-indigo-500 ring-offset-4' : 'hover:-translate-y-1'}`}>
             <div ref={targetRef} className="pdf-safe w-[794px]">
-              <ResumePreview data={resumeData as any} isEditing={!isGeneratingPDF} />
+              <ResumePreview data={resumeData as any} renderMode={isGeneratingPDF ? "pdf" : "edit"} />
             </div>
           </div>
         </div>

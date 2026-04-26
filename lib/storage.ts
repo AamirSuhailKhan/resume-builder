@@ -59,12 +59,13 @@ export const storage = {
     const resumes = storage.getResumes();
     const existingIndex = resumes.findIndex((r) => r.id === resume.id);
 
-    resume.updatedAt = new Date().toISOString();
+    // Treatment as read-only: create a copy
+    const toSave = { ...resume };
 
     if (existingIndex >= 0) {
-      resumes[existingIndex] = resume;
+      resumes[existingIndex] = toSave;
     } else {
-      resumes.push(resume);
+      resumes.push(toSave);
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(resumes));
   },

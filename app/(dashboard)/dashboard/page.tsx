@@ -7,7 +7,8 @@ import { Plus, Trash2, Edit, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   useResumeStore,
-  selectResumes,
+  selectResumesById,
+  selectResumeIds,
   selectIsHydrated,
   selectHydrate,
   selectDeleteResume,
@@ -18,7 +19,8 @@ export default function DashboardPage() {
   const router = useRouter();
 
   // ── Fine-grained selectors — component only re-renders when its slice changes
-  const resumes      = useResumeStore(selectResumes);
+  const resumesById  = useResumeStore(selectResumesById);
+  const resumeIds    = useResumeStore(selectResumeIds);
   const isHydrated   = useResumeStore(selectIsHydrated);
   const hydrate      = useResumeStore(selectHydrate);
   const deleteResume = useResumeStore(selectDeleteResume);
@@ -32,13 +34,15 @@ export default function DashboardPage() {
     hydrate();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Sorted resumes — only recomputes when resumes array changes ───────────
+  // Ordered list via resumeIds: no Object.values, stable between renders when
+  // nothing is added/deleted. Sort by updatedAt only when ids/dict change.
   const sorted = useMemo(
     () =>
-      [...resumes].sort(
-        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      ),
-    [resumes]
+      resumeIds
+        .map((id) => resumesById[id])
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()),
+    [resumeIds, resumesById]
   );
 
   // ── Stable callbacks ───────────────────────────────────────────────────────

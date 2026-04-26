@@ -1,15 +1,5 @@
 "use client";
 
-/**
- * RichEditor — TipTap-powered multiline editor.
- *
- * SSR safety rules:
- * 1. `immediatelyRender: false` — prevents TipTap from touching the DOM during SSR.
- * 2. This file is always imported via `next/dynamic({ ssr: false })` from its parent.
- * 3. We guard against null editor before rendering <EditorContent>.
- * 4. External `value` prop is only pushed into the editor when NOT focused, preventing cursor jumps.
- */
-
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -22,7 +12,6 @@ interface RichEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
-  /** When false, renders sanitized HTML only (PDF-safe). */
   isEditing?: boolean;
   className?: string;
   sectionType?: "summary" | "experience_bullet";
@@ -37,11 +26,25 @@ export function RichEditor({
   sectionType = "summary",
 }: RichEditorProps) {
   const [isImproving, setIsImproving] = useState(false);
-  const isFocusedRef = useRef(false);
-  const lastExternalValue = useRef(value);
+  const debounceTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Safe debounce internally
+  const debouncedUpdate = useCallback((newHtml: string) => {
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    debounceTimeout.current = setTimeout(() => {
+      onChange(newHtml);
+    }, 300);
+  }, [onChange]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    };
+  }, []);
 
   const editor = useEditor({
-    immediatelyRender: false, // ← SSR fix
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       Placeholder.configure({
@@ -52,27 +55,19 @@ export function RichEditor({
     ],
     content: value || "",
     editable: isEditing,
-    onFocus: () => {
-      isFocusedRef.current = true;
-    },
-    onBlur: ({ editor: e }) => {
-      isFocusedRef.current = false;
-      onChange(e.getHTML());
+    onUpdate: ({ editor: e }) => {
+      debouncedUpdate(e.getHTML());
     },
   });
 
-  // Sync external value → editor when not focused (e.g. AI improvement, version restore)
+  // Safe sync: Only push external value if editor HTML actually differs
   useEffect(() => {
-    if (!editor) return;
-    if (isFocusedRef.current) return; // never clobber while user is typing
-    if (value === lastExternalValue.current) return; // no-op if value hasn't changed
-
-    lastExternalValue.current = value;
-    // setContent without emitting onUpdate to avoid loops
-    editor.commands.setContent(value || "");
+    if (editor && value !== editor.getHTML()) {
+      editor.commands.setContent(value || "");
+    }
   }, [value, editor]);
 
-  // Sync editable flag (PDF export)
+  // Sync editable flag (PDF export mode)
   useEffect(() => {
     if (!editor) return;
     editor.setEditable(isEditing);
@@ -95,16 +90,15 @@ export function RichEditor({
       if (res.ok) {
         const data = await res.json();
         editor.commands.setContent(data.improved);
-        onChange(data.improved);
+        debouncedUpdate(data.improved);
       }
     } catch (e) {
       console.error("[RichEditor] Improve failed:", e);
     } finally {
       setIsImproving(false);
     }
-  }, [editor, sectionType, onChange]);
+  }, [editor, sectionType, debouncedUpdate]);
 
-  // PDF / static mode — render sanitized HTML directly
   if (!isEditing) {
     return (
       <div
@@ -114,7 +108,6 @@ export function RichEditor({
     );
   }
 
-  // Editor not yet mounted (SSR / first frame)
   if (!editor) {
     return (
       <div className={twMerge("h-16 bg-gray-50 animate-pulse rounded-md border border-gray-100", className)} />

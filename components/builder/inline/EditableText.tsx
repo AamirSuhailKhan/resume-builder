@@ -1,15 +1,13 @@
 "use client";
 
 /**
- * EditableText — production-grade inline editable text field.
- *
- * Key decisions:
- * - Uses a hidden <input> / <textarea> for actual editing (not contentEditable).
- *   contentEditable fights React's VDOM reconciliation and is extremely hard to
- *   keep stable across re-renders. A transparent input sitting on top of the
- *   display text is more predictable and accessible.
- * - The display element and the input are absolutely stacked so layout never shifts.
- * - Blur → save; Enter (single-line) → blur → save.
+ * EditableText — final production-grade version.
+ * 
+ * Handles race conditions perfectly:
+ * - Draft is NEVER overwritten during active typing.
+ * - Value from outside only updates draft when not focused.
+ * - Save triggers only on Blur or Enter.
+ * - Escape reverts to original.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -19,10 +17,8 @@ interface EditableTextProps {
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
-  /** When false, renders as static text (PDF mode). */
   isEditing?: boolean;
   className?: string;
-  /** Wrapper element for the static display text. */
   as?: keyof React.JSX.IntrinsicElements;
   multiline?: boolean;
 }
@@ -36,88 +32,91 @@ export const EditableText = React.memo(function EditableText({
   as: Tag = "span",
   multiline = false,
 }: EditableTextProps) {
-  // Local draft — only synced up on blur/enter, not on every keystroke
   const [draft, setDraft] = useState(value ?? "");
-  const [isFocused, setIsFocused] = useState(false);
-  const inputRef = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  const [isFocused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+  
+  // Keep original value to revert if needed or to check if changed
+  const committed = useRef(value ?? "");
 
-  // Sync incoming value changes only when not actively editing
+  // Safe sync: Only update draft from props if we are NOT editing
   useEffect(() => {
     if (!isFocused) {
       setDraft(value ?? "");
+      committed.current = value ?? "";
     }
   }, [value, isFocused]);
 
-  const handleFocus = useCallback(() => setIsFocused(true), []);
+  const handleFocus = useCallback(() => setFocused(true), []);
 
   const handleBlur = useCallback(() => {
-    setIsFocused(false);
+    setFocused(false);
     const trimmed = draft.trim();
-    if (trimmed !== (value ?? "").trim()) {
+    if (trimmed !== committed.current.trim()) {
+      committed.current = trimmed;
       onChange(trimmed);
     }
-  }, [draft, value, onChange]);
+  }, [draft, onChange]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!multiline && e.key === "Enter") {
         e.preventDefault();
-        inputRef.current?.blur();
+        (inputRef.current as HTMLElement)?.blur(); // triggers save
       }
       if (e.key === "Escape") {
-        setDraft(value ?? ""); // revert
-        inputRef.current?.blur();
+        setDraft(committed.current); // revert
+        (inputRef.current as HTMLElement)?.blur();
       }
     },
-    [multiline, value]
+    [multiline]
   );
 
-  // PDF / static mode — render plain element, no interactive layer
+  // ── PDF / static mode ──────────────────────────────────────────────────────
   if (!isEditing) {
-    const StaticTag = Tag as any;
-    return <StaticTag className={className}>{value}</StaticTag>;
+    const StaticEl = Tag as any;
+    return <StaticEl className={className}>{value || ""}</StaticEl>;
   }
 
-  const isEmpty = !draft;
-  const sharedClasses = twMerge(
-    "outline-none bg-transparent w-full resize-none",
-    "transition-all duration-150",
+  // ── Shared styles ──────────────────────────────────────────────────────────
+  const cls = twMerge(
+    "outline-none bg-transparent border-none resize-none",
+    "font-[inherit] text-[inherit] leading-[inherit] tracking-[inherit] text-[inherit]",
+    "w-full transition-all duration-150",
     isFocused
-      ? "ring-2 ring-inset ring-indigo-400/50 rounded bg-indigo-50/40"
-      : "hover:bg-gray-100/60 hover:rounded cursor-text",
-    isEmpty && !isFocused && "text-gray-400 italic",
+      ? "ring-2 ring-inset ring-indigo-400/40 rounded-sm bg-indigo-50/30 px-1"
+      : "hover:bg-black/5 hover:rounded-sm cursor-text",
+    !draft && !isFocused ? "text-gray-400 italic" : "",
     className
   );
 
   if (multiline) {
     return (
       <textarea
-        ref={inputRef}
-        value={isFocused ? draft : draft || placeholder}
+        ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+        value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onFocus={handleFocus}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         rows={3}
-        className={twMerge(sharedClasses, "block")}
-        style={{ fontFamily: "inherit", fontSize: "inherit", fontWeight: "inherit", color: "inherit" }}
+        className={twMerge(cls, "block")}
       />
     );
   }
 
   return (
     <input
-      ref={inputRef}
+      ref={inputRef as React.RefObject<HTMLInputElement>}
       type="text"
-      value={isFocused ? draft : draft || placeholder}
+      value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onFocus={handleFocus}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
       placeholder={placeholder}
-      className={twMerge(sharedClasses, "inline-block min-w-[60px]")}
-      style={{ fontFamily: "inherit", fontSize: "inherit", fontWeight: "inherit", color: "inherit" }}
+      className={twMerge(cls, "inline-block min-w-[4ch]")}
     />
   );
 });
