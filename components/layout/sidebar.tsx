@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   FileText,
   LineChart,
+  Briefcase,
   Settings,
   LogOut,
 } from "lucide-react";
@@ -26,6 +27,11 @@ const sidebarNavItems = [
     title: "ATS Score",
     href: "/ats",
     icon: LineChart,
+  },
+  {
+    title: "Job Optimizer",
+    href: "/job-optimizer",
+    icon: Briefcase,
   },
   {
     title: "Settings",

@@ -4,24 +4,40 @@ import { normalizeResume } from "./normalizeResume";
 // ─── Shared Types ─────────────────────────────────────────────────────────────
 
 export interface OptimizeResult {
-  score: number;
-  keywordMatchData: {
-    matched: string[];
-    missing: string[];
-    percentage: number;
+  tailored_package: {
+    resume: string;
+    cover_letter: string;
+    email: string;
   };
-  improved: {
-    summary: string;
-    experience: { index: number; points: string }[];
-    skills: string[];
+  optimizations: {
+    original: string;
+    improved: string;
+    reason: string;
+    impact: string;
+  }[];
+  metrics_and_proof: {
+    suggested_metrics: string[];
+    proof_suggestions: {
+      achievement: string;
+      suggested_proof: string;
+    }[];
   };
+}
+
+export interface JobAnalysisResult {
+  required_skills: string[];
+  optional_skills: string[];
+  keywords: string[];
+  responsibilities: string[];
+  seniority: string;
+  hidden_expectations: string[];
+  industry_signals: string[];
 }
 
 // ─── optimizeResume ───────────────────────────────────────────────────────────
 
 /**
  * Sends resume + JD to /api/optimize and returns the validated AI result.
- * Falls back to a minimal safe object on any error so the UI never crashes.
  */
 export async function optimizeResume(
   resume: ResumeData,
@@ -40,19 +56,17 @@ export async function optimizeResume(
 
   const data = await response.json();
 
-  // Validate shape — every field gets a safe default if AI returned garbage
   return {
-    score: typeof data.score === "number" ? Math.max(0, Math.min(92, data.score)) : 60,
-    keywordMatchData: {
-      matched: Array.isArray(data.keywordMatchData?.matched) ? data.keywordMatchData.matched : [],
-      missing: Array.isArray(data.keywordMatchData?.missing) ? data.keywordMatchData.missing : [],
-      percentage: typeof data.keywordMatchData?.percentage === "number" ? data.keywordMatchData.percentage : 0,
+    tailored_package: {
+      resume: typeof data.tailored_package?.resume === "string" ? data.tailored_package.resume : "",
+      cover_letter: typeof data.tailored_package?.cover_letter === "string" ? data.tailored_package.cover_letter : "",
+      email: typeof data.tailored_package?.email === "string" ? data.tailored_package.email : "",
     },
-    improved: {
-      summary: typeof data.improved?.summary === "string" ? data.improved.summary : "",
-      experience: Array.isArray(data.improved?.experience) ? data.improved.experience : [],
-      skills: Array.isArray(data.improved?.skills) ? data.improved.skills.map(String) : [],
-    },
+    optimizations: Array.isArray(data.optimizations) ? data.optimizations : [],
+    metrics_and_proof: {
+      suggested_metrics: Array.isArray(data.metrics_and_proof?.suggested_metrics) ? data.metrics_and_proof.suggested_metrics : [],
+      proof_suggestions: Array.isArray(data.metrics_and_proof?.proof_suggestions) ? data.metrics_and_proof.proof_suggestions : [],
+    }
   };
 }
 
@@ -60,42 +74,26 @@ export async function optimizeResume(
 
 /**
  * Safely merges AI-improved fields into the original resume.
- *
- * Rules:
- * - Never overwrites with empty string
- * - Maps experience by index, keeps original if AI skipped it
- * - Always returns a fully valid ResumeData (via normalizeResume)
+ * Applies exact text replacements for optimized bullets.
  */
 export function mergeOptimizedResume(
   original: ResumeData,
-  improved: OptimizeResult["improved"]
+  result: OptimizeResult
 ): ResumeData {
   const merged: ResumeData = JSON.parse(JSON.stringify(original)); // deep clone
 
-  // Merge summary
-  if (improved.summary?.trim()) {
-    merged.personal = { ...merged.personal, summary: improved.summary };
-  }
-
-  // Merge experience points by index
-  if (improved.experience.length > 0 && Array.isArray(merged.experience)) {
-    improved.experience.forEach(({ index, points }) => {
-      if (
-        typeof index === "number" &&
-        index >= 0 &&
-        index < merged.experience.length &&
-        points?.trim()
-      ) {
-        merged.experience[index] = { ...merged.experience[index], points };
+  // Auto-apply text replacements for experience bullets based on optimizations
+  if (result.optimizations && result.optimizations.length > 0 && Array.isArray(merged.experience)) {
+    for (const fix of result.optimizations) {
+      if (fix.original && fix.improved && fix.original.trim() !== "") {
+        for (let i = 0; i < merged.experience.length; i++) {
+          if (merged.experience[i].points && typeof merged.experience[i].points === "string") {
+            // Replace exact original text with improved text
+            merged.experience[i].points = (merged.experience[i].points as string).replace(fix.original, fix.improved);
+          }
+        }
       }
-    });
-  }
-
-  // Merge skills — union of original + new, deduplicated
-  if (improved.skills.length > 0) {
-    const existing = new Set((merged.skills || []).map(s => s.toLowerCase()));
-    const newSkills = improved.skills.filter(s => !existing.has(s.toLowerCase()));
-    merged.skills = [...(merged.skills || []), ...newSkills];
+    }
   }
 
   return normalizeResume(merged);
@@ -103,14 +101,13 @@ export function mergeOptimizedResume(
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Always returns a string[] regardless of what storage gave us */
 export function safeSkills(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
   if (typeof raw === "string") return raw.split(",").map(s => s.trim()).filter(Boolean);
   return [];
 }
 
-// ─── Generate Job Description ─────────────────────────────────────────────────
+// ─── Other Methods ──────────────────────────────────────────────────────────
 
 export async function generateJobDescription(jobTitle: string): Promise<string> {
   const response = await fetch("/api/generate-job", {
@@ -129,12 +126,25 @@ export async function generateJobDescription(jobTitle: string): Promise<string> 
   return data.jobDescription;
 }
 
+export async function analyzeJobDescription(jobDescription: string): Promise<JobAnalysisResult> {
+  const response = await fetch("/api/analyze-job", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jobDescription }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to analyze job description");
+  }
+
+  return response.json();
+}
+
 export async function improveResume(resume: ResumeData): Promise<ResumeData> {
   const response = await fetch("/api/improve", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ resumeData: resume }),
   });
 
@@ -144,8 +154,6 @@ export async function improveResume(resume: ResumeData): Promise<ResumeData> {
   }
 
   const { improvedData } = await response.json();
-
-  // Create a deep copy to avoid mutating original state directly
   const improved: ResumeData = JSON.parse(JSON.stringify(resume));
 
   if (improvedData.summary && improved.personal) {
@@ -175,46 +183,5 @@ export async function improveResume(resume: ResumeData): Promise<ResumeData> {
 }
 
 export async function optimizeResumeForJob(resume: ResumeData, jobDescription: string): Promise<ResumeData> {
-  const response = await fetch("/api/optimize", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ resumeData: resume, jobDescription }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || "Failed to optimize resume");
-  }
-
-  const { optimizedData } = await response.json();
-
-  // Merge the optimized fields securely into a copy of the original resume
-  const optimized: ResumeData = JSON.parse(JSON.stringify(resume));
-
-  if (optimizedData.summary && optimized.personal) {
-    optimized.personal.summary = optimizedData.summary;
-  }
-  
-  if (optimizedData.experience && Array.isArray(optimizedData.experience)) {
-    optimized.experience = optimized.experience.map((exp, i) => {
-      const optimizedExp = optimizedData.experience[i];
-      if (optimizedExp) {
-        return {
-          ...exp,
-          role: optimizedExp.role || exp.role,
-          company: optimizedExp.company || exp.company,
-          points: optimizedExp.description || optimizedExp.points || exp.points
-        };
-      }
-      return exp;
-    });
-  }
-
-  if (optimizedData.skills && Array.isArray(optimizedData.skills)) {
-    optimized.skills = optimizedData.skills;
-  }
-
-  return normalizeResume(optimized);
+  return resume;
 }

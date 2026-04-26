@@ -16,41 +16,61 @@ export async function POST(req: Request) {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
     const prompt = `
-You are an enterprise-grade ATS system AND expert resume writer.
+You are an expert Career Coach and Application Maximizer.
 
-Analyze the candidate resume against the job description. Then rewrite the resume to maximize ATS score.
+Your goal is to completely rewrite and optimize the user's resume for the provided job description, maximize their shortlist chances, and generate a complete application package.
 
-STRICT RULES:
-- Return ONLY valid JSON. No prose outside JSON.
-- "score" must be 0-100 integer (AFTER optimization, not before)
-- "matched" and "missing" are keyword arrays from the job description
-- "percentage" is matched / total job keywords * 100
-- "improved.summary" must be a single string
-- "improved.experience" is indexed by position in the original experience array
-- "improved.experience[].points" must be a string (bullet points separated by newlines)
-- "improved.skills" must be string[]
-- DO NOT invent jobs or companies. Only rephrase existing content.
-- Score 90-100 ONLY for near-perfect matches. Be strict.
+Rules:
+- Tailor strictly to the job description.
+- Remove generic content and improve clarity.
+- Add strong action verbs and measurable impact to bullet points.
+- Suggest realistic metrics (do NOT fabricate unrealistic numbers, suggest ranges if unsure).
+- Keep it believable, professional, human, and natural.
+- Recommend proof links or artifacts for achievements.
+- Generate a final tailored resume, a cover letter, and a short professional HR email.
+- Tone should be confident, concise, and role-specific.
 
-Return this EXACT JSON structure:
+-------------------------------------
+INPUTS:
+1. Resume Text
+2. Job Description Text
+-------------------------------------
+
+OUTPUT FORMAT (STRICT JSON ONLY):
+
 {
-  "score": 82,
-  "keywordMatchData": {
-    "matched": ["React", "TypeScript"],
-    "missing": ["Docker", "CI/CD"],
-    "percentage": 71
+  "tailored_package": {
+    "resume": "Full rewritten resume text tailored to the job",
+    "cover_letter": "Confident, tailored cover letter",
+    "email": "Short, professional HR email"
   },
-  "improved": {
-    "summary": "Rewritten professional summary here...",
-    "experience": [
-      {
-        "index": 0,
-        "points": "• Achievement one with metrics\\n• Achievement two aligned to job"
-      }
+  "optimizations": [
+    {
+      "original": "Exact original line from resume",
+      "improved": "Rewritten line with action verbs and metrics",
+      "reason": "Explanation for the change",
+      "impact": "How this improves shortlist chances"
+    }
+  ],
+  "metrics_and_proof": {
+    "suggested_metrics": [
+      "Specific realistic metric suggestion (e.g. 'Improved performance by 15-20%')"
     ],
-    "skills": ["React", "TypeScript", "Docker"]
+    "proof_suggestions": [
+      {
+        "achievement": "The stated achievement",
+        "suggested_proof": "What artifact to link (e.g., GitHub repo, Figma file)"
+      }
+    ]
   }
 }
+
+-------------------------------------
+FINAL RULE:
+Return ONLY valid JSON.
+No markdown.
+No explanation.
+No extra text.
 
 Resume:
 ${JSON.stringify(resumeData)}
@@ -68,34 +88,32 @@ ${jobDescription}
     const raw = response.text ?? '{}';
     const result = JSON.parse(raw);
 
-    // ── Validate and sanitize the AI response ─────────────────────────────
-    const score = typeof result?.score === 'number'
-      ? Math.max(0, Math.min(92, result.score)) // cap at 92
-      : 60;
-
-    const keywordMatchData = {
-      matched: Array.isArray(result?.keywordMatchData?.matched) ? result.keywordMatchData.matched : [],
-      missing: Array.isArray(result?.keywordMatchData?.missing) ? result.keywordMatchData.missing : [],
-      percentage: typeof result?.keywordMatchData?.percentage === 'number' ? result.keywordMatchData.percentage : 0,
-    };
-
-    const improved = {
-      summary: typeof result?.improved?.summary === 'string' ? result.improved.summary : '',
-      experience: Array.isArray(result?.improved?.experience) ? result.improved.experience.map((e: any) => ({
-        index: typeof e?.index === 'number' ? e.index : 0,
-        points: typeof e?.points === 'string' ? e.points
-          : Array.isArray(e?.points) ? e.points.join('\n')
-          : '',
+    // Validate and sanitize the AI response
+    return NextResponse.json({
+      tailored_package: {
+        resume: result?.tailored_package?.resume || "",
+        cover_letter: result?.tailored_package?.cover_letter || "",
+        email: result?.tailored_package?.email || "",
+      },
+      optimizations: Array.isArray(result?.optimizations) ? result.optimizations.map((opt: any) => ({
+        original: String(opt?.original || ''),
+        improved: String(opt?.improved || ''),
+        reason: String(opt?.reason || ''),
+        impact: String(opt?.impact || '')
       })) : [],
-      skills: Array.isArray(result?.improved?.skills) ? result.improved.skills.map(String) : [],
-    };
-
-    return NextResponse.json({ score, keywordMatchData, improved });
+      metrics_and_proof: {
+        suggested_metrics: Array.isArray(result?.metrics_and_proof?.suggested_metrics) ? result.metrics_and_proof.suggested_metrics.map(String) : [],
+        proof_suggestions: Array.isArray(result?.metrics_and_proof?.proof_suggestions) ? result.metrics_and_proof.proof_suggestions.map((p: any) => ({
+          achievement: String(p?.achievement || ''),
+          suggested_proof: String(p?.suggested_proof || '')
+        })) : []
+      }
+    });
 
   } catch (error: any) {
     console.error('Optimize Route Error:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to optimize resume' },
+      { error: error.message || 'Failed to generate application package' },
       { status: 500 }
     );
   }
