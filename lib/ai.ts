@@ -4,6 +4,10 @@ import { normalizeResume } from "./normalizeResume";
 // ─── Shared Types ─────────────────────────────────────────────────────────────
 
 export interface OptimizeResult {
+  scores: {
+    before: number;
+    after: number;
+  };
   tailored_package: {
     resume: string;
     cover_letter: string;
@@ -34,6 +38,11 @@ export interface JobAnalysisResult {
   industry_signals: string[];
 }
 
+export interface ApplicationPackageResult {
+  cover_letter: string;
+  email: string;
+}
+
 // ─── optimizeResume ───────────────────────────────────────────────────────────
 
 /**
@@ -57,6 +66,10 @@ export async function optimizeResume(
   const data = await response.json();
 
   return {
+    scores: {
+      before: typeof data.scores?.before === "number" ? data.scores.before : 45,
+      after: typeof data.scores?.after === "number" ? data.scores.after : 85,
+    },
     tailored_package: {
       resume: typeof data.tailored_package?.resume === "string" ? data.tailored_package.resume : "",
       cover_letter: typeof data.tailored_package?.cover_letter === "string" ? data.tailored_package.cover_letter : "",
@@ -136,6 +149,26 @@ export async function analyzeJobDescription(jobDescription: string): Promise<Job
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || "Failed to analyze job description");
+  }
+
+  return response.json();
+}
+
+export async function generateApplicationPackage(
+  resume: ResumeData, 
+  jobDescription: string,
+  tone: string = "Professional",
+  focus: string = "ATS Optimized"
+): Promise<ApplicationPackageResult> {
+  const response = await fetch("/api/generate-application", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resumeData: resume, jobDescription, tone, focus }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to generate application package");
   }
 
   return response.json();

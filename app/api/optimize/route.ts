@@ -39,6 +39,10 @@ INPUTS:
 OUTPUT FORMAT (STRICT JSON ONLY):
 
 {
+  "scores": {
+    "before": number (0-100, original ATS match score),
+    "after": number (0-100, projected ATS score after these optimizations)
+  },
   "tailored_package": {
     "resume": "Full rewritten resume text tailored to the job",
     "cover_letter": "Confident, tailored cover letter",
@@ -90,6 +94,10 @@ ${jobDescription}
 
     // Validate and sanitize the AI response
     return NextResponse.json({
+      scores: {
+        before: typeof result?.scores?.before === 'number' ? result.scores.before : 45,
+        after: typeof result?.scores?.after === 'number' ? result.scores.after : 85,
+      },
       tailored_package: {
         resume: result?.tailored_package?.resume || "",
         cover_letter: result?.tailored_package?.cover_letter || "",

@@ -9,6 +9,7 @@ import { ResumeForm } from "@/components/builder/ResumeForm";
 import { ResumePreview } from "@/components/builder/ResumePreview";
 import { usePDF } from "react-to-pdf";
 import { improveResume } from "@/lib/ai";
+import { detectProfile } from "@/lib/detectProfile";
 import {
   useResumeStore,
   selectIsHydrated,
@@ -16,6 +17,7 @@ import {
   selectUpsertResume,
   selectCreateResume,
   selectResumes,
+  selectSetActiveId,
 } from "@/store/useResumeStore";
 import { normalizeResume } from "@/lib/normalizeResume";
 
@@ -25,15 +27,17 @@ function BuilderContent() {
   const resumeId = searchParams.get("id");
 
   // ── Fine-grained selectors — only re-renders when the specific slice changes
-  const isHydrated   = useResumeStore(selectIsHydrated);
-  const hydrate      = useResumeStore(selectHydrate);
-  const upsertResume = useResumeStore(selectUpsertResume);
-  const createResume = useResumeStore(selectCreateResume);
-  const resumes      = useResumeStore(selectResumes);
+  const isHydrated    = useResumeStore(selectIsHydrated);
+  const hydrate       = useResumeStore(selectHydrate);
+  const upsertResume  = useResumeStore(selectUpsertResume);
+  const createResume  = useResumeStore(selectCreateResume);
+  const resumes       = useResumeStore(selectResumes);
+  const setActiveId   = useResumeStore(selectSetActiveId);
 
   // Local UI state — does NOT affect store
   const [isImproving, setIsImproving] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [versions, setVersions] = useState<ResumeVersion[]>([]);
 
   // ── ONE-SHOT hydration via ref guard ─────────────────────────────────────
@@ -57,10 +61,16 @@ function BuilderContent() {
     if (resumeId) {
       // Check if resume exists; if not, redirect
       const exists = useResumeStore.getState().resumes.find((r) => r.id === resumeId);
-      if (!exists) router.push("/dashboard");
+      if (!exists) {
+        router.push("/dashboard");
+      } else {
+        // ✅ CRITICAL: Set activeResumeId so updateField knows which resume to mutate
+        setActiveId(resumeId);
+      }
     } else {
       // No ID in URL → create a new resume and navigate to it
       const newResume = createResume();
+      setActiveId(newResume.id);
       router.replace(`/builder?id=${newResume.id}`);
     }
   }, [isHydrated]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -76,6 +86,12 @@ function BuilderContent() {
     filename: `${resumeData?.personal?.name || "Resume"}.pdf`,
     page: { margin: 0, format: "A4" },
   });
+
+  // Detected profile — recalculated whenever resume changes
+  const detectedProfile = useMemo(() => {
+    if (!resumeData) return null;
+    return detectProfile(resumeData);
+  }, [resumeData]);
 
   // ── Stable handlers (useCallback with stable deps) ────────────────────────
 
@@ -135,6 +151,18 @@ function BuilderContent() {
     [resumeData, upsertResume]
   );
 
+  const handleDownloadPDF = useCallback(() => {
+    setIsGeneratingPDF(true);
+    // Allow React to re-render with isEditing=false before capturing DOM
+    setTimeout(async () => {
+      try {
+        await toPDF();
+      } finally {
+        setIsGeneratingPDF(false);
+      }
+    }, 150);
+  }, [toPDF]);
+
   // ── Guard: don't render until hydrated and resume exists ─────────────────
   if (!isHydrated || !resumeData?.id) {
     return (
@@ -147,14 +175,10 @@ function BuilderContent() {
   const currentTemplate = resumeData.template || "modern";
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-b from-white to-gray-50">
-      {/* LEFT SIDE */}
-      <div className="w-full lg:w-[45%] xl:w-[40%] border-r border-gray-200 z-10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] relative bg-white">
-        <ResumeForm data={resumeData as any} onChange={handleChange} />
-      </div>
+    <div className="flex h-screen overflow-hidden bg-gray-100">
 
-      {/* RIGHT SIDE */}
-      <div className="hidden lg:flex flex-1 flex-col bg-transparent relative">
+      {/* CANVAS (FULL WIDTH) */}
+      <div className="flex-1 flex flex-col relative">
 
         {/* HISTORY PANEL OVERLAY */}
         {isHistoryOpen && (
@@ -217,7 +241,33 @@ function BuilderContent() {
         )}
 
         {/* TOOLBAR */}
-        <div className="flex-none h-20 flex items-center justify-end px-8 gap-4 z-20 border-b border-gray-200/50 bg-white/50 backdrop-blur-md">
+        <div className="flex-none h-20 flex items-center justify-between px-8 gap-4 z-20 border-b border-gray-200/50 bg-white/50 backdrop-blur-md">
+          {/* Profile Badge */}
+          {detectedProfile && (
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-black px-2.5 py-1 rounded-full ${
+                    detectedProfile.level === 'Fresher' ? 'bg-green-100 text-green-700' :
+                    detectedProfile.level === 'Senior' ? 'bg-purple-100 text-purple-700' :
+                    'bg-blue-100 text-blue-700'
+                  }`}>
+                    {detectedProfile.level}
+                  </span>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                    detectedProfile.domain === 'Tech' ? 'bg-indigo-100 text-indigo-700' :
+                    detectedProfile.domain === 'Non-Tech' ? 'bg-orange-100 text-orange-700' :
+                    'bg-gray-100 text-gray-700'
+                  }`}>
+                    {detectedProfile.domain}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 font-medium mt-1">{detectedProfile.tagline}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 ml-auto">
           <Button
             onClick={handleOpenHistory}
             className="bg-white border border-gray-200 text-gray-800 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-0.5"
@@ -249,16 +299,19 @@ function BuilderContent() {
           </Button>
 
           <Button
-            onClick={() => toPDF()}
+            onClick={handleDownloadPDF}
+            disabled={isGeneratingPDF}
             className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 border-0 font-semibold"
           >
-            <Download className="mr-2 h-4 w-4" /> PDF
+            <Download className={`mr-2 h-4 w-4 ${isGeneratingPDF ? "animate-bounce" : ""}`} /> 
+            {isGeneratingPDF ? "Generating..." : "PDF"}
           </Button>
+          </div>
         </div>
 
         {/* TEMPLATE SELECTOR & PREVIEW */}
-        <div className="flex-1 overflow-y-auto px-8 pb-12 pt-8 flex flex-col items-center custom-scrollbar">
-          <div className="w-[794px] mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-12 pt-8 flex flex-col items-center custom-scrollbar">
+          <div className="w-full max-w-[794px] mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
               <LayoutTemplate className="h-5 w-5 text-indigo-500" />
               Choose Template
@@ -280,9 +333,9 @@ function BuilderContent() {
             </div>
           </div>
 
-          <div className="shadow-[0_10px_40px_rgba(0,0,0,0.08)] bg-white border border-gray-100 transition-all duration-500 hover:-translate-y-1">
-            <div ref={targetRef} className="pdf-safe w-full h-full">
-              <ResumePreview data={resumeData as any} />
+          <div className={`shadow-2xl bg-white transition-all duration-500 ${isGeneratingPDF ? 'scale-[1] ring-4 ring-indigo-500 ring-offset-4' : 'hover:-translate-y-1'}`}>
+            <div ref={targetRef} className="pdf-safe w-[794px]">
+              <ResumePreview data={resumeData as any} isEditing={!isGeneratingPDF} />
             </div>
           </div>
         </div>

@@ -7,10 +7,11 @@ import { ProfessionalTemplate } from "@/components/templates/ProfessionalTemplat
 
 type Props = {
   data: any;
+  isEditing?: boolean;
 };
 
 export const ResumePreview = forwardRef(
-  ({ data }: Props, ref: ForwardedRef<HTMLDivElement>) => {
+  ({ data, isEditing = false }: Props, ref: ForwardedRef<HTMLDivElement>) => {
     const template = data?.template || "modern";
 
     // 🔍 Debug (remove later)
@@ -26,7 +27,7 @@ export const ResumePreview = forwardRef(
       >
         {/* 🔥 IMPORTANT: No shared padding/wrapper here */}
 
-        {template === "modern" && <ModernTemplate data={data} />}
+        {template === "modern" && <ModernTemplate data={data} isEditing={isEditing} />}
         {template === "minimal" && <MinimalTemplate data={data} />}
         {template === "professional" && (
           <ProfessionalTemplate data={data} />

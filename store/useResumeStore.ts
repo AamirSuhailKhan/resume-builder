@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import setLodash from "lodash.set";
+import getLodash from "lodash.get";
 import { ResumeData } from "@/lib/storage";
 import { normalizeResume } from "@/lib/normalizeResume";
 import { storage } from "@/lib/storage";
@@ -16,6 +18,12 @@ interface ResumeStore {
   upsertResume: (resume: ResumeData) => void;
   deleteResume: (id: string) => void;
   createResume: () => ResumeData;
+  
+  // Inline editing helpers (applies to activeResumeId)
+  updateField: (path: string, value: any) => void;
+  addItem: (section: "experience" | "education" | "projects", customPayload?: any) => void;
+  removeItem: (section: string, index: number) => void;
+  reorderItem: (section: string, from: number, to: number) => void;
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -79,6 +87,89 @@ export const useResumeStore = create<ResumeStore>()((set, get) => ({
     }));
     return newResume;
   },
+
+  // ── Inline Editing Helpers ───────────────────────────────────────────────
+  // IMPORTANT: We do NOT call state.upsertResume() here — that's a stale closure.
+  // Instead we call get().upsertResume() at call-time to get the live function.
+  
+  updateField: (path, value) => {
+    const { activeResumeId, resumes } = get();
+    if (!activeResumeId) {
+      console.warn("[updateField] No activeResumeId set. Did you call setActiveResumeId?");
+      return;
+    }
+    
+    const activeResume = resumes.find(r => r.id === activeResumeId);
+    if (!activeResume) return;
+    
+    const updated = JSON.parse(JSON.stringify(activeResume));
+    setLodash(updated, path, value);
+    
+    // Call via get() at invocation time — not captured closure
+    get().upsertResume(updated);
+  },
+
+  addItem: (section, customPayload) => {
+    const { activeResumeId, resumes } = get();
+    if (!activeResumeId) return;
+    
+    const activeResume = resumes.find(r => r.id === activeResumeId);
+    if (!activeResume) return;
+    
+    const updated = JSON.parse(JSON.stringify(activeResume));
+    const currentArray = getLodash(updated, section) || [];
+    
+    let payload = customPayload;
+    if (!payload) {
+      if (section === "experience") {
+        payload = { id: crypto.randomUUID(), role: "", company: "", startDate: "", endDate: "", points: "" };
+      } else if (section === "education") {
+        payload = { id: crypto.randomUUID(), degree: "", school: "", startDate: "", endDate: "" };
+      } else if (section === "projects") {
+        payload = { id: crypto.randomUUID(), name: "", description: "", link: "" };
+      }
+    }
+    
+    setLodash(updated, section, [...currentArray, payload]);
+    get().upsertResume(updated);
+  },
+
+  removeItem: (section, index) => {
+    const { activeResumeId, resumes } = get();
+    if (!activeResumeId) return;
+    
+    const activeResume = resumes.find(r => r.id === activeResumeId);
+    if (!activeResume) return;
+    
+    const updated = JSON.parse(JSON.stringify(activeResume));
+    const currentArray: any[] = getLodash(updated, section) || [];
+    
+    if (Array.isArray(currentArray)) {
+      currentArray.splice(index, 1);
+      setLodash(updated, section, currentArray);
+      get().upsertResume(updated);
+    }
+  },
+
+  reorderItem: (section, from, to) => {
+    const { activeResumeId, resumes } = get();
+    if (!activeResumeId) return;
+    
+    const activeResume = resumes.find(r => r.id === activeResumeId);
+    if (!activeResume) return;
+    
+    const updated = JSON.parse(JSON.stringify(activeResume));
+    const currentArray: any[] = getLodash(updated, section) || [];
+    
+    if (Array.isArray(currentArray)) {
+      const newArray = [...currentArray];
+      const [movedItem] = newArray.splice(from, 1);
+      newArray.splice(to, 0, movedItem);
+      
+      setLodash(updated, section, newArray);
+      get().upsertResume(updated);
+    }
+  },
 }));
 
 // ─── Selector helpers (use these in components to prevent extra re-renders) ──
@@ -90,3 +181,7 @@ export const selectUpsertResume    = (s: ResumeStore) => s.upsertResume;
 export const selectDeleteResume    = (s: ResumeStore) => s.deleteResume;
 export const selectCreateResume    = (s: ResumeStore) => s.createResume;
 export const selectSetActiveId     = (s: ResumeStore) => s.setActiveResumeId;
+export const selectUpdateField     = (s: ResumeStore) => s.updateField;
+export const selectAddItem         = (s: ResumeStore) => s.addItem;
+export const selectRemoveItem      = (s: ResumeStore) => s.removeItem;
+export const selectReorderItem     = (s: ResumeStore) => s.reorderItem;

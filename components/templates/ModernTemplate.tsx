@@ -1,6 +1,23 @@
+"use client";
 import React from "react";
+import { EditableText } from "@/components/builder/inline/EditableText";
+import dynamic from "next/dynamic";
+import { ExperienceArray } from "@/components/builder/inline/ExperienceArray";
+import { useResumeStore, selectUpdateField } from "@/store/useResumeStore";
 
-export function ModernTemplate({ data }: { data: any }) {
+const RichEditor = dynamic(
+  () => import("@/components/builder/inline/RichEditor").then((mod) => mod.RichEditor),
+  { ssr: false, loading: () => <div className="h-20 bg-gray-50 animate-pulse rounded-md w-full my-2 border border-gray-100" /> }
+);
+
+export function ModernTemplate({ data, isEditing = true }: { data: any, isEditing?: boolean }) {
+  const updateField = useResumeStore(selectUpdateField);
+  
+  // Safe handler factory for nested updates
+  const handleUpdate = (path: string) => (value: string) => {
+    updateField(path, value);
+  };
+
   const name = data?.personal?.fullName || data?.personal?.name || data?.name || "";
   const title = data?.personal?.title || data?.title || "";
   const email = data?.personal?.email || data?.email || "";
@@ -14,51 +31,117 @@ export function ModernTemplate({ data }: { data: any }) {
     : data?.education;
 
   return (
-    <div className="font-sans bg-white min-h-[1123px] flex flex-col">
+    <div className={`font-sans bg-white min-h-[1123px] flex flex-col ${isEditing ? 'is-editing' : ''}`}>
       {/* HEADER */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-8">
-        <h1 className="text-4xl font-bold text-white tracking-tight">{name || "Your Name"}</h1>
-        <p className="text-xl text-indigo-100 mt-2 font-medium">{title || "Professional Title"}</p>
-        <div className="flex flex-wrap gap-4 mt-5 text-sm font-medium opacity-90">
-          {email && <span>{email}</span>}
-          {phone && <span>• {phone}</span>}
-          {location && <span>• {location}</span>}
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-8 group/header relative">
+        {isEditing && <div className="absolute top-2 right-2 text-xs font-bold bg-white/20 px-2 py-1 rounded text-white/80 opacity-0 group-hover/header:opacity-100 transition-opacity">Header</div>}
+        
+        <h1 className="text-4xl font-black text-white tracking-tight">
+          <EditableText 
+            value={name} 
+            onChange={handleUpdate("personal.name")} 
+            placeholder="Your Full Name" 
+            isEditing={isEditing} 
+            className="text-white hover:bg-white/10 focus:bg-white/20 focus:ring-white/30"
+          />
+        </h1>
+        
+        <div className="text-xl text-indigo-100 mt-2 font-medium">
+          <EditableText 
+            value={title} 
+            onChange={handleUpdate("personal.title")} 
+            placeholder="Professional Title" 
+            isEditing={isEditing} 
+            className="text-indigo-100 hover:bg-white/10 focus:bg-white/20 focus:ring-white/30"
+          />
+        </div>
+        
+        <div className="flex flex-wrap gap-4 mt-5 text-sm font-medium opacity-90 items-center">
+          <EditableText 
+            value={email} 
+            onChange={handleUpdate("personal.email")} 
+            placeholder="Email Address" 
+            isEditing={isEditing} 
+            className="hover:bg-white/10 focus:bg-white/20 focus:ring-white/30 px-1 -ml-1"
+          />
+          <span>•</span>
+          <EditableText 
+            value={phone} 
+            onChange={handleUpdate("personal.phone")} 
+            placeholder="Phone Number" 
+            isEditing={isEditing} 
+            className="hover:bg-white/10 focus:bg-white/20 focus:ring-white/30 px-1"
+          />
+          <span>•</span>
+          <EditableText 
+            value={location} 
+            onChange={handleUpdate("personal.location")} 
+            placeholder="Location (City, State)" 
+            isEditing={isEditing} 
+            className="hover:bg-white/10 focus:bg-white/20 focus:ring-white/30 px-1"
+          />
         </div>
       </div>
 
       {/* CONTENT */}
-      <div className="p-8 space-y-6 flex-1">
-        <section>
-          <h2 className="text-indigo-600 font-semibold uppercase tracking-wide border-b border-gray-200 pb-2 mb-3">Summary</h2>
-          {summary ? (
-            <p className="text-gray-800 whitespace-pre-wrap leading-relaxed">{summary}</p>
-          ) : (
-            <p className="text-gray-400 italic">Add a professional summary</p>
-          )}
+      <div className="p-8 space-y-8 flex-1">
+        <section className="relative group/section">
+          {isEditing && <div className="absolute -left-6 top-1 text-xs opacity-0 group-hover/section:opacity-100 text-gray-400 rotate-[-90deg] origin-left print:hidden">Summary</div>}
+          <h2 className="text-indigo-600 font-black uppercase tracking-widest border-b-2 border-indigo-100 pb-2 mb-4 text-sm">Professional Summary</h2>
+          <RichEditor 
+            value={summary}
+            onChange={handleUpdate("personal.summary")}
+            placeholder="Write a compelling professional summary highlighting your key achievements..."
+            isEditing={isEditing}
+            sectionType="summary"
+            className="text-gray-800 leading-relaxed text-base"
+          />
         </section>
 
-        <section>
-          <h2 className="text-indigo-600 font-semibold uppercase tracking-wide border-b border-gray-200 pb-2 mb-4">Experience</h2>
-          {experience.length > 0 ? (
-            <div className="space-y-6">
-              {experience.map((exp: any, i: number) => (
-                <div key={i} className="relative">
-                  <div className="flex justify-between items-baseline mb-1">
-                    <h4 className="font-semibold text-lg text-gray-900">{exp.role || "Job Title"}</h4>
-                    <span className="text-sm font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
-                      {exp.startDate || "Start"} - {exp.endDate || "Present"}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 font-medium mb-2">{exp.company || "Company Name"}</p>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                    {exp.points || exp.description || "Describe your responsibilities and achievements..."}
-                  </p>
+        <section className="relative group/section">
+          {isEditing && <div className="absolute -left-6 top-1 text-xs opacity-0 group-hover/section:opacity-100 text-gray-400 rotate-[-90deg] origin-left print:hidden">Experience</div>}
+          <h2 className="text-indigo-600 font-black uppercase tracking-widest border-b-2 border-indigo-100 pb-2 mb-6 text-sm">Experience</h2>
+          
+          <ExperienceArray 
+            items={experience}
+            isEditing={isEditing}
+            renderItem={(exp, index) => (
+              <div>
+                <div className="flex justify-between items-baseline mb-1">
+                  <h4 className="font-black text-xl text-gray-900">
+                    <EditableText 
+                      value={exp.role} 
+                      onChange={handleUpdate(`experience.${index}.role`)} 
+                      placeholder="Job Title" 
+                      isEditing={isEditing} 
+                    />
+                  </h4>
+                  <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full shrink-0 flex items-center gap-1">
+                    <EditableText value={exp.startDate} onChange={handleUpdate(`experience.${index}.startDate`)} placeholder="Start" isEditing={isEditing} />
+                    <span>-</span>
+                    <EditableText value={exp.endDate} onChange={handleUpdate(`experience.${index}.endDate`)} placeholder="Present" isEditing={isEditing} />
+                  </span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-400 italic">Add your work experience</p>
-          )}
+                <p className="text-base text-gray-600 font-bold mb-3">
+                  <EditableText 
+                    value={exp.company} 
+                    onChange={handleUpdate(`experience.${index}.company`)} 
+                    placeholder="Company Name" 
+                    isEditing={isEditing} 
+                  />
+                </p>
+                <div className="text-gray-700 leading-relaxed text-sm">
+                  <RichEditor 
+                    value={exp.points || exp.description || ""}
+                    onChange={handleUpdate(`experience.${index}.points`)}
+                    placeholder="• Describe your responsibilities and impact..."
+                    isEditing={isEditing}
+                    sectionType="experience_bullet"
+                  />
+                </div>
+              </div>
+            )}
+          />
         </section>
 
         <section>
