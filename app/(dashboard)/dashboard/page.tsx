@@ -15,6 +15,8 @@ import {
   selectCreateResume,
 } from "@/store/useResumeStore";
 
+import { JobInsightsWidget } from "@/components/dashboard/JobInsightsWidget";
+
 export default function DashboardPage() {
   const router = useRouter();
 
@@ -70,6 +72,8 @@ export default function DashboardPage() {
           Create New Resume
         </Button>
       </div>
+
+      <JobInsightsWidget />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {sorted.map((resume) => (

@@ -8,37 +8,20 @@ import {
   FileText,
   LineChart,
   Briefcase,
+  BrainCircuit,
   Settings,
   LogOut,
 } from "lucide-react";
 
 const sidebarNavItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "My Resumes",
-    href: "/builder",
-    icon: FileText,
-  },
-  {
-    title: "ATS Score",
-    href: "/ats",
-    icon: LineChart,
-  },
-  {
-    title: "Job Optimizer",
-    href: "/job-optimizer",
-    icon: Briefcase,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
+  { title: "Dashboard",        href: "/dashboard",         icon: LayoutDashboard },
+  { title: "My Resumes",       href: "/builder",           icon: FileText        },
+  { title: "ATS Score",        href: "/ats",               icon: LineChart       },
+  { title: "Job Optimizer",    href: "/job-optimizer",     icon: Briefcase       },
+  { title: "Job Intelligence", href: "/job-intelligence",  icon: BrainCircuit    },
+  { title: "Settings",         href: "/settings",          icon: Settings        },
 ];
+
 
 export function Sidebar() {
   const pathname = usePathname();
