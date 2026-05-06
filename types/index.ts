@@ -7,4 +7,4 @@
  * problem that caused "skills.map is not a function" and ATS crashes.
  */
 export type { ResumeData, ResumeVersion } from "@/lib/storage";
-export { storage } from "@/lib/storage";
+

@@ -1,71 +1,48 @@
-import { useEffect, useRef, useCallback, useMemo } from "react";
-import {
-  useResumeStore,
-  selectIsHydrated,
-  selectHydrate,
-  selectUpsertResume,
-} from "@/store/useResumeStore";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { ResumeData } from "@/lib/storage";
 import { normalizeResume } from "@/lib/normalizeResume";
-
-const AUTOSAVE_DELAY_MS = 1000;
+import { isValidResumeId } from "@/lib/utils/safeFetch";
+import {
+  useResumeStore,
+  selectHydrate,
+  selectIsHydrated,
+  selectUpsertResume,
+} from "@/store/useResumeStore";
+import { useResumeAutosave } from "@/hooks/useResumeAutosave";
 
 export function useResumeBuilder(resumeId: string | null) {
-  const isHydrated  = useResumeStore(selectIsHydrated);
-  const hydrate     = useResumeStore(selectHydrate);
+  const isHydrated = useResumeStore(selectIsHydrated);
+  const hydrate = useResumeStore(selectHydrate);
   const upsertResume = useResumeStore(selectUpsertResume);
-  
-  // Only subscribe to the specific resume to avoid array scanning
-  const resumeRaw = useResumeStore(state => resumeId ? state.resumesById[resumeId] : null);
+  const resumeRaw = useResumeStore((state) => (isValidResumeId(resumeId) ? state.resumesById[resumeId] : null));
+  const autosave = useResumeAutosave(resumeId, { enabled: isHydrated && isValidResumeId(resumeId) });
 
   const hydratedRef = useRef(false);
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
-    hydrate();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    void hydrate();
+  }, [hydrate]);
 
-  const resume: ResumeData | null = useMemo(() => {
-    return resumeRaw ? normalizeResume(resumeRaw) : null;
-  }, [resumeRaw]);
-
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resume: ResumeData | null = useMemo(() => (resumeRaw ? normalizeResume(resumeRaw) : null), [resumeRaw]);
 
   const setResume = useCallback(
     (updated: ResumeData | ((prev: ResumeData) => ResumeData)) => {
-      if (!resumeId) return;
+      if (!isValidResumeId(resumeId)) return;
       const current = useResumeStore.getState().resumesById[resumeId];
-      const next =
-        typeof updated === "function"
-          ? updated(current ? normalizeResume(current) : normalizeResume({}))
-          : updated;
+      if (!current) return;
 
-      if (timerRef.current) clearTimeout(timerRef.current);
-
-      timerRef.current = setTimeout(() => {
-        upsertResume(next);
-      }, AUTOSAVE_DELAY_MS);
-
-      useResumeStore.setState((state) => ({
-        resumesById: {
-          ...state.resumesById,
-          [next.id]: next,
-        }
-      }));
+      const next = typeof updated === "function" ? updated(normalizeResume(current)) : updated;
+      upsertResume({ ...normalizeResume(next), id: resumeId });
     },
     [resumeId, upsertResume]
   );
 
-  const saveNow = useCallback(() => {
-    if (!resumeId) return;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    const current = useResumeStore.getState().resumesById[resumeId];
-    if (current) upsertResume(current);
-  }, [resumeId, upsertResume]);
-
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-  }, []);
-
-  return { resume, setResume, saveNow, isHydrated };
+  return {
+    resume,
+    setResume,
+    saveNow: autosave.saveNow,
+    isHydrated,
+    isDirty: autosave.isDirty,
+  };
 }

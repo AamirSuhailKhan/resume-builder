@@ -1,6 +1,8 @@
 "use client";
 
-import { Component, ReactNode } from "react";
+import { Component, ReactNode, ErrorInfo } from "react";
+import { AlertTriangle, RefreshCcw } from "lucide-react";
+import { Button } from "./button";
 
 interface Props {
   children: ReactNode;
@@ -12,6 +14,10 @@ interface State {
   error: Error | null;
 }
 
+/**
+ * ErrorBoundary - Final safety net for UI crashes.
+ * Displays the real error message and provides a recovery button.
+ */
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -22,27 +28,43 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[ErrorBoundary] Caught error:", error, info.componentStack);
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[CRITICAL UI ERROR]", {
+      message: error.message,
+      stack: error.stack,
+      componentStack: info.componentStack,
+    });
   }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+  };
 
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="min-h-[300px] flex flex-col items-center justify-center p-12 text-center bg-gray-50 rounded-xl border border-gray-200 m-6">
-          <div className="text-4xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold text-gray-800 mb-2">Something went wrong</h2>
-          <p className="text-gray-500 text-sm mb-6 max-w-sm">
-            {this.state.error?.message || "An unexpected error occurred. Please try refreshing the page."}
+        <div className="m-4 flex min-h-[400px] w-full flex-col items-center justify-center rounded-lg border border-danger/20 bg-danger/5 p-8 text-center animate-in fade-in">
+          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-lg border border-danger/20 bg-danger/10 text-danger shadow-sm">
+            <AlertTriangle className="h-8 w-8" />
+          </div>
+          
+          <h2 className="mb-2 text-xl font-semibold tracking-normal text-foreground">Component Error</h2>
+          
+          <div className="mb-8 w-full max-w-md rounded-lg border border-danger/20 bg-surface p-4 shadow-sm">
+            <p className="break-words font-mono text-sm text-danger">
+              {this.state.error?.message || "Unknown rendering failure"}
+            </p>
+          </div>
+
+          <p className="mb-8 max-w-xs text-sm font-medium text-muted-foreground">
+            This part of the app crashed. We&apos;ve logged the error. Try resetting the component below.
           </p>
-          <button
-            onClick={() => this.setState({ hasError: false, error: null })}
-            className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition"
-          >
-            Try Again
-          </button>
+
+          <Button onClick={this.handleRetry} size="lg">
+            <RefreshCcw className="mr-2 h-4 w-4" /> Reset Component
+          </Button>
         </div>
       );
     }

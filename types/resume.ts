@@ -8,7 +8,7 @@
  * runtime crashes when legacy components received Zustand store data.
  */
 export type { ResumeData, ResumeVersion } from "@/lib/storage";
-export { storage } from "@/lib/storage";
+
 
 // ── Compatibility alias ──────────────────────────────────────────────────────
 // Legacy code referenced `Experience` as a named export. Re-export it here.

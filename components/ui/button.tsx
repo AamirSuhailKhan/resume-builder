@@ -1,37 +1,32 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "default" | "secondary" | "outline" | "ghost" | "link";
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "default" | "primary" | "secondary" | "outline" | "ghost" | "link" | "danger";
   size?: "default" | "sm" | "lg" | "icon";
   isLoading?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    { className, variant = "default", size = "default", isLoading, children, ...props },
-    ref
-  ) => {
+  ({ className, variant = "default", size = "default", isLoading, children, ...props }, ref) => {
     const variants = {
-      default:
-        "bg-gradient-to-r from-primary to-purple-600 text-white hover:from-primary-500 hover:to-purple-500 shadow-[0_4px_14px_0_rgba(79,70,229,0.39)] hover:shadow-[0_6px_20px_rgba(79,70,229,0.23)] hover:-translate-y-0.5",
-      secondary:
-        "bg-primary-50 text-primary-900 hover:bg-primary-100",
-      outline:
-        "border border-gray-200 bg-white hover:bg-gray-50 text-gray-900 shadow-sm",
-      ghost: "hover:bg-gray-100 text-gray-700 hover:text-gray-900",
-      link: "text-primary underline-offset-4 hover:underline",
+      default: "bg-foreground text-background shadow-[0_10px_28px_rgba(0,0,0,0.24)] hover:bg-foreground/90",
+      primary: "bg-foreground text-background shadow-[0_10px_28px_rgba(0,0,0,0.24)] hover:bg-foreground/90",
+      secondary: "border border-border bg-surface-muted text-foreground hover:bg-muted",
+      outline: "border border-border-strong bg-surface/70 text-foreground shadow-sm hover:bg-surface-elevated",
+      ghost: "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+      link: "h-auto rounded-none p-0 text-primary underline-offset-4 hover:underline",
+      danger: "bg-danger text-white shadow-[0_10px_28px_rgba(225,29,72,0.22)] hover:brightness-105",
     };
 
     const sizes = {
-      default: "h-10 px-4 py-2",
-      sm: "h-9 rounded-md px-3 text-xs",
-      lg: "h-12 rounded-xl px-8 text-base",
-      icon: "h-10 w-10",
+      default: "h-10 px-4",
+      sm: "h-8 px-3 text-xs",
+      lg: "h-12 px-6 text-sm",
+      icon: "h-9 w-9 p-0",
     };
 
     return (
@@ -39,14 +34,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={isLoading || props.disabled}
         className={cn(
-          "inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]",
+          "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-150 focus-premium hover:-translate-y-px active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50",
           variants[variant],
           sizes[size],
           className
         )}
         {...props}
       >
-        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
         {children}
       </button>
     );

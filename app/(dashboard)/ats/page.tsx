@@ -15,6 +15,9 @@ import {
   selectResumeIds,
   selectHydrate,
   selectUpsertResume,
+  selectLoading,
+  selectError,
+  selectIsHydrated,
 } from "@/store/useResumeStore";
 import { normalizeResume } from "@/lib/normalizeResume";
 
@@ -243,6 +246,9 @@ export default function ApplicationMaximizerPage() {
   const resumeIds   = useResumeStore(selectResumeIds);
   const hydrate = useResumeStore(selectHydrate);
   const upsertResume = useResumeStore(selectUpsertResume);
+  const loading      = useResumeStore(selectLoading);
+  const error        = useResumeStore(selectError);
+  const isHydrated   = useResumeStore(selectIsHydrated);
 
   // Ordered, stable list — no Object.values, recomputes only on add/delete
   const resumes = useMemo(
@@ -378,6 +384,22 @@ export default function ApplicationMaximizerPage() {
     setCopiedSection("all");
     setTimeout(() => setCopiedSection(null), 3000);
   };
+  if (error) {
+    return (
+      <div className="p-6 m-8 text-rose-500 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-center font-bold">
+        ❌ {error}
+      </div>
+    );
+  }
+
+  if (!isHydrated || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] flex-col gap-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+        <div className="text-gray-400 text-sm font-medium">Initializing Analysis Engine...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-12 pb-24 font-sans">

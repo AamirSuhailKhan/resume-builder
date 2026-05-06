@@ -30,7 +30,7 @@ export default function LandingPage() {
             </p>
             
             <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-6">
-              <Link href="/dashboard">
+              <Link href="/ats">
                 <Button size="lg" className="w-full sm:w-auto h-16 px-10 text-lg font-black shadow-[0_0_40px_rgba(79,70,229,0.3)] hover:shadow-[0_0_60px_rgba(79,70,229,0.5)] transition-all duration-300 hover:-translate-y-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl">
                   🚀 Analyze My Resume
                   <ArrowRight className="ml-3 h-6 w-6 transition-transform duration-300 group-hover:translate-x-1.5" />

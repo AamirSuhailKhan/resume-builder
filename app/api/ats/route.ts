@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 
+export const runtime = "nodejs";
+
 export async function POST(req: Request) {
   try {
     const { resumeData, jobDescription } = await req.json();

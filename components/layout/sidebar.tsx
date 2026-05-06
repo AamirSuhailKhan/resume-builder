@@ -2,82 +2,105 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
+  BarChart3,
+  Bot,
+  BriefcaseBusiness,
   FileText,
-  LineChart,
-  Briefcase,
-  BrainCircuit,
-  Settings,
+  KanbanSquare,
+  LayoutDashboard,
   LogOut,
+  MailCheck,
+  RadioTower,
+  Settings,
+  Sparkles,
+  UserRoundSearch,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useAuthStore, selectSignOut, useSessionUser } from "@/store/useAuthStore";
+import { useResumeStore } from "@/store/useResumeStore";
 
 const sidebarNavItems = [
-  { title: "Dashboard",        href: "/dashboard",         icon: LayoutDashboard },
-  { title: "My Resumes",       href: "/builder",           icon: FileText        },
-  { title: "ATS Score",        href: "/ats",               icon: LineChart       },
-  { title: "Job Optimizer",    href: "/job-optimizer",     icon: Briefcase       },
-  { title: "Job Intelligence", href: "/job-intelligence",  icon: BrainCircuit    },
-  { title: "Settings",         href: "/settings",          icon: Settings        },
+  { title: "Command Center", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Resume Builder", href: "/builder", icon: FileText },
+  { title: "Job Intelligence", href: "/job-intelligence", icon: Bot },
+  { title: "Job Matches", href: "/matches", icon: BriefcaseBusiness },
+  { title: "Auto Apply", href: "/auto-apply", icon: MailCheck },
+  { title: "Applications", href: "/applications", icon: KanbanSquare },
+  { title: "Interview Engine", href: "/interview", icon: UserRoundSearch },
+  { title: "Analytics", href: "/analytics", icon: BarChart3 },
+  { title: "Portfolio", href: "/portfolio", icon: RadioTower },
+  { title: "Settings", href: "/settings", icon: Settings },
 ];
-
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useSessionUser();
+  const signOut = useAuthStore(selectSignOut);
+
+  const handleSignOut = async () => {
+    try {
+      useResumeStore.getState().reset();
+      await signOut();
+    } finally {
+      window.location.href = "/login";
+    }
+  };
+
+  const avatarLetter = user?.email?.[0]?.toUpperCase() ?? "U";
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-gray-100 bg-white px-3 py-4 flex flex-col">
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-border bg-background/88 px-3 py-4 backdrop-blur-xl lg:flex lg:flex-col">
+      <Link href="/dashboard" className="mb-5 flex items-center gap-3 rounded-lg px-3 py-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface-elevated shadow-sm">
+          <Sparkles className="h-4 w-4 text-accent" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold leading-none text-foreground">ResumeAI</p>
+          <p className="mt-1 text-xs text-muted-foreground">Job Operating System</p>
+        </div>
+      </Link>
 
-      {/* LOGO */}
-      <div className="mb-8 px-3 py-2">
-        <Link href="/" className="flex items-center space-x-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
-            <FileText className="h-5 w-5" />
-          </div>
-          <span className="font-bold text-gray-900 tracking-tight text-lg">
-            ResumeAI
-          </span>
-        </Link>
-      </div>
-
-      {/* NAVIGATION */}
-      <nav className="flex-1 space-y-1">
+      <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
         {sidebarNavItems.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            pathname.startsWith(item.href + "/");
-
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "group flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                "group flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition",
                 isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-surface-elevated text-foreground shadow-sm ring-1 ring-border"
+                  : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
               )}
             >
-              <item.icon
-                className={cn(
-                  "mr-3 h-5 w-5 flex-shrink-0 transition-colors",
-                  isActive
-                    ? "text-primary"
-                    : "text-gray-400 group-hover:text-gray-600"
-                )}
-              />
-              {item.title}
+              <item.icon className={cn("h-4 w-4", isActive ? "text-accent" : "text-muted-foreground")} />
+              <span className="truncate">{item.title}</span>
             </Link>
           );
         })}
       </nav>
 
-      {/* LOGOUT */}
-      <div className="mt-auto pt-4 border-t border-gray-100">
-        <button className="group flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all duration-200">
-          <LogOut className="mr-3 h-5 w-5 flex-shrink-0 text-gray-400 group-hover:text-gray-600 transition-colors" />
-          Log out
+      <div className="mt-4 space-y-3 border-t border-border pt-4">
+        {user && (
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-muted text-xs font-semibold text-foreground">
+              {avatarLetter}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-foreground">{user.email}</p>
+              <p className="text-xs text-muted-foreground">Pro workspace</p>
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-muted-foreground transition hover:bg-danger/10 hover:text-danger"
+        >
+          <LogOut className="h-4 w-4" />
+          Sign out
         </button>
       </div>
     </aside>

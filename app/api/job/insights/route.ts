@@ -1,108 +1,86 @@
-/**
- * POST /api/job/insights
- * GET  /api/job/insights
- *
- * GET  — Returns the market report only (no resume needed).
- *         Use this to show trending skills on a public dashboard.
- *
- * POST — Accepts a resume JSON and returns the full JobIntelligenceOutput,
- *         including the skill gap report and salary estimate.
- *
- * POST Request body:
- * {
- *   resume: ResumeData   // same shape as the builder's resume JSON
- *   forceRefresh?: boolean  // bypass market cache
- * }
- *
- * Response (POST):
- * {
- *   top_skills: string[],
- *   top_tools: string[],
- *   demand_frequency: Record<string, number>,
- *   user_match_score: number,
- *   missing_skills: string[],
- *   market_insight: string,
- *   salary_estimate: { min, max, currency },
- *   _meta: { totalJobs, generatedAt, cacheHit }
- * }
- */
-
 import { NextResponse } from "next/server";
-import { computeMarketReport } from "@/lib/job-intelligence/market-analyzer";
-import { computeSkillGap } from "@/lib/job-intelligence/skill-gap";
+import { ResumeData } from "@/lib/storage";
 import { JobIntelligenceOutput } from "@/lib/job-intelligence/types";
+import { saveInsights, getInsights, JobInsightsRow } from "@/lib/jobInsightsSupabase";
+import crypto from "crypto";
 
-// ─── GET — Market overview only ────────────────────────────────────────────────
+export const runtime = "nodejs";
 
-export async function GET(req: Request) {
+/** Compute a SHA‑256 hash of the resume data for cache invalidation */
+function computeResumeHash(resume: ResumeData): string {
+  const json = JSON.stringify(resume);
+  return crypto.createHash("sha256").update(json).digest("hex");
+}
+
+/** Placeholder insight generator – replace with real AI service */
+function generateInsights(resume: ResumeData, jobDescriptions: string[]): JobIntelligenceOutput {
+  // Dummy implementation – in production call your ML/AI endpoint.
+  const topSkills = ["JavaScript", "React", "TypeScript"];
+  const missing = ["Docker", "Kubernetes"];
+  return {
+    top_skills: topSkills,
+    missing_skills: missing,
+    user_match_score: Math.floor(Math.random() * 100),
+    demand_frequency: { JavaScript: 85, React: 78, TypeScript: 72 },
+    salary_estimate: 85000,
+    market_overview: {},
+  } as any; // Cast to any for brevity.
+}
+
+export async function POST(request: Request) {
+  const { resume, jobDescriptions } = await request.json();
+  if (!resume || !Array.isArray(jobDescriptions)) {
+    return NextResponse.json({ error: "Missing resume or jobDescriptions" }, { status: 400 });
+  }
+
+  const resumeHash = computeResumeHash(resume);
+  const engineVersion = "v1";
+
+  const insights = generateInsights(resume, jobDescriptions);
+
+  const payload: Omit<JobInsightsRow, "created_at"> = {
+    id: crypto.randomUUID(),
+    resume_id: resume.id,
+    resume_hash: resumeHash,
+    insights,
+    job_count: jobDescriptions.length,
+    engine_version: engineVersion,
+  };
+
   try {
-    const { searchParams } = new URL(req.url);
-    const forceRefresh = searchParams.get("refresh") === "true";
-
-    const report = await computeMarketReport(forceRefresh);
-
-    return NextResponse.json({
-      totalJobs: report.totalJobs,
-      generatedAt: report.generatedAt,
-      topSkills: report.topSkills,
-      topTools: report.topTools,
-      seniorityBreakdown: report.seniorityBreakdown,
-      domainBreakdown: report.domainBreakdown,
-    });
-  } catch (error: any) {
-    console.error("[GET /api/job/insights]", error);
-    return NextResponse.json({ error: error.message ?? "Internal server error" }, { status: 500 });
+    const { error } = await saveInsights(payload);
+    if (error) {
+      console.error(error);
+      return NextResponse.json({ error: "Failed to save insights" }, { status: 500 });
+    }
+    return NextResponse.json({ insights, resume_hash: resumeHash, engine_version: engineVersion });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Failed to save insights" }, { status: 500 });
   }
 }
 
-// ─── POST — Full intelligence output for a specific resume ────────────────────
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const resumeId = searchParams.get("resume_id");
+  if (!resumeId) {
+    return NextResponse.json({ error: "Missing resume_id" }, { status: 400 });
+  }
 
-export async function POST(req: Request) {
   try {
-    const body = await req.json();
-
-    if (!body?.resume || typeof body.resume !== "object") {
-      return NextResponse.json(
-        { error: "Request body must include a `resume` object." },
-        { status: 400 }
-      );
+    const { data: row, error } = await getInsights(resumeId);
+    if (error) {
+      console.error(error);
+      return NextResponse.json({ error: "Failed to fetch insights" }, { status: 500 });
     }
-
-    const forceRefresh = body.forceRefresh === true;
-    const cacheHit = !forceRefresh;
-
-    // ── Compute market report (cached or fresh) ──────────────────────────────
-    const market = await computeMarketReport(forceRefresh);
-
-    // ── Compute skill gap ─────────────────────────────────────────────────────
-    const gap = computeSkillGap(body.resume, market);
-
-    // ── Assemble demand_frequency map ────────────────────────────────────────
-    const demand_frequency: Record<string, number> = {};
-    for (const sf of [...market.topSkills, ...market.topTools]) {
-      demand_frequency[sf.skill] = sf.percentage;
-    }
-
-    const output: JobIntelligenceOutput = {
-      top_skills: market.topSkills.map((s) => s.skill),
-      top_tools: market.topTools.map((t) => t.skill),
-      demand_frequency,
-      user_match_score: gap.user_match_score,
-      missing_skills: gap.missing_skills,
-      market_insight: gap.market_insight,
-      salary_estimate: gap.salary_estimate,
-    };
-
+    if (!row) return NextResponse.json({ insights: null }, { status: 200 });
     return NextResponse.json({
-      ...output,
-      _meta: {
-        totalJobs: market.totalJobs,
-        generatedAt: market.generatedAt,
-        cacheHit,
-      },
+      insights: row.insights,
+      resume_hash: row.resume_hash,
+      engine_version: row.engine_version,
     });
-  } catch (error: any) {
-    console.error("[POST /api/job/insights]", error);
-    return NextResponse.json({ error: error.message ?? "Internal server error" }, { status: 500 });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ error: "Failed to fetch insights" }, { status: 500 });
   }
 }

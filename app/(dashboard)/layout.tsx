@@ -1,19 +1,29 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/auth";
 import { Sidebar } from "@/components/layout/sidebar";
+import { Topbar } from "@/components/layout/topbar";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <Sidebar />
-      <main className="flex-1 pl-64">
+      <div className="lg:pl-72">
+        <Topbar />
         <ErrorBoundary>
-          {children}
+          <main className="min-h-[calc(100vh-4rem)] py-6 sm:py-8">{children}</main>
         </ErrorBoundary>
-      </main>
+      </div>
     </div>
   );
 }

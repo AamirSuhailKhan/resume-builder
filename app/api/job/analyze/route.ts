@@ -22,6 +22,8 @@ import { jobRepository } from "@/lib/job-intelligence/job-aggregator";
 import { invalidateMarketCache } from "@/lib/job-intelligence/market-analyzer";
 import { ParsedJob } from "@/lib/job-intelligence/types";
 
+export const runtime = "nodejs";
+
 const MAX_JDS = 50;
 
 export async function POST(req: Request) {

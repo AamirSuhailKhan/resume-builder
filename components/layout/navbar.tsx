@@ -1,9 +1,14 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { FileText } from "lucide-react";
-import { FaGithub } from "react-icons/fa";
+import { useAuthStore, selectSignIn, useSessionUser } from "@/store/useAuthStore";
 
 export function Navbar() {
+  const { user } = useSessionUser();
+  const signIn = useAuthStore(selectSignIn);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-gray-100 bg-white/80 backdrop-blur-md">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
@@ -17,23 +22,34 @@ export function Navbar() {
             </span>
           </Link>
         </div>
+
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
-          <Link href="#features" className="hover:text-gray-900 transition-colors">Features</Link>
-          <Link href="#how-it-works" className="hover:text-gray-900 transition-colors">How it Works</Link>
-          <Link href="#pricing" className="hover:text-gray-900 transition-colors">Pricing</Link>
+          <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
+          <a href="#how-it-works" className="hover:text-gray-900 transition-colors">How it Works</a>
+          <a href="#pricing" className="hover:text-gray-900 transition-colors">Pricing</a>
         </nav>
-        <div className="flex items-center gap-4">
-          <Link href="https://github.com" target="_blank" rel="noreferrer" className="text-gray-500 hover:text-gray-900 transition-colors hidden sm:block">
-            <FaGithub className="h-5 w-5" />
-          </Link>
-          <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-3">
+          {user ? (
+            // Already signed in — go to dashboard
             <Link href="/dashboard">
-              <Button variant="ghost" className="hidden sm:inline-flex">Sign In</Button>
+              <Button className="font-bold">Go to Dashboard</Button>
             </Link>
-            <Link href="/dashboard">
-              <Button>Get Started</Button>
-            </Link>
-          </div>
+          ) : (
+            // Not signed in — show Sign In + Get Started
+            <>
+              <Button
+                variant="ghost"
+                className="hidden sm:inline-flex font-medium"
+                onClick={signIn}
+              >
+                Sign In
+              </Button>
+              <Button className="font-bold" onClick={signIn}>
+                Get Started
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </header>

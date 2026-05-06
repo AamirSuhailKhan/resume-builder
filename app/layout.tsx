@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
+import { Providers } from "@/components/auth/Providers";
+import { ThemeProvider } from "@/components/layout/theme-provider";
 
 export const metadata: Metadata = {
-  title: "SaaS Resume Builder",
-  description: "Premium AI-powered Resume Builder",
+  title: "ResumeAI - AI Job Platform",
+  description: "AI-powered resumes, job matching, applications, interviews, and portfolio publishing.",
 };
 
 export default function RootLayout({
@@ -18,11 +14,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col font-sans text-foreground bg-background selection:bg-primary/20">{children}</body>
+    <html lang="en" className="dark h-full antialiased" suppressHydrationWarning>
+      <body className="min-h-full flex flex-col bg-background font-sans text-foreground selection:bg-primary/20">
+        <ThemeProvider>
+          <Providers>{children}</Providers>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

@@ -3,21 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { BrainCircuit, ArrowRight, Zap, AlertTriangle } from "lucide-react";
-import { JobIntelligenceOutput } from "@/lib/job-intelligence/types";
+import { useResumeStore, selectActiveResumeId } from "@/store/useResumeStore";
+import { useJobInsightsStore } from "@/store/useJobInsightsStore";
 
 export function JobInsightsWidget() {
-  const [insights, setInsights] = useState<JobIntelligenceOutput | null>(null);
+  const activeResumeId = useResumeStore(selectActiveResumeId);
+  const insights = useJobInsightsStore((state) => activeResumeId ? state.insightsByResumeId[activeResumeId] : null);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
-    const cached = localStorage.getItem("job_insights_cache");
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        setInsights(parsed.data || parsed); // support both formats
-      } catch (e) {}
-    }
   }, []);
 
   if (!isMounted) return null;
@@ -41,9 +36,9 @@ export function JobInsightsWidget() {
     );
   }
 
-  const topSkill = insights.top_skills[0];
-  const topSkillDemand = insights.demand_frequency[topSkill] || 0;
-  const topMissing = insights.missing_skills[0];
+  const topSkill = insights.top_skills?.[0];
+  const topSkillDemand = topSkill ? (insights.demand_frequency[topSkill] || 0) : 0;
+  const topMissing = insights.missing_skills?.[0];
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -63,7 +58,7 @@ export function JobInsightsWidget() {
         <div className="flex flex-col md:items-center md:justify-center md:text-center pt-4 md:pt-0 first:pt-0">
           <span className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Highest Demand</span>
           <div className="flex items-end md:justify-center gap-2">
-            <span className="text-2xl font-black text-gray-900">{topSkill}</span>
+            <span className="text-2xl font-black text-gray-900">{topSkill || "N/A"}</span>
             <span className="text-sm font-semibold text-indigo-600 mb-1">{topSkillDemand}%</span>
           </div>
         </div>
