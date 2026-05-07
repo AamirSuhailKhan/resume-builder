@@ -6,10 +6,8 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
-import { getAuthSecret, getAuthUrl, getGoogleOAuthConfig } from "@/lib/env";
-
-process.env.AUTH_URL ??= getAuthUrl();
-process.env.NEXTAUTH_URL ??= getAuthUrl();
+import { getAuthSecret, getGoogleOAuthConfig } from "@/lib/env";
+import authConfig from "@/auth.config";
 
 const credentialsSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -27,32 +25,20 @@ const providers: NextAuthConfig["providers"] = [
     },
     async authorize(credentials) {
       const parsed = credentialsSchema.safeParse(credentials);
-      if (!parsed.success) {
-        console.warn("[AUTH] Credentials validation failed", parsed.error.flatten().fieldErrors);
-        return null;
-      }
+      if (!parsed.success) return null;
 
       try {
         const user = await prisma.user.findUnique({
           where: { email: parsed.data.email },
         });
 
-        if (!user?.passwordHash) {
-          console.warn("[AUTH] Credentials sign-in rejected", {
-            reason: "missing_user_or_password_hash",
-            email: parsed.data.email,
-          });
-          return null;
-        }
+        if (!user?.passwordHash) return null;
 
-        const validPassword = await bcrypt.compare(parsed.data.password, user.passwordHash);
-        if (!validPassword) {
-          console.warn("[AUTH] Credentials sign-in rejected", {
-            reason: "invalid_password",
-            userId: user.id,
-          });
-          return null;
-        }
+        const validPassword = await bcrypt.compare(
+          parsed.data.password,
+          user.passwordHash
+        );
+        if (!validPassword) return null;
 
         return {
           id: user.id,
@@ -78,41 +64,28 @@ if (googleOAuth) {
   );
 }
 
-const authConfig: NextAuthConfig = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: "jwt",
-  },
+  session: { strategy: "jwt" },
   secret: getAuthSecret(),
-  trustHost: true,
-  pages: {
-    signIn: "/login",
-    error: "/login",
-  },
   providers,
   callbacks: {
     jwt({ token, user }) {
-      if (user?.id) {
-        token.sub = user.id;
-      }
+      if (user?.id) token.sub = user.id;
       return token;
     },
     session({ session, token }) {
-      if (session.user && token.sub) {
-        session.user.id = token.sub;
-      }
+      if (session.user && token.sub) session.user.id = token.sub;
       return session;
     },
     redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-
       try {
-        const target = new URL(url);
-        if (target.origin === baseUrl) return url;
+        if (new URL(url).origin === baseUrl) return url;
       } catch {
-        console.warn("[AUTH] Invalid redirect URL rejected", { url });
+        console.warn("[AUTH] Invalid redirect URL", { url });
       }
-
       return `${baseUrl}/dashboard`;
     },
   },
@@ -129,12 +102,8 @@ const authConfig: NextAuthConfig = {
     },
   },
   logger: {
-    error(error) {
-      console.error("[AUTH]", error);
-    },
-    warn(code) {
-      console.warn("[AUTH]", code);
-    },
+    error(error) { console.error("[AUTH]", error); },
+    warn(code) { console.warn("[AUTH]", code); },
     debug(code, metadata) {
       if (process.env.NODE_ENV === "development") {
         console.debug("[AUTH]", code, metadata);
@@ -142,6 +111,4 @@ const authConfig: NextAuthConfig = {
     },
   },
   debug: process.env.NODE_ENV === "development",
-};
-
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+});

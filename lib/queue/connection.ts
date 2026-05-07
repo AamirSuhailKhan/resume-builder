@@ -1,20 +1,29 @@
-import IORedis, { RedisOptions } from "ioredis";
+import IORedis, { type RedisOptions } from "ioredis";
 import { getRedisUrl as readRedisUrl } from "@/lib/env";
 
 const globalForRedis = globalThis as unknown as {
   resumeAiQueueRedis?: IORedis;
 };
 
-export function getRedisUrl() {
+export function getRedisUrl(): string {
   const url = readRedisUrl();
   if (!url) {
-    throw new Error("[QUEUE] REDIS_URL is not configured.");
+    throw new Error(
+      "[QUEUE] REDIS_URL is not configured.\n" +
+      "   Set REDIS_URL to a redis:// or rediss:// TCP connection string.\n" +
+      "   Do NOT use an https:// Upstash REST URL here."
+    );
   }
   return url;
 }
 
-export function createRedisConnection(options: RedisOptions = {}) {
-  return new IORedis(getRedisUrl(), {
+export function getRedisUrlOptional(): string | null {
+  return readRedisUrl() ?? null;
+}
+
+export function createRedisConnection(options: RedisOptions = {}): IORedis {
+  const url = getRedisUrl();
+  return new IORedis(url, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
     lazyConnect: true,
@@ -28,10 +37,9 @@ export function createRedisConnection(options: RedisOptions = {}) {
   });
 }
 
-export function getQueueRedisConnection() {
+export function getQueueRedisConnection(): IORedis {
   if (!globalForRedis.resumeAiQueueRedis) {
     globalForRedis.resumeAiQueueRedis = createRedisConnection();
   }
-
   return globalForRedis.resumeAiQueueRedis;
 }

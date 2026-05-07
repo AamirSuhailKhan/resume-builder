@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
 import { getDatabaseUrl } from "@/lib/env";
 
 declare global {
@@ -8,11 +9,16 @@ declare global {
 }
 
 function createPrismaClient(): PrismaClient {
-  const url = getDatabaseUrl();
+  const connectionString = getDatabaseUrl();
 
-  const adapter = new PrismaPg({
-    connectionString: url,
+  const pool = new Pool({
+    connectionString,
+    max: 10,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 10_000,
   });
+
+  const adapter = new PrismaPg(pool);
 
   return new PrismaClient({
     adapter,
@@ -23,8 +29,8 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
-// Singleton: reuse across hot-reloads in dev, reuse the single instance in prod
-export const prisma = globalThis.__prisma ?? createPrismaClient();
+if (!globalThis.__prisma) {
+  globalThis.__prisma = createPrismaClient();
+}
 
-// Always cache on globalThis so both dev HMR and prod keep one connection
-globalThis.__prisma = prisma;
+export const prisma: PrismaClient = globalThis.__prisma;

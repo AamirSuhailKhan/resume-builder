@@ -1,7 +1,9 @@
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
+import authConfig from "@/auth.config";
 import { NextResponse } from "next/server";
 
-const publicRoutes = new Set(["/", "/login", "/auth/callback"]);
+const { auth } = NextAuth(authConfig);
+
 const protectedPrefixes = [
   "/dashboard",
   "/builder",
@@ -21,8 +23,9 @@ const protectedPrefixes = [
 export default auth((request) => {
   const { pathname, search } = request.nextUrl;
   const isLoggedIn = Boolean(request.auth?.user?.id);
-  const isPublicRoute = publicRoutes.has(pathname);
-  const isProtectedRoute = protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const isProtectedRoute = protectedPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
 
   if (isProtectedRoute && !isLoggedIn) {
     const loginUrl = new URL("/login", request.url);
@@ -32,12 +35,11 @@ export default auth((request) => {
 
   if (pathname === "/login" && isLoggedIn) {
     const callbackUrl = request.nextUrl.searchParams.get("callbackUrl");
-    const target = callbackUrl?.startsWith("/") && !callbackUrl.startsWith("//") ? callbackUrl : "/dashboard";
+    const target =
+      callbackUrl?.startsWith("/") && !callbackUrl.startsWith("//")
+        ? callbackUrl
+        : "/dashboard";
     return NextResponse.redirect(new URL(target, request.url));
-  }
-
-  if (isPublicRoute || isProtectedRoute) {
-    return NextResponse.next();
   }
 
   return NextResponse.next();
@@ -45,6 +47,6 @@ export default auth((request) => {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|_next/font|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map)$).*)",
+    "/((?!api|_next/static|_next/image|_next/font|favicon\\.ico|robots\\.txt|sitemap\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map)$).*)",
   ],
 };
