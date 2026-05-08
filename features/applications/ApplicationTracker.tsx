@@ -8,11 +8,11 @@ import { GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
-import { ApplicationRecord, ApplicationStage, applications as initialApplications } from "@/features/platform/data";
+import { ApplicationRecord, ApplicationStage } from "@/features/platform/data";
 
 const stages: ApplicationStage[] = ["Applied", "Interview", "Rejected", "Offer"];
 
-export function ApplicationTracker() {
+export function ApplicationTracker({ initialApplications }: { initialApplications: ApplicationRecord[] }) {
   const [items, setItems] = useState(initialApplications);
   const [active, setActive] = useState<ApplicationRecord | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));

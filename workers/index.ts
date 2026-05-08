@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { createRedisConnection } from "@/lib/queue/connection";
 import {
   jobPayloadSchemas,
-  queueName,
+  queueNames,
   ResumeAiJobName,
   ResumeAiJobPayload,
 } from "@/lib/queue/types";
@@ -44,43 +44,58 @@ async function processJob(job: Job<ResumeAiJobPayload, unknown, ResumeAiJobName>
   }
 }
 
-let worker: Worker<ResumeAiJobPayload, unknown, ResumeAiJobName>;
+const workers: Worker[] = [];
 
 try {
-  worker = new Worker<ResumeAiJobPayload, unknown, ResumeAiJobName>(
-    queueName,
-    processJob,
-    {
-      connection: createRedisConnection(),
-      concurrency: Number(process.env.WORKER_CONCURRENCY ?? 5),
-      autorun: true,
-      limiter: {
-        max: Number(process.env.WORKER_RATE_LIMIT_MAX ?? 100),
-        duration: Number(process.env.WORKER_RATE_LIMIT_DURATION_MS ?? 1000),
-      },
-    }
-  );
+  const connection = createRedisConnection();
+  
+  // Mapping jobs to their specific queue for separated architecture
+  const jobToQueueMap: Record<ResumeAiJobName, string> = {
+    autosave: queueNames.default,
+    ats_analysis: queueNames.atsAnalysis,
+    ai_rewrite: queueNames.atsAnalysis,
+    export_pdf: queueNames.default,
+    ai_job_intelligence: queueNames.atsAnalysis,
+    ai_auto_apply: queueNames.atsAnalysis,
+    ai_portfolio: queueNames.atsAnalysis,
+  };
+
+  const uniqueQueues = Array.from(new Set(Object.values(jobToQueueMap)));
+
+  for (const qName of uniqueQueues) {
+    const worker = new Worker<ResumeAiJobPayload, unknown, ResumeAiJobName>(
+      qName,
+      processJob,
+      {
+        connection,
+        concurrency: Number(process.env.WORKER_CONCURRENCY ?? 5),
+        autorun: true,
+      }
+    );
+    
+    worker.on("completed", (job) => {
+      logger.info({ jobId: job.id, type: job.name, queue: qName }, "[Worker] completed");
+    });
+
+    worker.on("failed", (job, error) => {
+      logger.error({ jobId: job?.id, type: job?.name, error, queue: qName }, "[Worker] failed");
+    });
+
+    worker.on("error", (error) => {
+      logger.error({ error, queue: qName }, "[Worker] runtime error");
+    });
+    
+    workers.push(worker);
+  }
 } catch (error) {
   logger.error({ error }, "[Worker] failed to start. Check REDIS_URL.");
   void prisma.$disconnect();
   process.exit(1);
 }
 
-worker.on("completed", (job) => {
-  logger.info({ jobId: job.id, type: job.name }, "[Worker] completed");
-});
-
-worker.on("failed", (job, error) => {
-  logger.error({ jobId: job?.id, type: job?.name, error }, "[Worker] failed");
-});
-
-worker.on("error", (error) => {
-  logger.error({ error }, "[Worker] runtime error");
-});
-
 async function shutdown(signal: string) {
   logger.info({ signal }, "[Worker] shutting down");
-  await worker.close();
+  await Promise.all(workers.map(w => w.close()));
   await prisma.$disconnect();
   process.exit(0);
 }

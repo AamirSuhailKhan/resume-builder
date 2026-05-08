@@ -3,19 +3,36 @@ import { prisma } from "@/lib/db/prisma";
 import { getQueueRedisConnection } from "@/lib/queue/connection";
 import {
   jobPayloadSchemas,
-  queueName,
+  queueNames,
   ResumeAiJobName,
   ResumeAiJobPayloadMap,
 } from "@/lib/queue/types";
 import { QueueUnavailableError } from "@/lib/errors";
 
-const globalForQueue = globalThis as unknown as {
-  resumeAiQueue?: Queue;
+const globalForQueues = globalThis as unknown as {
+  queues?: Map<string, Queue>;
 };
 
-function getResumeAiQueue() {
-  if (!globalForQueue.resumeAiQueue) {
-    globalForQueue.resumeAiQueue = new Queue(queueName, {
+function getQueueForJob(name: ResumeAiJobName): Queue {
+  if (!globalForQueues.queues) {
+    globalForQueues.queues = new Map();
+  }
+
+  // Mapping jobs to their specific queue
+  const jobToQueueMap: Record<ResumeAiJobName, string> = {
+    autosave: queueNames.default,
+    ats_analysis: queueNames.atsAnalysis,
+    ai_rewrite: queueNames.atsAnalysis,
+    export_pdf: queueNames.default,
+    ai_job_intelligence: queueNames.atsAnalysis,
+    ai_auto_apply: queueNames.atsAnalysis,
+    ai_portfolio: queueNames.atsAnalysis,
+  };
+
+  const targetQueueName = jobToQueueMap[name];
+
+  if (!globalForQueues.queues.has(targetQueueName)) {
+    const queue = new Queue(targetQueueName, {
       connection: getQueueRedisConnection(),
       defaultJobOptions: {
         attempts: 3,
@@ -24,9 +41,10 @@ function getResumeAiQueue() {
         removeOnFail: { age: 604800, count: 5000 },
       },
     });
+    globalForQueues.queues.set(targetQueueName, queue);
   }
 
-  return globalForQueue.resumeAiQueue;
+  return globalForQueues.queues.get(targetQueueName)!;
 }
 
 function defaultJobOptions(name: ResumeAiJobName, payload: ResumeAiJobPayloadMap[ResumeAiJobName]): JobsOptions {
@@ -46,7 +64,7 @@ export async function enqueueJob<TName extends ResumeAiJobName>(
   let job;
 
   try {
-    const queue = getResumeAiQueue();
+    const queue = getQueueForJob(name);
     job = await queue.add(name, parsed, {
       ...defaultJobOptions(name, parsed),
       ...options,

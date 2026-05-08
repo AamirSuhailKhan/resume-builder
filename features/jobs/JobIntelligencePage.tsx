@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
-import { parsedJob } from "@/features/platform/data";
 
 const sampleJD = `Senior Frontend Engineer
 
@@ -18,20 +17,34 @@ export function JobIntelligencePage() {
   const [jd, setJd] = useState(sampleJD);
   const [status, setStatus] = useState<"idle" | "queued" | "done">("done");
 
-  const match = useMemo(() => {
-    const text = jd.toLowerCase();
-    const hits = parsedJob.skills.filter((skill) => text.includes(skill.toLowerCase())).length;
-    return Math.min(96, 62 + hits * 7);
-  }, [jd]);
+  const [parsedData, setParsedData] = useState<{skills: string[], tools: string[], experience: string[], missing: string[]}>({
+    skills: [],
+    tools: [],
+    experience: [],
+    missing: [],
+  });
+  const [matchScore, setMatchScore] = useState(0);
 
   const analyze = async () => {
     setStatus("queued");
-    await fetch("/api/ai/job-intelligence", {
+    const res = await fetch("/api/ai/job-intelligence", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ jobDescription: jd }),
     }).catch(() => undefined);
-    window.setTimeout(() => setStatus("done"), 900);
+    
+    // Simulating polling for now
+    window.setTimeout(() => {
+      setStatus("done");
+      // Placeholder data until worker is fully hooked up to frontend polling
+      setParsedData({
+        skills: ["React", "TypeScript", "Next.js"],
+        tools: ["Prisma", "PostgreSQL"],
+        experience: ["Product-minded", "Build workflows"],
+        missing: ["Queues", "UX Judgment"]
+      });
+      setMatchScore(82);
+    }, 1500);
   };
 
   return (
@@ -76,11 +89,11 @@ export function JobIntelligencePage() {
                   <div
                     className="absolute inset-2 rounded-full"
                     style={{
-                      background: `conic-gradient(var(--accent) ${match * 3.6}deg, var(--surface-muted) 0deg)`,
+                      background: `conic-gradient(var(--accent) ${matchScore * 3.6}deg, var(--surface-muted) 0deg)`,
                     }}
                   />
                   <div className="relative grid h-24 w-24 place-items-center rounded-full bg-surface-elevated">
-                    <span className="text-3xl font-semibold">{match}%</span>
+                    <span className="text-3xl font-semibold">{matchScore}%</span>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -107,10 +120,10 @@ export function JobIntelligencePage() {
               </motion.div>
             ) : (
               <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-4 sm:grid-cols-2">
-                <ParsedCard title="Skills" items={parsedJob.skills} />
-                <ParsedCard title="Tools" items={parsedJob.tools} />
-                <ParsedCard title="Experience" items={parsedJob.experience} className="sm:col-span-2" />
-                <ParsedCard title="Missing Skills" items={parsedJob.missing} tone="danger" className="sm:col-span-2" />
+                <ParsedCard title="Skills" items={parsedData.skills} />
+                <ParsedCard title="Tools" items={parsedData.tools} />
+                <ParsedCard title="Experience" items={parsedData.experience} className="sm:col-span-2" />
+                <ParsedCard title="Missing Skills" items={parsedData.missing} tone="danger" className="sm:col-span-2" />
               </motion.div>
             )}
           </AnimatePresence>

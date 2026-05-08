@@ -1,6 +1,26 @@
 import { z } from "zod";
 
-export const queueName = "resumeai-jobs";
+export const queueNames = {
+  atsAnalysis: "resumeai-ats-analysis",   // HIGH priority  — user-facing
+  jobSync: "resumeai-job-sync",           // MEDIUM priority — background
+  analytics: "resumeai-analytics",        // LOW priority   — background
+  cleanup: "resumeai-cleanup",            // LOW priority   — maintenance
+  email: "resumeai-email",               // MEDIUM priority — transactional
+  default: "resumeai-jobs",              // MEDIUM priority — catch-all
+} as const;
+
+/**
+ * BullMQ priority values: lower number = higher priority
+ * 1 = highest, 10 = lowest
+ */
+export const queuePriorities: Record<keyof typeof queueNames, number> = {
+  atsAnalysis: 1,
+  email: 3,
+  jobSync: 5,
+  default: 5,
+  analytics: 8,
+  cleanup: 10,
+};
 
 export const autosavePayloadSchema = z.object({
   jobRecordId: z.string().uuid(),

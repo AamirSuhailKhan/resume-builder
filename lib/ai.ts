@@ -215,6 +215,20 @@ export async function improveResume(resume: ResumeData): Promise<ResumeData> {
   return normalizeResume(improved);
 }
 
-export async function optimizeResumeForJob(resume: ResumeData, jobDescription: string): Promise<ResumeData> {
-  return resume;
+export async function optimizeResumeForJob(resume: ResumeData, jobDescription: string, resumeId?: string) {
+  const response = await fetch("/api/ai/optimize-resume", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resumeData: resume, jobDescription, resumeId }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to optimize resume for job");
+  }
+
+  const data = await response.json();
+  // Return the specific structured output as required:
+  // { optimizedResume, atsScore, missingKeywords, improvements, rewrittenBullets, matchAnalysis }
+  return data;
 }

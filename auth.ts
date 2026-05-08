@@ -67,18 +67,9 @@ if (googleOAuth) {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
-  secret: getAuthSecret(),
   providers,
   callbacks: {
-    jwt({ token, user }) {
-      if (user?.id) token.sub = user.id;
-      return token;
-    },
-    session({ session, token }) {
-      if (session.user && token.sub) session.user.id = token.sub;
-      return session;
-    },
+    ...authConfig.callbacks,
     redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       try {

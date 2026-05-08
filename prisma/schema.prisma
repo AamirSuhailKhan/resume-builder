@@ -1,6 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
+  previewFeatures = ["driverAdapters", "fullTextSearchPostgres"]
 }
 
 datasource db {
@@ -40,6 +40,12 @@ enum ApplicationStatus {
   offer
 }
 
+enum DataSourceType {
+  verified
+  estimated
+  ai_inferred
+}
+
 model User {
   id             String    @id @default(uuid()) @db.Uuid
   name           String?
@@ -59,6 +65,7 @@ model User {
   jobOpportunities  JobOpportunity[]
   applications      Application[]
   interviewSessions InterviewSession[]
+  aiUsages          AIUsage[]
 
   @@index([email])
 }
@@ -158,18 +165,19 @@ model Job {
 }
 
 model JobOpportunity {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @db.Uuid
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @db.Uuid
   company     String
   role        String
   location    String?
   salaryRange String?
   description String
-  matchScore  Int      @default(0)
+  matchScore  Int            @default(0)
   parsed      Json?
   sourceUrl   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  sourceType  DataSourceType @default(verified)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   applications Application[]
@@ -177,6 +185,21 @@ model JobOpportunity {
   @@index([userId, matchScore])
   @@index([userId, createdAt])
   @@map("job_opportunities")
+}
+
+model AIUsage {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
+  provider         String
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  estimatedCost    Float
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model Application {
@@ -220,4 +243,169 @@ model InterviewSession {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+// ──────────────────────────────────────────────
+// AUDIT & OBSERVABILITY
+// ──────────────────────────────────────────────
+
+model AuditEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @db.Uuid
+  action     String   // e.g. "resume.optimized", "application.created"
+  entityType String?  // e.g. "Resume", "Application"
+  entityId   String?  @db.Uuid
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  // Retention: 2 years — purge via cleanup worker
+}
+
+model QueueEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  bullJobId   String
+  queue       String
+  jobType     String
+  status      String   // queued | active | completed | failed | stalled
+  userId      String?  @db.Uuid
+  durationMs  Int?
+  error       String?
+  payload     Json?
+  createdAt   DateTime @default(now())
+
+  @@index([bullJobId])
+  @@index([queue, status, createdAt])
+  // Retention: 30 days — purge via cleanup worker
+}
+
+model ProviderEvent {
+  id               String   @id @default(uuid()) @db.Uuid
+  provider         String
+  success          Boolean
+  jobsFetched      Int      @default(0)
+  jobsInserted     Int      @default(0)
+  jobsSkipped      Int      @default(0)
+  durationMs       Int?
+  error            String?
+  createdAt        DateTime @default(now())
+
+  @@index([provider, createdAt])
+  @@index([success, createdAt])
+  // Retention: 90 days
+}
+
+model ATSScoreHistory {
+  id       String   @id @default(uuid()) @db.Uuid
+  userId   String   @db.Uuid
+  resumeId String   @db.Uuid
+  score    Int
+  jobTitle String?
+  metadata Json?    // detailed breakdown snapshot
+  createdAt DateTime @default(now())
+
+  @@index([resumeId, createdAt])
+  @@index([userId, createdAt])
+  // Retention: unlimited (user data)
+}
+
+// ──────────────────────────────────────────────
+// COMPLIANCE & GDPR
+// ──────────────────────────────────────────────
+
+model ConsentRecord {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  consentType String   // e.g. "marketing", "data_processing", "ai_training"
+  granted     Boolean
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, consentType])
+}
+
+model DataExportRequest {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  status      String    @default("pending") // pending | processing | ready | delivered
+  downloadUrl String?
+  expiresAt   DateTime?
+  requestedAt DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([userId, requestedAt])
+}
+
+model DeletionRequest {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  reason      String?
+  status      String    @default("pending") // pending | processing | completed
+  requestedAt DateTime  @default(now())
+  scheduledAt DateTime? // when deletion will execute (e.g. 30d cooling period)
+  completedAt DateTime?
+
+  @@index([userId])
+  @@index([status, scheduledAt])
+}
+
+// ──────────────────────────────────────────────
+// ANALYTICS MATERIALIZATION
+// ──────────────────────────────────────────────
+
+model AnalyticsSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  date            DateTime @db.Date
+  applicationsCount Int    @default(0)
+  interviewsCount   Int    @default(0)
+  offersCount       Int    @default(0)
+  avgAtsScore       Float  @default(0)
+  responseRate      Float  @default(0) // interviews / applications
+  jobsIngested      Int    @default(0)
+  metadata          Json?  // arbitrary extra aggregation data
+  createdAt         DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  // Retention: 1 year
+}
+
+// ──────────────────────────────────────────────
+// FEATURE FLAGS
+// ──────────────────────────────────────────────
+
+model FeatureFlag {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique
+  enabled     Boolean  @default(false)
+  description String?
+  rolloutPct  Int      @default(100) // 0–100 percentage rollout
+  metadata    Json?    // override config, A/B variants, etc.
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([key])
+}
+
+// ──────────────────────────────────────────────
+// IDEMPOTENCY
+// ──────────────────────────────────────────────
+
+model IdempotencyKey {
+  id         String   @id @default(uuid()) @db.Uuid
+  key        String   @unique
+  userId     String   @db.Uuid
+  operation  String   // e.g. "ats_optimize", "resume_upload"
+  resultRef  String?  // ID of resulting resource, if applicable
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([key])
+  @@index([userId, operation])
+  // Retention: 7 days — purge expired keys in cleanup worker
 }

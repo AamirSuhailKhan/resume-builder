@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
 
-// Upstash HTTP REST client — for rate limiting ONLY.
+// Upstash HTTP REST client — for rate limiting and caching.
 // NOT compatible with ioredis/BullMQ. Do not use for queues.
 export const redis: Redis | null =
   process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -11,5 +11,10 @@ export const redis: Redis | null =
     : null;
 
 if (!redis && process.env.NODE_ENV === "production") {
-  console.warn("[REDIS] Upstash not configured. Rate limiting DISABLED.");
+  console.warn("[REDIS] Upstash not configured. Rate limiting and caching DISABLED.");
+}
+
+/** Returns the shared Redis client, or null if unconfigured. */
+export function getRedisClient(): Redis | null {
+  return redis;
 }

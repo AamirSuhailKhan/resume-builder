@@ -1,24 +1,36 @@
 import pino from "pino";
 
-// Use pino-pretty in development, structured JSON in production
-const isDev = process.env.NODE_ENV !== "production";
-
+// Configure pino for structured JSON logging
 export const logger = pino({
   level: process.env.LOG_LEVEL || "info",
-  transport: isDev
-    ? {
-        target: "pino-pretty",
-        options: {
-          colorize: true,
-          translateTime: "SYS:standard",
-          ignore: "pid,hostname",
-        },
-      }
-    : undefined,
   formatters: {
     level: (label) => {
       return { level: label.toUpperCase() };
     },
   },
   timestamp: pino.stdTimeFunctions.isoTime,
+  ...(process.env.NODE_ENV !== "production"
+    ? {
+        transport: {
+          target: "pino-pretty",
+          options: {
+            colorize: true,
+            ignore: "pid,hostname",
+            translateTime: "SYS:standard",
+          },
+        },
+      }
+    : {}),
 });
+
+export function withCorrelationId(correlationId: string) {
+  return logger.child({ correlationId });
+}
+
+export function withJobId(jobId: string, queue: string) {
+  return logger.child({ jobId, queue });
+}
+
+export function withAiRequestId(aiRequestId: string, provider: string) {
+  return logger.child({ aiRequestId, provider });
+}

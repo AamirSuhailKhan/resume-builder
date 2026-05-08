@@ -1,3 +1,30 @@
 import { JobMatchDashboard } from "@/features/jobs/JobMatchDashboard";
+import { JobsService } from "@/lib/services/jobs.service";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
-export default JobMatchDashboard;
+export default async function MatchesPage() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+  
+  const opportunities = await JobsService.getOpportunitiesForUser(session.user.id);
+  
+  const mappedJobs = opportunities.map(job => {
+    const parsed = job.parsed as any || {};
+    return {
+      id: job.id,
+      company: job.company,
+      role: job.role,
+      location: job.location || "Remote",
+      salary: job.salaryRange || "Competitive",
+      match: job.matchScore,
+      stage: job.matchScore >= 90 ? "hot" : job.matchScore >= 70 ? "warm" : "watch",
+      skills: parsed.skills || [],
+      missing: parsed.missing || [],
+    };
+  });
+
+  return <JobMatchDashboard initialJobs={mappedJobs} />;
+}

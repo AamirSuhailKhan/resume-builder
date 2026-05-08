@@ -8,17 +8,28 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dropdown } from "@/components/ui/dropdown";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
-import { jobMatches } from "@/features/platform/data";
 
-export function JobMatchDashboard() {
+type JobMatch = {
+  id: string;
+  company: string;
+  role: string;
+  location: string;
+  salary: string;
+  match: number;
+  stage: string;
+  skills: string[];
+  missing: string[];
+};
+
+export function JobMatchDashboard({ initialJobs }: { initialJobs: JobMatch[] }) {
   const [sort, setSort] = useState("match");
   const [filter, setFilter] = useState("all");
 
   const jobs = useMemo(() => {
-    return [...jobMatches]
+    return [...initialJobs]
       .filter((job) => filter === "all" || job.stage === filter)
       .sort((a, b) => (sort === "match" ? b.match - a.match : a.company.localeCompare(b.company)));
-  }, [filter, sort]);
+  }, [filter, sort, initialJobs]);
 
   return (
     <SectionShell>
@@ -97,6 +108,11 @@ export function JobMatchDashboard() {
             </Card>
           </motion.div>
         ))}
+        {jobs.length === 0 && (
+          <div className="p-12 text-center text-muted-foreground border-2 border-dashed rounded-xl">
+            No jobs match your criteria. Expand your search or check back later.
+          </div>
+        )}
       </div>
     </SectionShell>
   );

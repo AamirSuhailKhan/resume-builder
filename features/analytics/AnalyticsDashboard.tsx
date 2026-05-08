@@ -5,9 +5,8 @@ import { ArrowUpRight, LineChart, Percent, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
-import { analyticsTrend } from "@/features/platform/data";
 
-export function AnalyticsDashboard() {
+export function AnalyticsDashboard({ trendData, metrics }: { trendData: any[], metrics: { responseRate: string, resumeScore: string, interviewPace: string } }) {
   return (
     <SectionShell>
       <PageHeader
@@ -17,9 +16,9 @@ export function AnalyticsDashboard() {
       />
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Metric title="Response rate" value="42%" detail="+11 pts in 14 days" icon={<Percent className="h-4 w-4" />} />
-        <Metric title="Resume score" value="89" detail="ATS + human readability" icon={<Star className="h-4 w-4" />} />
-        <Metric title="Interview pace" value="6" detail="Active loops this week" icon={<LineChart className="h-4 w-4" />} />
+        <Metric title="Response rate" value={metrics.responseRate} detail="+11 pts in 14 days" icon={<Percent className="h-4 w-4" />} />
+        <Metric title="Resume score" value={metrics.resumeScore} detail="ATS + human readability" icon={<Star className="h-4 w-4" />} />
+        <Metric title="Interview pace" value={metrics.interviewPace} detail="Active loops this week" icon={<LineChart className="h-4 w-4" />} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
@@ -29,7 +28,7 @@ export function AnalyticsDashboard() {
           </CardHeader>
           <CardContent className="h-[360px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={analyticsTrend} margin={{ left: -20, right: 12, top: 10 }}>
+              <AreaChart data={trendData} margin={{ left: -20, right: 12, top: 10 }}>
                 <defs>
                   <linearGradient id="score" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.42} />
@@ -53,7 +52,7 @@ export function AnalyticsDashboard() {
           </CardHeader>
           <CardContent className="h-[360px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={analyticsTrend} margin={{ left: -20, right: 8, top: 10 }}>
+              <BarChart data={trendData} margin={{ left: -20, right: 8, top: 10 }}>
                 <CartesianGrid stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="week" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
