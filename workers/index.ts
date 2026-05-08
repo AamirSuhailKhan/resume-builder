@@ -44,7 +44,7 @@ async function processJob(job: Job<ResumeAiJobPayload, unknown, ResumeAiJobName>
   }
 }
 
-const workers: Worker[] = [];
+const workers: Worker<ResumeAiJobPayload, unknown, ResumeAiJobName>[] = [];
 
 try {
   const connection = createRedisConnection();

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 export const NormalizedJobSchema = z.object({
@@ -60,56 +61,33 @@ export class JobAggregator {
         ? `${job.currency} ${job.salaryMin} - ${job.salaryMax}`
         : null;
 
-      // Upsert to prevent duplicate entries if run multiple times
-      await prisma.jobOpportunity.upsert({
-        where: {
-          // Assume we add a unique composite key or just checking first
-          // Prisma upsert needs a unique index. Let's do findFirst + create for now since schema doesn't have unique on URL
-          id: "dummy-bypass-for-findFirst" 
-        },
-        update: {},
-        create: {
-          userId,
-          company: job.company,
-          role: job.title,
-          location: job.location,
-          salaryRange,
-          description: job.description,
-          sourceUrl: job.sourceUrl,
-          sourceType: "verified",
-          parsed: {
-            skills: job.skills,
-            remote: job.remote,
-            employmentType: job.employmentType,
-            experienceLevel: job.experienceLevel,
-          }
-        }
-      }).catch(async () => {
-        // Fallback to findFirst and create since we don't have a unique constraint on sourceUrl in Prisma schema right now
-        const existing = await prisma.jobOpportunity.findFirst({
-          where: { userId, company: job.company, role: job.title }
-        });
-        if (!existing) {
-          await prisma.jobOpportunity.create({
-            data: {
-              userId,
-              company: job.company,
-              role: job.title,
-              location: job.location,
-              salaryRange,
-              description: job.description,
-              sourceUrl: job.sourceUrl,
-              sourceType: "verified",
-              parsed: {
-                skills: job.skills,
-                remote: job.remote,
-                employmentType: job.employmentType,
-                experienceLevel: job.experienceLevel,
-              }
-            }
-          });
-        }
+      const parsed: Prisma.InputJsonObject = {
+        skills: job.skills,
+        remote: job.remote,
+        ...(job.employmentType ? { employmentType: job.employmentType } : {}),
+        ...(job.experienceLevel ? { experienceLevel: job.experienceLevel } : {}),
+      };
+
+      const existing = await prisma.jobOpportunity.findFirst({
+        where: { userId, company: job.company, role: job.title, sourceUrl: job.sourceUrl },
+        select: { id: true },
       });
+
+      if (!existing) {
+        await prisma.jobOpportunity.create({
+          data: {
+            userId,
+            company: job.company,
+            role: job.title,
+            location: job.location ?? null,
+            salaryRange,
+            description: job.description,
+            sourceUrl: job.sourceUrl,
+            sourceType: "verified",
+            parsed,
+          },
+        });
+      }
     }
 
     return uniqueJobs.length;

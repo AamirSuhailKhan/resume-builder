@@ -59,8 +59,8 @@ export async function handleAutoApply(payload: AiAutoApplyPayload) {
   const application = await prisma.application.create({
     data: {
       userId: payload.userId,
-      resumeId: payload.resumeId,
-      jobOpportunityId: payload.jobOpportunityId,
+      resumeId: payload.resumeId ?? null,
+      jobOpportunityId: payload.jobOpportunityId ?? null,
       company: "Queued Company",
       role: "Queued Role",
       matchScore: 88,

@@ -13,8 +13,8 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
 
   return {
     id: userId,
-    email: session.user.email,
-    name: session.user.name,
+    email: session.user.email ?? null,
+    name: session.user.name ?? null,
   };
 }
 

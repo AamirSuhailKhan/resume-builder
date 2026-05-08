@@ -49,15 +49,15 @@ export async function getResumes(): Promise<DBResult<ResumeData[]>> {
       return { data: null, error: error.message };
     }
 
-    const resumes: ResumeData[] = (data ?? []).map((row: Record<string, any>) =>
+    const resumes: ResumeData[] = (data ?? []).map((row: Record<string, unknown>) =>
       normalizeResume(row.data ?? row)
     );
 
-    console.log("[getResumes] Loaded", resumes.length, "resumes for user:", userId);
+    console.info("[getResumes] Loaded", resumes.length, "resumes for user:", userId);
     return { data: resumes, error: null };
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("[getResumes] Unexpected:", e);
-    return { data: null, error: e?.message ?? "Unknown error fetching resumes" };
+    return { data: null, error: e instanceof Error ? e.message : "Unknown error fetching resumes" };
   }
 }
 
@@ -95,11 +95,11 @@ export async function saveResume(resume: ResumeData): Promise<{ error: string | 
       return { error: error.message };
     }
 
-    console.log("[saveResume] Saved:", resume.id, "for user:", userId);
+    console.info("[saveResume] Saved:", resume.id, "for user:", userId);
     return { error: null };
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("[saveResume] Unexpected:", e);
-    return { error: e?.message ?? "Unknown error saving resume" };
+    return { error: e instanceof Error ? e.message : "Unknown error saving resume" };
   }
 }
 
@@ -129,11 +129,11 @@ export async function deleteResume(id: string): Promise<{ error: string | null }
       return { error: error.message };
     }
 
-    console.log("[deleteResume] Deleted:", id);
+    console.info("[deleteResume] Deleted:", id);
     return { error: null };
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error("[deleteResume] Unexpected:", e);
-    return { error: e?.message ?? "Unknown error deleting resume" };
+    return { error: e instanceof Error ? e.message : "Unknown error deleting resume" };
   }
 }
 

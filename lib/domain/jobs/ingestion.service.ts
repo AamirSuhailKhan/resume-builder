@@ -90,9 +90,10 @@ export class JobIngestionService {
         existing.push({ company: job.company, role: job.title });
         inserted++;
         publishJobIngested(job.externalId, job.company);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to insert job";
         logger.error(
-          { provider: response.provider, job: job.title, error: err.message },
+          { provider: response.provider, job: job.title, error: message },
           "[Ingestion] Failed to insert job"
         );
       }

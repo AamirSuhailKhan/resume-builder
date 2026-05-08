@@ -55,14 +55,13 @@ export const useJobInsightsStore = create<JobInsightsState>()((set, get) => ({
       cachedHash === currentHash &&
       isFresh
     ) {
-      return get().insightsByResumeId[resumeId];
+      return get().insightsByResumeId[resumeId] ?? null;
     }
 
     // Debounce duplicate fetches
     if (fetchTimers.has(resumeId)) {
       // A fetch is already scheduled – return a promise that resolves when it completes
       return new Promise<JobIntelligenceOutput | null>((resolve) => {
-        const timer = fetchTimers.get(resumeId)!;
         const check = () => {
           if (!fetchTimers.has(resumeId)) {
             resolve(get().insightsByResumeId[resumeId] ?? null);
@@ -98,9 +97,10 @@ export const useJobInsightsStore = create<JobInsightsState>()((set, get) => ({
           errorById: { ...s.errorById, [resumeId]: null },
         }));
         return insights;
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Failed to fetch job insights";
         console.error("Failed to fetch job insights:", err);
-        set((s) => ({ loadingById: { ...s.loadingById, [resumeId]: false }, errorById: { ...s.errorById, [resumeId]: err.message } }));
+        set((s) => ({ loadingById: { ...s.loadingById, [resumeId]: false }, errorById: { ...s.errorById, [resumeId]: message } }));
         return null;
       } finally {
         fetchTimers.delete(resumeId);
@@ -109,7 +109,7 @@ export const useJobInsightsStore = create<JobInsightsState>()((set, get) => ({
 
     // Schedule with debounce (400ms)
     const timer = setTimeout(() => {
-      performFetch();
+      void performFetch();
     }, 400);
     fetchTimers.set(resumeId, timer);
     // Return a promise that resolves after the fetch finishes

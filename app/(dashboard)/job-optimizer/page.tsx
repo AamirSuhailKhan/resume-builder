@@ -112,9 +112,9 @@ export default function JobOptimizerPage() {
         setJobResult(data);
       }
       setStep("done");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setErrorMsg(e.message || "Failed to analyze.");
+      setErrorMsg(e instanceof Error ? e.message : "Failed to analyze.");
       setStep("error");
     }
   };
@@ -173,7 +173,7 @@ export default function JobOptimizerPage() {
                     }}
                   >
                     <option value="">— Or select an existing resume —</option>
-                    {resumes.map((r) => (
+                    {resumes.filter((r): r is NonNullable<typeof r> => Boolean(r)).map((r) => (
                       <option key={r.id} value={r.id}>{r.title}</option>
                     ))}
                     {selectedId === "demo-resume-1" && <option value="demo-resume-1">Demo Resume (Alex Developer)</option>}

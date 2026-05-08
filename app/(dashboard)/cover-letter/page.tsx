@@ -62,9 +62,9 @@ export default function CoverLetterPage() {
       await new Promise(r => setTimeout(r, 1000));
       const aiResult = await generateApplicationPackage(resume, job);
       setResult(aiResult);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setErrorMsg(e.message || "Failed to generate application package.");
+      setErrorMsg(e instanceof Error ? e.message : "Failed to generate application package.");
     } finally {
       setIsBusy(false);
     }
@@ -109,7 +109,7 @@ export default function CoverLetterPage() {
               onChange={e => setSelectedId(e.target.value)}
             >
               <option value="">— Choose a resume —</option>
-              {resumes.map(r => (
+              {resumes.filter((r): r is NonNullable<typeof r> => Boolean(r)).map(r => (
                 <option key={r.id} value={r.id}>{r.title}</option>
               ))}
             </select>

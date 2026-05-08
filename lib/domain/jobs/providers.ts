@@ -5,6 +5,34 @@ import {
   ProviderResponse,
 } from "./provider.types";
 
+type ProviderRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): ProviderRecord {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as ProviderRecord : {};
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : value == null ? fallback : String(value);
+}
+
+function nullableString(value: unknown): string | null {
+  const text = stringValue(value).trim();
+  return text ? text : null;
+}
+
+function numberValue(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Provider fetch failed";
+}
+
 abstract class BaseJobProvider implements JobProviderContract {
   abstract readonly name: string;
   abstract readonly baseUrl: string;
@@ -48,7 +76,7 @@ abstract class BaseJobProvider implements JobProviderContract {
       rawCount,
       normalizedCount: data.length,
       deduplicatedCount: rawCount - data.length,
-      error,
+      ...(error ? { error } : {}),
     };
   }
 
@@ -79,30 +107,32 @@ export class RemotiveProvider extends BaseJobProvider {
       const res = await this.fetchWithTimeout(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 
-      const json = await res.json();
-      const jobs: NormalizedProviderJob[] = (json.jobs ?? []).map((j: any) => ({
-        externalId: String(j.id),
-        title: j.title,
-        company: j.company_name,
-        location: j.candidate_required_location || null,
+      const json = await res.json() as { jobs?: ProviderRecord[] };
+      const rawJobs = json.jobs ?? [];
+      const jobs: NormalizedProviderJob[] = rawJobs.map((j) => ({
+        externalId: stringValue(j.id),
+        title: stringValue(j.title),
+        company: stringValue(j.company_name),
+        location: nullableString(j.candidate_required_location),
         remote: true,
         salaryMin: null,
         salaryMax: null,
         currency: "USD",
-        employmentType: j.job_type || null,
+        employmentType: nullableString(j.job_type),
         experienceLevel: null,
-        skills: (j.tags ?? []),
+        skills: stringArray(j.tags),
         source: this.name,
-        sourceUrl: j.url,
-        postedAt: new Date(j.publication_date),
-        description: j.description,
+        sourceUrl: stringValue(j.url),
+        postedAt: new Date(stringValue(j.publication_date)),
+        description: stringValue(j.description),
       }));
 
       logger.info({ provider: this.name, count: jobs.length }, "[Provider] jobs fetched");
-      return this.buildResponse(jobs, json.jobs?.length ?? 0, Date.now() - start);
-    } catch (error: any) {
-      logger.error({ provider: this.name, error: error.message }, "[Provider] fetch failed");
-      return this.buildResponse([], 0, Date.now() - start, error.message);
+      return this.buildResponse(jobs, rawJobs.length, Date.now() - start);
+    } catch (error: unknown) {
+      const message = errorMessage(error);
+      logger.error({ provider: this.name, error: message }, "[Provider] fetch failed");
+      return this.buildResponse([], 0, Date.now() - start, message);
     }
   }
 }
@@ -130,32 +160,33 @@ export class RemoteOKProvider extends BaseJobProvider {
       const res = await this.fetchWithTimeout(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const json: any[] = await res.json();
+      const json = await res.json() as ProviderRecord[];
       // RemoteOK always starts with a legal disclaimer object
       const rawJobs = json.filter((j) => j.id && j.company);
       const jobs: NormalizedProviderJob[] = rawJobs.slice(0, limit).map((j) => ({
-        externalId: String(j.id),
-        title: j.position,
-        company: j.company,
+        externalId: stringValue(j.id),
+        title: stringValue(j.position),
+        company: stringValue(j.company),
         location: "Remote",
         remote: true,
-        salaryMin: j.salary_min ? Number(j.salary_min) : null,
-        salaryMax: j.salary_max ? Number(j.salary_max) : null,
+        salaryMin: numberValue(j.salary_min),
+        salaryMax: numberValue(j.salary_max),
         currency: "USD",
         employmentType: "full_time",
         experienceLevel: null,
-        skills: (j.tags ?? []),
+        skills: stringArray(j.tags),
         source: this.name,
-        sourceUrl: `https://remoteok.com/remote-jobs/${j.slug}`,
-        postedAt: new Date(j.date),
-        description: j.description || "",
+        sourceUrl: `https://remoteok.com/remote-jobs/${stringValue(j.slug)}`,
+        postedAt: new Date(stringValue(j.date)),
+        description: stringValue(j.description),
       }));
 
       logger.info({ provider: this.name, count: jobs.length }, "[Provider] jobs fetched");
       return this.buildResponse(jobs, rawJobs.length, Date.now() - start);
-    } catch (error: any) {
-      logger.error({ provider: this.name, error: error.message }, "[Provider] fetch failed");
-      return this.buildResponse([], 0, Date.now() - start, error.message);
+    } catch (error: unknown) {
+      const message = errorMessage(error);
+      logger.error({ provider: this.name, error: message }, "[Provider] fetch failed");
+      return this.buildResponse([], 0, Date.now() - start, message);
     }
   }
 }
@@ -182,31 +213,32 @@ export class ArbeitnowProvider extends BaseJobProvider {
       const res = await this.fetchWithTimeout(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const json = await res.json();
+      const json = await res.json() as { data?: ProviderRecord[] };
       const rawJobs = json.data ?? [];
-      const jobs: NormalizedProviderJob[] = rawJobs.slice(0, limit).map((j: any) => ({
-        externalId: j.slug,
-        title: j.title,
-        company: j.company_name,
-        location: j.location || null,
-        remote: j.remote,
+      const jobs: NormalizedProviderJob[] = rawJobs.slice(0, limit).map((j) => ({
+        externalId: stringValue(j.slug),
+        title: stringValue(j.title),
+        company: stringValue(j.company_name),
+        location: nullableString(j.location),
+        remote: Boolean(j.remote),
         salaryMin: null,
         salaryMax: null,
         currency: "EUR",
-        employmentType: j.job_types?.[0] || null,
+        employmentType: Array.isArray(j.job_types) ? nullableString(j.job_types[0]) : null,
         experienceLevel: null,
-        skills: j.tags ?? [],
+        skills: stringArray(j.tags),
         source: this.name,
-        sourceUrl: j.url,
-        postedAt: new Date(j.created_at * 1000),
-        description: j.description,
+        sourceUrl: stringValue(j.url),
+        postedAt: new Date((numberValue(j.created_at) ?? 0) * 1000),
+        description: stringValue(j.description),
       }));
 
       logger.info({ provider: this.name, count: jobs.length }, "[Provider] jobs fetched");
       return this.buildResponse(jobs, rawJobs.length, Date.now() - start);
-    } catch (error: any) {
-      logger.error({ provider: this.name, error: error.message }, "[Provider] fetch failed");
-      return this.buildResponse([], 0, Date.now() - start, error.message);
+    } catch (error: unknown) {
+      const message = errorMessage(error);
+      logger.error({ provider: this.name, error: message }, "[Provider] fetch failed");
+      return this.buildResponse([], 0, Date.now() - start, message);
     }
   }
 }
@@ -242,14 +274,17 @@ export class GreenhouseProvider extends BaseJobProvider {
       const res = await this.fetchWithTimeout(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const json = await res.json();
+      const json = await res.json() as { jobs?: ProviderRecord[] };
       const rawJobs = json.jobs ?? [];
-      const jobs: NormalizedProviderJob[] = rawJobs.slice(0, limit).map((j: any) => ({
-        externalId: String(j.id),
-        title: j.title,
+      const jobs: NormalizedProviderJob[] = rawJobs.slice(0, limit).map((j) => {
+        const location = asRecord(j.location);
+        const locationName = nullableString(location.name);
+        return {
+        externalId: stringValue(j.id),
+        title: stringValue(j.title),
         company: slug,
-        location: j.location?.name || null,
-        remote: j.location?.name?.toLowerCase().includes("remote") ?? false,
+        location: locationName,
+        remote: locationName?.toLowerCase().includes("remote") ?? false,
         salaryMin: null,
         salaryMax: null,
         currency: "USD",
@@ -257,15 +292,17 @@ export class GreenhouseProvider extends BaseJobProvider {
         experienceLevel: null,
         skills: [],
         source: this.name,
-        sourceUrl: j.absolute_url,
-        postedAt: new Date(j.updated_at),
-        description: j.content || "",
-      }));
+        sourceUrl: stringValue(j.absolute_url),
+        postedAt: new Date(stringValue(j.updated_at)),
+        description: stringValue(j.content),
+      };
+      });
 
       return this.buildResponse(jobs, rawJobs.length, Date.now() - start);
-    } catch (error: any) {
-      logger.error({ provider: this.name, slug, error: error.message }, "[Provider] fetch failed");
-      return this.buildResponse([], 0, Date.now() - start, error.message);
+    } catch (error: unknown) {
+      const message = errorMessage(error);
+      logger.error({ provider: this.name, slug, error: message }, "[Provider] fetch failed");
+      return this.buildResponse([], 0, Date.now() - start, message);
     }
   }
 }
@@ -298,29 +335,30 @@ export class LeverProvider extends BaseJobProvider {
       const res = await this.fetchWithTimeout(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const rawJobs: any[] = await res.json();
+      const rawJobs = await res.json() as ProviderRecord[];
       const jobs: NormalizedProviderJob[] = rawJobs.map((j) => ({
-        externalId: j.id,
-        title: j.text,
+        externalId: stringValue(j.id),
+        title: stringValue(j.text),
         company: companyTag,
-        location: j.categories?.location || null,
-        remote: j.categories?.location?.toLowerCase().includes("remote") ?? false,
+        location: nullableString(asRecord(j.categories).location),
+        remote: nullableString(asRecord(j.categories).location)?.toLowerCase().includes("remote") ?? false,
         salaryMin: null,
         salaryMax: null,
         currency: "USD",
-        employmentType: j.categories?.commitment || null,
-        experienceLevel: j.categories?.team || null,
+        employmentType: nullableString(asRecord(j.categories).commitment),
+        experienceLevel: nullableString(asRecord(j.categories).team),
         skills: [],
         source: this.name,
-        sourceUrl: j.hostedUrl,
-        postedAt: new Date(j.createdAt),
-        description: j.descriptionPlain || "",
+        sourceUrl: stringValue(j.hostedUrl),
+        postedAt: new Date(numberValue(j.createdAt) ?? Date.now()),
+        description: stringValue(j.descriptionPlain),
       }));
 
       return this.buildResponse(jobs, rawJobs.length, Date.now() - start);
-    } catch (error: any) {
-      logger.error({ provider: this.name, companyTag, error: error.message }, "[Provider] fetch failed");
-      return this.buildResponse([], 0, Date.now() - start, error.message);
+    } catch (error: unknown) {
+      const message = errorMessage(error);
+      logger.error({ provider: this.name, companyTag, error: message }, "[Provider] fetch failed");
+      return this.buildResponse([], 0, Date.now() - start, message);
     }
   }
 }

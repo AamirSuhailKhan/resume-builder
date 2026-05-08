@@ -4,13 +4,13 @@ import React from "react";
 import { useResumeStore, selectAddItem, selectRemoveItem, selectReorderItem } from "@/store/useResumeStore";
 import { ArrowUp, ArrowDown, Trash2, Plus } from "lucide-react";
 
-interface ExperienceArrayProps {
-  items: any[];
+interface ExperienceArrayProps<TItem extends { id?: string }> {
+  items: TItem[];
   isEditing: boolean;
-  renderItem: (item: any, index: number) => React.ReactNode;
+  renderItem: (item: TItem, index: number) => React.ReactNode;
 }
 
-export const ExperienceArray = ({ items, isEditing, renderItem }: ExperienceArrayProps) => {
+export const ExperienceArray = <TItem extends { id?: string }>({ items, isEditing, renderItem }: ExperienceArrayProps<TItem>) => {
   const addItem = useResumeStore(selectAddItem);
   const removeItem = useResumeStore(selectRemoveItem);
   const reorderItem = useResumeStore(selectReorderItem);

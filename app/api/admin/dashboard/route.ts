@@ -7,10 +7,19 @@ import { subDays } from "date-fns";
 
 export const runtime = "nodejs";
 
-// TODO: Protect this route with an admin session check / API key in production
-// e.g.: const adminKey = req.headers.get("x-admin-key"); if (adminKey !== process.env.ADMIN_API_KEY) return 401;
+type QueueHealthStats = Record<string, {
+  waiting: number;
+  active: number;
+  completed: number;
+  failed: number;
+}>;
 
 export async function GET(req: NextRequest) {
+  const adminKey = req.headers.get("x-admin-key");
+  if (!process.env.ADMIN_API_KEY || adminKey !== process.env.ADMIN_API_KEY) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const [aiStats, providerStats, queueStats, atsLatency] = await Promise.allSettled([
     getAiCostStats(),
     getProviderStats(),
@@ -71,7 +80,7 @@ async function getProviderStats() {
 
 async function getQueueStats() {
   const connection = getQueueRedisConnection();
-  const stats: Record<string, any> = {};
+  const stats: QueueHealthStats = {};
 
   for (const [key, qName] of Object.entries(queueNames)) {
     const queue = new Queue(qName, { connection });
@@ -99,7 +108,7 @@ async function getAtsLatencyStats() {
   if (events.length === 0) return { p50: null, p95: null, p99: null, samples: 0 };
 
   const durations = events.map((e) => e.durationMs!).sort((a, b) => a - b);
-  const p = (pct: number) => durations[Math.floor((pct / 100) * durations.length)];
+  const p = (pct: number) => durations[Math.min(durations.length - 1, Math.floor((pct / 100) * durations.length))] ?? null;
 
   return {
     p50: p(50),

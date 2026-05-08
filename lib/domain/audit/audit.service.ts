@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { logger } from "@/lib/logger";
 
@@ -10,15 +11,16 @@ export async function writeAuditEvent(params: {
   action: string;
   entityType?: string;
   entityId?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Prisma.InputJsonObject;
   ipAddress?: string;
   userAgent?: string;
 }) {
   try {
     await prisma.auditEvent.create({ data: params });
-  } catch (err: any) {
+  } catch (err: unknown) {
     // Audit writing must never crash the caller
-    logger.error({ err: err.message, action: params.action }, "[Audit] Failed to write event");
+    const message = err instanceof Error ? err.message : "Unknown audit write error";
+    logger.error({ err: message, action: params.action }, "[Audit] Failed to write event");
   }
 }
 
@@ -33,12 +35,13 @@ export async function writeQueueEvent(params: {
   userId?: string;
   durationMs?: number;
   error?: string;
-  payload?: Record<string, unknown>;
+  payload?: Prisma.InputJsonObject;
 }) {
   try {
     await prisma.queueEvent.create({ data: params });
-  } catch (err: any) {
-    logger.error({ err: err.message }, "[Audit] Failed to write queue event");
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown queue audit write error";
+    logger.error({ err: message }, "[Audit] Failed to write queue event");
   }
 }
 
@@ -62,12 +65,13 @@ export async function writeProviderEvent(params: {
         jobsFetched: params.jobsFetched ?? 0,
         jobsInserted: params.jobsInserted ?? 0,
         jobsSkipped: params.jobsSkipped ?? 0,
-        durationMs: params.durationMs,
-        error: params.error,
+        durationMs: params.durationMs ?? null,
+        error: params.error ?? null,
       },
     });
-  } catch (err: any) {
-    logger.error({ err: err.message }, "[Audit] Failed to write provider event");
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown provider audit write error";
+    logger.error({ err: message }, "[Audit] Failed to write provider event");
   }
 }
 
@@ -79,11 +83,12 @@ export async function recordAtsScore(params: {
   resumeId: string;
   score: number;
   jobTitle?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: Prisma.InputJsonObject;
 }) {
   try {
     await prisma.aTSScoreHistory.create({ data: params });
-  } catch (err: any) {
-    logger.error({ err: err.message }, "[Audit] Failed to record ATS score");
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown ATS score audit write error";
+    logger.error({ err: message }, "[Audit] Failed to record ATS score");
   }
 }

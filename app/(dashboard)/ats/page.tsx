@@ -23,6 +23,7 @@ import {
   selectIsHydrated,
 } from "@/store/useResumeStore";
 import { normalizeResume } from "@/lib/normalizeResume";
+import { ResumeData } from "@/lib/storage";
 
 type OptimizationStep = "idle" | "analyzing" | "generating" | "done" | "error";
 
@@ -131,7 +132,7 @@ export default function ApplicationMaximizerPage() {
 
   const isBusy = step !== "idle" && step !== "done" && step !== "error";
 
-  const executeAnalysis = async (targetResume: any, targetJob: string, isDemo: boolean) => {
+  const executeAnalysis = async (targetResume: ResumeData, targetJob: string, isDemo: boolean) => {
     setStep("analyzing");
     setResult(null);
     setErrorMsg("");
@@ -151,9 +152,9 @@ export default function ApplicationMaximizerPage() {
       setEditableEmail(aiResult.tailored_package.email);
 
       setStep("done");
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setErrorMsg(e.message || "Optimization failed.");
+      setErrorMsg(e instanceof Error ? e.message : "Optimization failed.");
       setStep("error");
     }
   };
@@ -194,7 +195,7 @@ export default function ApplicationMaximizerPage() {
           }
         });
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Regeneration failed", e);
     } finally {
       setIsRegenerating(false);
@@ -277,7 +278,7 @@ export default function ApplicationMaximizerPage() {
               onChange={e => setSelectedId(e.target.value)}
             >
               <option value="">— Choose a resume —</option>
-              {resumes.map(r => (
+              {resumes.filter((r): r is NonNullable<typeof r> => Boolean(r)).map(r => (
                 <option key={r.id} value={r.id}>{r.title}</option>
               ))}
             </select>

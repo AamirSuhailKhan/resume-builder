@@ -10,6 +10,7 @@ import {
   selectActiveResume,
 } from "@/store/useResumeStore";
 import { RenderMode } from "@/components/builder/ResumePreview";
+import { ResumeData } from "@/lib/storage";
 
 const RichEditor = dynamic(
   () => import("@/components/builder/inline/RichEditor").then((mod) => mod.RichEditor),
@@ -22,16 +23,41 @@ const RichEditor = dynamic(
 );
 
 interface ModernTemplateProps {
-  data: any;
+  data: ResumeData;
   renderMode?: RenderMode;
   isEditing?: boolean; // legacy fallback
 }
+
+type ModernPersonal = ResumeData["personal"] & { fullName?: string; title?: string };
+type ModernResume = ResumeData & { personal: ModernPersonal };
+type ModernExperienceItem = ResumeData["experience"][number] & { description?: string };
+type ModernEducationItem = ResumeData["education"][number] & { endDate?: string };
+type TextHandler = (value: string) => void;
+type ExperienceHandlers = {
+  onRole: TextHandler;
+  onCompany: TextHandler;
+  onStartDate: TextHandler;
+  onEndDate: TextHandler;
+  onPoints: TextHandler;
+};
 
 // ─── Header Section (Memoized) ───────────────────────────────────────────────
 const ModernHeader = React.memo(function ModernHeader({ 
   name, title, email, phone, location, isEditing, 
   onName, onTitle, onEmail, onPhone, onLocation 
-}: any) {
+}: {
+  name: string;
+  title: string;
+  email: string;
+  phone: string;
+  location: string;
+  isEditing: boolean;
+  onName: TextHandler;
+  onTitle: TextHandler;
+  onEmail: TextHandler;
+  onPhone: TextHandler;
+  onLocation: TextHandler;
+}) {
   return (
     <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-8 group/header relative">
       {isEditing && (
@@ -60,7 +86,11 @@ const ModernHeader = React.memo(function ModernHeader({
 });
 
 // ─── Summary Section (Memoized) ──────────────────────────────────────────────
-const ModernSummary = React.memo(function ModernSummary({ summary, isEditing, onSummary }: any) {
+const ModernSummary = React.memo(function ModernSummary({ summary, isEditing, onSummary }: {
+  summary: string;
+  isEditing: boolean;
+  onSummary: TextHandler;
+}) {
   return (
     <section className="relative group/section">
       {isEditing && (
@@ -84,7 +114,11 @@ const ModernSummary = React.memo(function ModernSummary({ summary, isEditing, on
 });
 
 // ─── Experience Section (Memoized) ───────────────────────────────────────────
-const ModernExperience = React.memo(function ModernExperience({ experience, expHandlers, isEditing }: any) {
+const ModernExperience = React.memo(function ModernExperience({ experience, expHandlers, isEditing }: {
+  experience: ModernExperienceItem[];
+  expHandlers: ExperienceHandlers[];
+  isEditing: boolean;
+}) {
   return (
     <section className="relative group/section">
       {isEditing && (
@@ -98,7 +132,7 @@ const ModernExperience = React.memo(function ModernExperience({ experience, expH
       <ExperienceArray
         items={experience}
         isEditing={isEditing}
-        renderItem={(exp: any, index: number) => {
+        renderItem={(exp, index: number) => {
           const handlers = expHandlers[index];
           if (!handlers) return null;
           return (
@@ -134,7 +168,10 @@ const ModernExperience = React.memo(function ModernExperience({ experience, expH
 });
 
 // ─── Skills Section (Memoized) ───────────────────────────────────────────────
-const ModernSkills = React.memo(function ModernSkills({ skills, isEditing }: any) {
+const ModernSkills = React.memo(function ModernSkills({ skills, isEditing }: {
+  skills: string[];
+  isEditing: boolean;
+}) {
   return (
     <section>
       <h2 className="text-indigo-600 font-black uppercase tracking-widest border-b-2 border-indigo-100 pb-2 mb-4 text-sm">
@@ -158,7 +195,10 @@ const ModernSkills = React.memo(function ModernSkills({ skills, isEditing }: any
 });
 
 // ─── Education Section (Memoized) ────────────────────────────────────────────
-const ModernEducation = React.memo(function ModernEducation({ education, isEditing }: any) {
+const ModernEducation = React.memo(function ModernEducation({ education, isEditing }: {
+  education: ModernEducationItem[];
+  isEditing: boolean;
+}) {
   return (
     <section>
       <h2 className="text-indigo-600 font-black uppercase tracking-widest border-b-2 border-indigo-100 pb-2 mb-4 text-sm">
@@ -166,7 +206,7 @@ const ModernEducation = React.memo(function ModernEducation({ education, isEditi
       </h2>
       {education.length > 0 ? (
         <div className="space-y-3">
-          {education.map((edu: any, i: number) => (
+          {education.map((edu, i: number) => (
             <div key={edu.id ?? i}>
               <div className="flex justify-between items-baseline">
                 <p className="font-bold text-gray-900">{edu.degree || "Degree"}</p>
@@ -193,7 +233,7 @@ export function ModernTemplate({ data, renderMode = "edit", isEditing: fallbackI
   const isEditing = renderMode === "edit" || fallbackIsEditing === true;
 
   // Use active resume from store if editing, otherwise fallback to prop data
-  const src = (isEditing && activeResume) ? activeResume : data;
+  const src = ((isEditing && activeResume) ? activeResume : data) as ModernResume;
 
   const name     = src?.personal?.fullName || src?.personal?.name || "";
   const title    = src?.personal?.title || "";
@@ -201,9 +241,9 @@ export function ModernTemplate({ data, renderMode = "edit", isEditing: fallbackI
   const phone    = src?.personal?.phone || "";
   const location = src?.personal?.location || "";
   const summary  = src?.personal?.summary || "";
-  const experience: any[] = src?.experience ?? [];
+  const experience: ModernExperienceItem[] = src?.experience ?? [];
   const skills: string[]  = Array.isArray(src?.skills) ? src.skills : [];
-  const education: any[]  = Array.isArray(src?.education) ? src.education : [];
+  const education: ModernEducationItem[]  = Array.isArray(src?.education) ? src.education : [];
 
   // Stable top-level handlers
   const onName     = useCallback((v: string) => updateField("personal.name", v), [updateField]);

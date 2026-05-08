@@ -1,3 +1,6 @@
+# NOTE: This Dockerfile is for containerised deployments (Docker Compose, Kubernetes).
+# For VPS/bare metal, use ecosystem.config.js with PM2 instead.
+
 FROM node:20-alpine AS base
 
 # Install dependencies only when needed

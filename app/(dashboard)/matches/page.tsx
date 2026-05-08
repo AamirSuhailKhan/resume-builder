@@ -1,5 +1,6 @@
 import { JobMatchDashboard } from "@/features/jobs/JobMatchDashboard";
 import { JobsService } from "@/lib/services/jobs.service";
+import { JobMatch } from "@/features/platform/data";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 
@@ -11,8 +12,10 @@ export default async function MatchesPage() {
   
   const opportunities = await JobsService.getOpportunitiesForUser(session.user.id);
   
-  const mappedJobs = opportunities.map(job => {
-    const parsed = job.parsed as any || {};
+  const mappedJobs: JobMatch[] = opportunities.map(job => {
+    const parsed = typeof job.parsed === "object" && job.parsed !== null && !Array.isArray(job.parsed)
+      ? job.parsed as { skills?: unknown; missing?: unknown }
+      : {};
     return {
       id: job.id,
       company: job.company,
@@ -21,8 +24,8 @@ export default async function MatchesPage() {
       salary: job.salaryRange || "Competitive",
       match: job.matchScore,
       stage: job.matchScore >= 90 ? "hot" : job.matchScore >= 70 ? "warm" : "watch",
-      skills: parsed.skills || [],
-      missing: parsed.missing || [],
+      skills: Array.isArray(parsed.skills) ? parsed.skills.map(String) : [],
+      missing: Array.isArray(parsed.missing) ? parsed.missing.map(String) : [],
     };
   });
 

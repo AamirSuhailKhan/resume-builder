@@ -29,7 +29,7 @@ export function getSupabase() {
 
   if (!client) {
     client = createBrowserClient(url, key);
-    console.log("✅ Supabase browser client initialized");
+    console.info("Supabase browser client initialized");
   }
 
   return client;
@@ -62,8 +62,8 @@ export async function signOut(): Promise<{ error: string | null }> {
   try {
     const { error } = await supabase.auth.signOut();
     return { error: error?.message ?? null };
-  } catch (e: any) {
-    return { error: e?.message ?? "Unknown sign-out error" };
+  } catch (e: unknown) {
+    return { error: e instanceof Error ? e.message : "Unknown sign-out error" };
   }
 }
 

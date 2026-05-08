@@ -267,6 +267,7 @@ export const useResumeStore = create<ResumeStore>()(
 
         set((state) => {
           const current = state.resumesById[activeResumeId];
+          if (!current) return state;
           const next = produce(current, (draft) => {
             setLodash(draft, path, value);
             draft.updatedAt = new Date().toISOString();
@@ -280,7 +281,9 @@ export const useResumeStore = create<ResumeStore>()(
         if (!isValidResumeId(activeResumeId) || !get().resumesById[activeResumeId]) return;
 
         set((state) => {
-          const next = produce(state.resumesById[activeResumeId], (draft) => {
+          const current = state.resumesById[activeResumeId];
+          if (!current) return state;
+          const next = produce(current, (draft) => {
             const currentArray = getLodash(draft, section);
             const nextArray = Array.isArray(currentArray) ? currentArray : [];
             setLodash(draft, section, [...nextArray, customPayload ?? defaultItem(section)]);
@@ -295,7 +298,9 @@ export const useResumeStore = create<ResumeStore>()(
         if (!isValidResumeId(activeResumeId) || !get().resumesById[activeResumeId]) return;
 
         set((state) => {
-          const next = produce(state.resumesById[activeResumeId], (draft) => {
+          const current = state.resumesById[activeResumeId];
+          if (!current) return state;
+          const next = produce(current, (draft) => {
             const arr = getLodash(draft, section);
             if (Array.isArray(arr) && index >= 0 && index < arr.length) {
               setLodash(draft, section, arr.filter((_, i) => i !== index));
@@ -311,11 +316,14 @@ export const useResumeStore = create<ResumeStore>()(
         if (!isValidResumeId(activeResumeId) || !get().resumesById[activeResumeId]) return;
 
         set((state) => {
-          const next = produce(state.resumesById[activeResumeId], (draft) => {
+          const current = state.resumesById[activeResumeId];
+          if (!current) return state;
+          const next = produce(current, (draft) => {
             const arr = getLodash(draft, section);
             if (!Array.isArray(arr) || from < 0 || to < 0 || from >= arr.length || to >= arr.length) return;
             const reordered = [...arr];
             const [item] = reordered.splice(from, 1);
+            if (item === undefined) return;
             reordered.splice(to, 0, item);
             setLodash(draft, section, reordered);
             draft.updatedAt = new Date().toISOString();

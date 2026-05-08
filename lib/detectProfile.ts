@@ -34,7 +34,19 @@ export interface DetectedProfile {
   tagline: string;
 }
 
-function calcYearsFromExperience(experience: any[]): number {
+type ResumeExperienceSignal = {
+  role?: string;
+  company?: string;
+  startDate?: string;
+  endDate?: string;
+};
+
+type ResumeProfileInput = {
+  experience?: unknown;
+  skills?: unknown;
+};
+
+function calcYearsFromExperience(experience: ResumeExperienceSignal[]): number {
   let totalMonths = 0;
   const now = new Date();
 
@@ -122,9 +134,11 @@ function buildTagline(
   return `Optimized for ${role} Positions`;
 }
 
-export function detectProfile(resume: any): DetectedProfile {
-  const experience: any[] = Array.isArray(resume?.experience) ? resume.experience : [];
-  const rawSkills: any = resume?.skills ?? [];
+export function detectProfile(resume: ResumeProfileInput): DetectedProfile {
+  const experience: ResumeExperienceSignal[] = Array.isArray(resume?.experience)
+    ? resume.experience.map((item) => item && typeof item === "object" ? item as ResumeExperienceSignal : {})
+    : [];
+  const rawSkills: unknown = resume?.skills ?? [];
   const skills: string[] = Array.isArray(rawSkills) ? rawSkills : String(rawSkills).split(",");
 
   const yearsOfExperience = calcYearsFromExperience(experience);

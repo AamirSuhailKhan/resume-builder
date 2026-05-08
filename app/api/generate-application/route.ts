@@ -1,10 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { requireUser } from "@/lib/auth/session";
+import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
+import { errorToResponse } from "@/lib/api/response";
+import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const user = await requireUser();
+    const limited = await applyRateLimit(req, getClientIdentifier(req), "ai");
+    if (limited) return limited;
+
     const { resumeData, jobDescription, tone, focus } = await req.json();
 
     if (!resumeData || !jobDescription?.trim()) {
@@ -85,17 +93,25 @@ ${jobDescription}
     const raw = response.text ?? '{}';
     const result = JSON.parse(raw);
 
-    // Validate and sanitize the AI response
-    return NextResponse.json({
+    const payload = {
       cover_letter: typeof result?.cover_letter === 'string' ? result.cover_letter : '',
       email: typeof result?.email === 'string' ? result.email : '',
-    });
+    };
 
-  } catch (error: any) {
-    console.error('Generate Application Route Error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to generate application package' },
-      { status: 500 }
-    );
+    await prisma.aIUsage.create({
+      data: {
+        userId: user.id,
+        provider: "google",
+        model: "gemini-2.5-flash",
+        promptTokens: 0,
+        completionTokens: 0,
+        estimatedCost: 0.001,
+      }
+    }).catch(() => undefined);
+
+    return NextResponse.json(payload);
+
+  } catch (error) {
+    return errorToResponse(error);
   }
 }

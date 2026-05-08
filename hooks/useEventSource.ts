@@ -8,7 +8,7 @@ interface EventSourceOptions {
 
 export function useEventSource(url: string | null, options: EventSourceOptions = {}) {
   const [status, setStatus] = useState<"connecting" | "connected" | "disconnected">("disconnected");
-  const [lastData, setLastData] = useState<any>(null);
+  const [lastData, setLastData] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function useEventSource(url: string | null, options: EventSourceOptions =
       // Add custom event listeners
       if (options.onEvent) {
         Object.entries(options.onEvent).forEach(([eventName, handler]) => {
-          es.addEventListener(eventName, handler as any);
+          es.addEventListener(eventName, handler as EventListener);
         });
       }
     };

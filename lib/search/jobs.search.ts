@@ -1,3 +1,4 @@
+import { JobOpportunity } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { meilisearch, JOBS_INDEX } from "./meilisearch";
 
@@ -23,6 +24,39 @@ export interface RankedJobResult {
   };
 }
 
+interface MeiliJobHit {
+  id: string;
+  company: string;
+  title?: string;
+  role?: string;
+  description: string;
+}
+
+function mapMeiliHit(hit: MeiliJobHit): RankedJobResult {
+  return {
+    id: hit.id,
+    company: hit.company,
+    role: hit.title ?? hit.role ?? "Untitled role",
+    description: hit.description,
+    rankingFactors: {
+      score: 1.0,
+    },
+  };
+}
+
+function mapJobOpportunity(job: JobOpportunity): RankedJobResult {
+  return {
+    id: job.id,
+    company: job.company,
+    role: job.role,
+    description: job.description,
+    rankingFactors: {
+      recency: 1.0,
+      score: 1.0,
+    },
+  };
+}
+
 export class JobsSearchService {
   
   /**
@@ -31,24 +65,16 @@ export class JobsSearchService {
   static async searchFast(params: JobSearchParams): Promise<RankedJobResult[]> {
     const { query, location, remote, limit = 20 } = params;
     
-    let filter = [];
+    const filter: string[] = [];
     if (remote) filter.push("remote = true");
     if (location) filter.push(`location = '${location}'`);
 
-    const result = await meilisearch.index(JOBS_INDEX).search(query, {
-      filter: filter.length ? filter.join(" AND ") : undefined,
+    const result = await meilisearch.index<MeiliJobHit>(JOBS_INDEX).search(query, {
+      ...(filter.length ? { filter: filter.join(" AND ") } : {}),
       limit,
     });
 
-    return result.hits.map(hit => ({
-      id: hit.id,
-      company: hit.company,
-      role: hit.title,
-      description: hit.description,
-      rankingFactors: {
-        score: 1.0, // Meilisearch handles the base ranking natively
-      }
-    }));
+    return result.hits.map(mapMeiliHit);
   }
 
   /**
@@ -73,15 +99,6 @@ export class JobsSearchService {
       }
     });
 
-    return jobs.map(job => ({
-      id: job.id,
-      company: job.company,
-      role: job.role,
-      description: job.description,
-      rankingFactors: {
-        recency: 1.0,
-        score: 1.0
-      }
-    }));
+    return jobs.map(mapJobOpportunity);
   }
 }

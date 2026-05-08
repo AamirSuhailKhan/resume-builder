@@ -71,8 +71,8 @@ export function normalizeResume(raw: unknown): ResumeData {
   return {
     id: toStr(r.id ?? String(Date.now())),
     title: toStr(r.title ?? personal.name ?? "Untitled Resume"),
-    status: status as ResumeData["status"],
-    template: template as ResumeData["template"],
+    status: status as NonNullable<ResumeData["status"]>,
+    template: template as NonNullable<ResumeData["template"]>,
     personal,
     experience,
     education,

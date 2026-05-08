@@ -1,12 +1,12 @@
-import { MeiliSearch } from "meilisearch";
+import { Meilisearch } from "meilisearch";
 
 const globalForMeili = globalThis as unknown as {
-  meilisearch: MeiliSearch | undefined;
+  meilisearch: Meilisearch | undefined;
 };
 
 export const meilisearch =
   globalForMeili.meilisearch ??
-  new MeiliSearch({
+  new Meilisearch({
     host: process.env.MEILISEARCH_HOST || "http://localhost:7700",
     apiKey: process.env.MEILISEARCH_KEY || "masterKey",
   });

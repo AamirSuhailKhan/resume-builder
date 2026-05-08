@@ -4,11 +4,12 @@ import { forwardRef, ForwardedRef } from "react";
 import { ModernTemplate } from "@/components/templates/ModernTemplate";
 import { MinimalTemplate } from "@/components/templates/MinimalTemplate";
 import { ProfessionalTemplate } from "@/components/templates/ProfessionalTemplate";
+import { ResumeData } from "@/lib/storage";
 
 export type RenderMode = "edit" | "preview" | "pdf";
 
 interface Props {
-  data: any;
+  data: ResumeData;
   /** Controls how the resume is rendered. Edit adds interactivity, others are read-only. */
   renderMode?: RenderMode;
 }

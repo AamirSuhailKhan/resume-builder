@@ -1,16 +1,26 @@
 import React from "react";
+import { ResumeData } from "@/lib/storage";
 
-export function ProfessionalTemplate({ data }: { data: any }) {
+type TemplateResumeData = ResumeData & {
+  personal: ResumeData["personal"] & { fullName?: string; title?: string };
+  name?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  summary?: string;
+};
+
+export function ProfessionalTemplate({ data }: { data: TemplateResumeData }) {
   const name = data?.personal?.fullName || data?.personal?.name || data?.name || "";
   const title = data?.personal?.title || data?.title || "";
   const email = data?.personal?.email || data?.email || "";
   const phone = data?.personal?.phone || data?.phone || "";
   const location = data?.personal?.location || data?.location || "";
   const summary = data?.personal?.summary || data?.summary || "";
-  const experience = data?.experience || [];
+  const experience: Array<ResumeData["experience"][number] & { description?: string }> = data?.experience || [];
   const skills = Array.isArray(data?.skills) ? data.skills.join(", ") : data?.skills;
   const education = Array.isArray(data?.education) 
-    ? data.education.map((e: any) => `${e.degree || ''} ${e.school || ''}`).join("\n")
+    ? data.education.map((e) => `${e.degree || ''} ${e.school || ''}`).join("\n")
     : data?.education;
 
   return (
@@ -72,7 +82,7 @@ export function ProfessionalTemplate({ data }: { data: any }) {
           <h2 className="text-gray-700 font-semibold uppercase tracking-wide border-b border-gray-200 pb-2 text-sm">Experience</h2>
           {experience.length > 0 ? (
             <div className="space-y-6">
-              {experience.map((exp: any, i: number) => (
+              {experience.map((exp, i: number) => (
                 <div key={i}>
                   <div className="flex justify-between items-baseline mb-1">
                     <h4 className="font-bold text-lg text-gray-900">{exp.role || "Job Title"}</h4>

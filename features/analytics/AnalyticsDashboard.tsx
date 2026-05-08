@@ -6,7 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
 
-export function AnalyticsDashboard({ trendData, metrics }: { trendData: any[], metrics: { responseRate: string, resumeScore: string, interviewPace: string } }) {
+type AnalyticsTrendPoint = {
+  week: string;
+  interviews: number;
+  resumeScore: number;
+  responseRate: number;
+};
+
+export function AnalyticsDashboard({ trendData, metrics }: { trendData: AnalyticsTrendPoint[], metrics: { responseRate: string, resumeScore: string, interviewPace: string } }) {
   return (
     <SectionShell>
       <PageHeader

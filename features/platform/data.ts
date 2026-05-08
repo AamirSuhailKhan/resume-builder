@@ -25,7 +25,7 @@ export type ApplicationRecord = {
 // Fake data removed for production hardening
 export const jobMatches: JobMatch[] = [];
 export const applications: ApplicationRecord[] = [];
-export const analyticsTrend: any[] = [];
+export const analyticsTrend: Array<{ week: string; applications: number; interviews: number }> = [];
 export const parsedJob = {
   skills: [],
   tools: [],

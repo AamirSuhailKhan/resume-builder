@@ -2,21 +2,20 @@ import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/session";
-import { NextResponse } from "next/server";
-import { RateLimiter } from "@/lib/rate-limit"; // Assuming a rate limiter exists, or I will create one. Let's just do a basic one or omit it if it doesn't exist.
-
-// I'll skip rate-limit import and do basic checking.
+import { NextRequest, NextResponse } from "next/server";
+import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
+import { errorToResponse } from "@/lib/api/response";
 
 export const runtime = "nodejs";
 
 const requestSchema = z.object({
   resumeId: z.string().uuid().optional(),
-  resumeData: z.any(),
+  resumeData: z.unknown(),
   jobDescription: z.string().min(10),
 });
 
 const responseSchema = z.object({
-  optimizedResume: z.any(),
+  optimizedResume: z.unknown(),
   atsScore: z.number().min(0).max(100),
   missingKeywords: z.array(z.string()),
   improvements: z.array(z.string()),
@@ -27,9 +26,12 @@ const responseSchema = z.object({
   matchAnalysis: z.string(),
 });
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const user = await requireUser();
+    const limited = await applyRateLimit(req, getClientIdentifier(req), "ai");
+    if (limited) return limited;
+
     const body = await req.json().catch(() => null);
     const parsed = requestSchema.safeParse(body);
     
@@ -108,8 +110,7 @@ Job Description: ${jobDescription}
     });
 
     return NextResponse.json(validatedResult);
-  } catch (error: any) {
-    console.error("AI Optimization error:", error);
-    return NextResponse.json({ error: error.message || "Optimization failed" }, { status: 500 });
+  } catch (error) {
+    return errorToResponse(error);
   }
 }

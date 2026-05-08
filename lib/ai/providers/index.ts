@@ -1,6 +1,5 @@
-import { generateObject, generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
-import { google } from "@ai-sdk/google";
+import { GoogleGenAI } from "@google/genai";
+import { z } from "zod";
 
 export interface AIProviderOptions {
   model: "cheap" | "medium" | "premium";
@@ -8,54 +7,50 @@ export interface AIProviderOptions {
   maxTokens?: number;
 }
 
+const MODEL_MAP: Record<AIProviderOptions["model"], string> = {
+  cheap: "gemini-1.5-flash",
+  medium: "gemini-2.0-flash",
+  premium: "gemini-2.5-flash",
+};
+
 export class AIModelRouter {
-  
-  static getModel(tier: AIProviderOptions["model"]) {
-    // Model routing logic
-    switch (tier) {
-      case "cheap":
-        // e.g., for keyword extraction
-        return google("gemini-1.5-flash");
-      case "medium":
-        // e.g., for ATS scoring
-        return openai("gpt-4o-mini");
-      case "premium":
-        // e.g., for full resume rewrite
-        return openai("gpt-4o");
-      default:
-        return openai("gpt-4o-mini");
+  private static getClient() {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
     }
+    return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   }
 
   static async executeTask<T>(
-    prompt: string, 
-    options: AIProviderOptions, 
-    schema?: any
+    prompt: string,
+    options: AIProviderOptions,
+    schema?: z.ZodType<T>
   ): Promise<T> {
-    const model = this.getModel(options.model);
-    
+    const ai = this.getClient();
+    const modelName = MODEL_MAP[options.model];
+
     try {
-      if (schema) {
-        const result = await generateObject({
-          model,
-          prompt,
-          schema,
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+          responseMimeType: schema ? "application/json" : "text/plain",
           temperature: options.temperature ?? 0.2,
-        });
-        return result.object as T;
-      } else {
-        const result = await generateText({
-          model,
-          prompt,
-          temperature: options.temperature ?? 0.7,
-        });
-        return result.text as T;
+        },
+      });
+
+      const raw = response.text ?? "";
+
+      if (schema) {
+        const parsed = JSON.parse(raw);
+        return schema.parse(parsed);
       }
+
+      return raw as T;
     } catch (error) {
       console.error(`[AIModelRouter] Task failed with tier ${options.model}`, error);
-      // Fallback strategy: if premium fails, we might just fail. If cheap fails, fallback to medium.
       if (options.model === "cheap") {
-        console.log("[AIModelRouter] Falling back to medium tier");
+        console.warn("[AIModelRouter] Cheap tier (Gemini Flash) failed - falling back to medium tier. Check GEMINI_API_KEY.");
         return this.executeTask(prompt, { ...options, model: "medium" }, schema);
       }
       throw error;

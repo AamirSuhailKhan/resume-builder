@@ -77,7 +77,14 @@ function getWeight(index: number): number {
  * Extracts and normalises all skills from a resume JSON blob.
  * Handles multiple common resume shapes.
  */
-export function extractUserSkills(resume: any): Set<string> {
+type ResumeSkillInput = {
+  skills?: unknown;
+  personal?: {
+    summary?: string;
+  };
+};
+
+export function extractUserSkills(resume: ResumeSkillInput): Set<string> {
   const raw: string[] = [];
 
   // Top-level skills array
@@ -111,15 +118,17 @@ function computeMatchScore(
   const missing: string[] = [];
 
   for (let i = 0; i < topSkills.length; i++) {
+    const topSkill = topSkills[i];
+    if (!topSkill) continue;
     const weight = getWeight(i);
     totalWeight += weight;
-    const skillLower = topSkills[i].skill.toLowerCase();
+    const skillLower = topSkill.skill.toLowerCase();
 
     if (userSkillsLower.has(skillLower)) {
       weightedMatched += weight;
-      matched.push(topSkills[i].skill);
+      matched.push(topSkill.skill);
     } else {
-      missing.push(topSkills[i].skill);
+      missing.push(topSkill.skill);
     }
   }
 
@@ -173,7 +182,7 @@ function buildInsight(
 // ─── Main Entry Point ─────────────────────────────────────────────────────────
 
 export function computeSkillGap(
-  resume: any,
+  resume: ResumeSkillInput,
   marketReport: MarketReport
 ): SkillGapReport {
   const userSkillsLower = extractUserSkills(resume);

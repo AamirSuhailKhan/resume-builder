@@ -2,6 +2,19 @@ import { useEffect, useRef } from "react";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabase } from "@/lib/supabase";
 import { useResumeStore } from "@/store/useResumeStore";
+import { normalizeResume } from "@/lib/normalizeResume";
+
+type ResumeRealtimeRow = {
+  id?: string;
+  updated_at?: string;
+  [key: string]: unknown;
+};
+
+type ResumeRealtimePayload = {
+  eventType: "INSERT" | "UPDATE" | "DELETE";
+  new?: ResumeRealtimeRow;
+  old?: ResumeRealtimeRow;
+};
 
 /**
  * useRealtimeResume - Stable, singleton-guarded hook for DB synchronization.
@@ -20,11 +33,12 @@ export function useRealtimeResume(userId: string | undefined) {
     const supabase = getSupabase();
     if (!supabase) return;
 
-    const handleUpdate = (payload: any) => {
+    const handleUpdate = (payload: ResumeRealtimePayload) => {
       const store = useResumeStore.getState();
-      const record = payload.new as any;
+      const record = payload.new;
 
       if (payload.eventType === "UPDATE" || payload.eventType === "INSERT") {
+        if (!record?.id) return;
         const current = store.resumesById[record.id];
         
         // 🔥 FIX 4: Realtime Dedupe - ignore stale or identical updates
@@ -34,7 +48,7 @@ export function useRealtimeResume(userId: string | undefined) {
           if (incomingTs <= currentTs) return; 
         }
         
-        store.upsertResume(record, true); 
+        store.upsertResume(normalizeResume(record), true);
       } else if (payload.eventType === "DELETE") {
         const id = payload.old?.id;
         if (id) store.deleteResume(id).catch(() => {});
@@ -58,7 +72,7 @@ export function useRealtimeResume(userId: string | undefined) {
       })
       .subscribe((status: string) => {
         if (status === "SUBSCRIBED") {
-          console.log("[Realtime] Subscribed to changes.");
+          console.info("[Realtime] Subscribed to changes.");
         } else if (status === "CLOSED") {
           console.warn("[Realtime] Connection closed safely.");
         } else if (status === "CHANNEL_ERROR") {

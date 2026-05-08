@@ -49,10 +49,11 @@ export class AnalyticsService {
       else if (diffDays <= 21) weekKey = "Week 2";
       else if (diffDays <= 28) weekKey = "Week 1";
 
-      if (weeks[weekKey]) {
-        weeks[weekKey].apps += 1;
+      const bucket = weeks[weekKey];
+      if (bucket) {
+        bucket.apps += 1;
         if (app.status === "interview") {
-          weeks[weekKey].interviews += 1;
+          bucket.interviews += 1;
         }
       }
     });
@@ -63,11 +64,11 @@ export class AnalyticsService {
       datasets: [
         {
           label: "Applications",
-          data: labels.map(l => weeks[l].apps),
+          data: labels.map((label) => weeks[label]?.apps ?? 0),
         },
         {
           label: "Interviews",
-          data: labels.map(l => weeks[l].interviews),
+          data: labels.map((label) => weeks[label]?.interviews ?? 0),
         }
       ]
     };

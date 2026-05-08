@@ -8,12 +8,12 @@ export default function TestPage() {
   async function testConnection() {
     const supabase = getSupabase();
     if (!supabase) {
-      console.log("ERROR: Supabase not configured");
+      console.info("ERROR: Supabase not configured");
       return;
     }
     const { data, error } = await supabase.from("resumes").select("*");
-    console.log("DATA:", data);
-    console.log("ERROR:", error);
+    console.info("DATA:", data);
+    console.info("ERROR:", error);
   }
 
   useEffect(() => {

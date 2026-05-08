@@ -9,9 +9,20 @@ import { Tabs } from "@/components/ui/tabs";
 import { Sparkles, Trash2, Plus } from "lucide-react";
 import { AIAssistantModal } from "./AIAssistantModal";
 
+type EditablePersonal = ResumeData["personal"] & {
+  fullName?: string;
+  title?: string;
+};
+
+type EditableResumeData = Omit<ResumeData, "personal" | "education" | "skills"> & {
+  personal: EditablePersonal;
+  education: ResumeData["education"] | string;
+  skills: ResumeData["skills"] | string;
+};
+
 interface ResumeFormProps {
-  data: any; // Relaxed type to allow the personal nested structure
-  onChange: (data: any) => void;
+  data: EditableResumeData;
+  onChange: (data: EditableResumeData) => void;
 }
 
 export function ResumeForm({ data, onChange }: ResumeFormProps) {
@@ -27,7 +38,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
     originalText: ""
   });
 
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: keyof EditableResumeData, value: unknown) => {
     onChange({ ...data, [field]: value });
   };
 
@@ -42,7 +53,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
   };
 
   const handleExperienceChange = (id: string, field: keyof Experience, value: string) => {
-    const updatedExperience = (data.experience || []).map((exp: any) => 
+    const updatedExperience = (data.experience || []).map((exp) =>
       exp.id === id ? { ...exp, [field]: value } : exp
     );
     handleChange("experience", updatedExperience);
@@ -61,7 +72,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
   };
 
   const removeExperience = (id: string) => {
-    handleChange("experience", (data.experience || []).filter((exp: any) => exp.id !== id));
+    handleChange("experience", (data.experience || []).filter((exp) => exp.id !== id));
   };
 
   const handleAcceptAI = (improvedText: string) => {
@@ -145,7 +156,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
 
         {activeTab === "experience" && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            {(data.experience || []).map((exp: any) => (
+            {(data.experience || []).map((exp) => (
               <div key={exp.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm relative group">
                 <div className="absolute right-2 top-2">
                   <Button variant="ghost" size="icon" onClick={() => removeExperience(exp.id)} className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50">
@@ -205,7 +216,7 @@ export function ResumeForm({ data, onChange }: ResumeFormProps) {
              <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Education Details</label>
               <Textarea 
-                value={data.education || ""} 
+                value={Array.isArray(data.education) ? data.education.map((edu) => `${edu.degree} ${edu.school} ${edu.year}`.trim()).join("\n") : data.education || ""}
                 onChange={(e) => handleChange("education", e.target.value)} 
                 placeholder="Bachelor of Science in Computer Science&#10;University of Technology, San Francisco, CA (2014 - 2018)" 
                 className="min-h-[150px]"

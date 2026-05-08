@@ -124,7 +124,7 @@ export async function calculateATSScore(resume: ResumeData, jobDescription?: str
     if (!response.ok) throw new Error("API error");
 
     const data = await response.json();
-    console.log("ATS RESPONSE:", data);
+    console.info("ATS RESPONSE:", data);
 
     // ✅ SUPPORT BOTH FORMATS (important)
     const result = data.atsResult || data;

@@ -5,11 +5,17 @@ import { getQueueRedisConnection } from "@/lib/queue/connection";
 
 export const runtime = "nodejs";
 
-// Add basic auth or admin check here if needed later
+type QueueStats = Record<string, {
+  waiting: number;
+  active: number;
+  completed: number;
+  failed: number;
+  delayed: number;
+}>;
 
 export async function GET() {
   const connection = getQueueRedisConnection();
-  const queueStats: Record<string, any> = {};
+  const queueStats: QueueStats = {};
 
   try {
     for (const [key, qName] of Object.entries(queueNames)) {
@@ -32,9 +38,10 @@ export async function GET() {
       status: "healthy",
       queues: queueStats,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Queue health check failed";
     return NextResponse.json(
-      { status: "unhealthy", error: error.message },
+      { status: "unhealthy", error: message },
       { status: 500 }
     );
   }

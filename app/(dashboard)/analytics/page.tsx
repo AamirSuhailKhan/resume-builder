@@ -14,14 +14,14 @@ export default async function AnalyticsPage() {
   const trends = await AnalyticsService.getWeeklyTrends(userId);
 
   // Map trends to the format needed by the charts
-  const appsData = trends.datasets[0].data as number[];
-  const interviewsData = trends.datasets[1].data as number[];
+  const appsData = trends.datasets.find((dataset) => dataset.label === "Applications")?.data ?? [];
+  const interviewsData = trends.datasets.find((dataset) => dataset.label === "Interviews")?.data ?? [];
 
   const trendData = trends.labels.map((label, i) => ({
     week: label,
     interviews: interviewsData[i] || 0,
-    resumeScore: 80 + (appsData[i] || 0) * 2, // simulated dynamic score for visual
-    responseRate: appsData[i] > 0 ? Math.round((interviewsData[i] / appsData[i]) * 100) : 0, 
+    resumeScore: 0,
+    responseRate: (appsData[i] ?? 0) > 0 ? Math.round(((interviewsData[i] ?? 0) / (appsData[i] ?? 1)) * 100) : 0,
   }));
 
   const totalApps = appsData.reduce((a, b) => a + b, 0);
@@ -30,7 +30,7 @@ export default async function AnalyticsPage() {
 
   const dashboardMetrics = {
     responseRate: `${realResponseRate}%`, 
-    resumeScore: "89", // This would ideally come from average of saved resume scores
+    resumeScore: "0",
     interviewPace: totalInterviews.toString(),
   };
 

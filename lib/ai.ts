@@ -95,15 +95,27 @@ export function mergeOptimizedResume(
 ): ResumeData {
   const merged: ResumeData = JSON.parse(JSON.stringify(original)); // deep clone
 
-  // Auto-apply text replacements for experience bullets based on optimizations
   if (result.optimizations && result.optimizations.length > 0 && Array.isArray(merged.experience)) {
     for (const fix of result.optimizations) {
-      if (fix.original && fix.improved && fix.original.trim() !== "") {
-        for (let i = 0; i < merged.experience.length; i++) {
-          if (merged.experience[i].points && typeof merged.experience[i].points === "string") {
-            // Replace exact original text with improved text
-            merged.experience[i].points = (merged.experience[i].points as string).replace(fix.original, fix.improved);
-          }
+      if (!fix.original?.trim() || !fix.improved?.trim()) continue;
+
+      for (let i = 0; i < merged.experience.length; i++) {
+        const experience = merged.experience[i];
+        if (!experience) continue;
+        const points = experience.points;
+        if (typeof points !== "string") continue;
+
+        if (points.includes(fix.original)) {
+          experience.points = points.replace(fix.original, fix.improved);
+          break;
+        }
+
+        const originalWords = fix.original.toLowerCase().split(/\s+/).filter(Boolean);
+        const bulletLower = points.toLowerCase();
+        const matchCount = originalWords.filter((word) => bulletLower.includes(word)).length;
+        if (originalWords.length > 0 && matchCount / originalWords.length >= 0.8) {
+          experience.points = fix.improved;
+          break;
         }
       }
     }

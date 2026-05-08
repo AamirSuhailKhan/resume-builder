@@ -14,8 +14,9 @@ export class CacheService {
       const val = await redis.get(key);
       if (!val) return null;
       return JSON.parse(val as string) as T;
-    } catch (err: any) {
-      logger.warn({ key, err: err.message }, "[Cache] Get failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown cache read error";
+      logger.warn({ key, err: message }, "[Cache] Get failed");
       return null;
     }
   }
@@ -27,9 +28,10 @@ export class CacheService {
     try {
       const redis = getRedisClient();
       if (!redis) return;
-      await redis.set(key, JSON.stringify(value), "EX", ttlSeconds);
-    } catch (err: any) {
-      logger.warn({ key, err: err.message }, "[Cache] Set failed");
+      await redis.set(key, JSON.stringify(value), { ex: ttlSeconds });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown cache write error";
+      logger.warn({ key, err: message }, "[Cache] Set failed");
     }
   }
 
@@ -41,8 +43,9 @@ export class CacheService {
       const redis = getRedisClient();
       if (!redis || keys.length === 0) return;
       await redis.del(...keys);
-    } catch (err: any) {
-      logger.warn({ keys, err: err.message }, "[Cache] Invalidate failed");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown cache invalidation error";
+      logger.warn({ keys, err: message }, "[Cache] Invalidate failed");
     }
   }
 

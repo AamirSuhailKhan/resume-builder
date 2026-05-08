@@ -88,7 +88,7 @@ export function isTool(skill: string): boolean {
 /**
  * Deduplicates and normalises an array of raw skill strings.
  */
-function normalizeSkillList(raw: unknown[]): string[] {
+function normalizeSkillList(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
   return raw
@@ -157,9 +157,10 @@ ${rawText.slice(0, 6000)}
   });
 
   const raw = response.text ?? "{}";
-  let parsed: any = {};
+  let parsed: Record<string, unknown> = {};
   try {
-    parsed = JSON.parse(raw);
+    const value = JSON.parse(raw);
+    parsed = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
   } catch {
     throw new Error("JD Parser: AI returned invalid JSON");
   }
@@ -173,8 +174,9 @@ ${rawText.slice(0, 6000)}
   const id = await sha256(rawText);
 
   const validSeniorities = ["Junior", "Mid", "Senior", "Lead", "Unknown"];
-  const seniority = validSeniorities.includes(parsed.seniority)
-    ? (parsed.seniority as ParsedJob["seniority"])
+  const seniorityValue = typeof parsed.seniority === "string" ? parsed.seniority : "Unknown";
+  const seniority = validSeniorities.includes(seniorityValue)
+    ? (seniorityValue as ParsedJob["seniority"])
     : "Unknown";
 
   return {

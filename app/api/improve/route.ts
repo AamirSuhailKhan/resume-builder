@@ -1,14 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { requireUser } from "@/lib/auth/session";
+import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
+import { errorToResponse } from "@/lib/api/response";
+import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const user = await requireUser();
+    const limited = await applyRateLimit(req, getClientIdentifier(req), "ai");
+    if (limited) return limited;
+
     const { section, content, tone, focus } = await req.json();
 
     if (!content) {
       return NextResponse.json({ error: "Content is required" }, { status: 400 });
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json({ error: "GEMINI_API_KEY is not configured on the server." }, { status: 500 });
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -36,9 +48,19 @@ ${content}`;
     // Clean up potential markdown formatting from Gemini
     improved = improved.replace(/^```(html)?\s*/i, '').replace(/```$/, '').trim();
 
+    await prisma.aIUsage.create({
+      data: {
+        userId: user.id,
+        provider: "google",
+        model: "gemini-2.5-flash",
+        promptTokens: 0,
+        completionTokens: 0,
+        estimatedCost: 0.001,
+      }
+    }).catch(() => undefined);
+
     return NextResponse.json({ improved });
-  } catch (error: any) {
-    console.error("Improvement error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    return errorToResponse(error);
   }
 }

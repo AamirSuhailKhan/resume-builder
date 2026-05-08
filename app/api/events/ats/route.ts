@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth/session";
-import { eventBus } from "@/lib/events/bus";
+import { AtsCompletedEvent, eventBus } from "@/lib/events/bus";
 
 export const runtime = "nodejs";
 // Dynamic endpoint for SSE
@@ -25,33 +25,33 @@ export async function GET(req: NextRequest) {
 
   let isClosed = false;
 
-  const sendEvent = async (event: string, data: any) => {
+  const sendEvent = async (event: string, data: unknown) => {
     if (isClosed) return;
     try {
       await writer.write(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
-    } catch (e) {
+    } catch {
       isClosed = true;
     }
   };
 
   // Heartbeat to keep connection alive
   const heartbeat = setInterval(() => {
-    sendEvent("heartbeat", { time: new Date().toISOString() });
+    void sendEvent("heartbeat", { time: new Date().toISOString() });
   }, 15000);
 
   // Subscribe to internal event bus
-  const eventName = `ats.completed.${jobRecordId}`;
+  const eventName: `ats.completed.${string}` = `ats.completed.${jobRecordId}`;
   
-  const listener = (data: any) => {
-    sendEvent("completed", data);
+  const listener = (data: AtsCompletedEvent) => {
+    void sendEvent("completed", data);
   };
 
-  eventBus.on(eventName, listener);
+  eventBus.onEvent(eventName, listener);
 
   req.signal.addEventListener("abort", () => {
     isClosed = true;
     clearInterval(heartbeat);
-    eventBus.off(eventName, listener);
+    eventBus.offEvent(eventName, listener);
     writer.close().catch(() => {});
   });
 

@@ -1,10 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { requireUser } from "@/lib/auth/session";
+import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
+import { errorToResponse } from "@/lib/api/response";
+import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const user = await requireUser();
+    const limited = await applyRateLimit(req, getClientIdentifier(req), "ai");
+    if (limited) return limited;
+
     const { resumeData, jobDescription } = await req.json();
 
     if (!resumeData) {
@@ -64,15 +72,19 @@ ${jobDescription || ""}
     const resultText = response.text || "{}";
     const result = JSON.parse(resultText);
 
-    if (typeof result.score === "number") {
-      result.score = Math.min(result.score, 92);
-    }
-
-    console.log("ATS AI RESULT:", result);
+    await prisma.aIUsage.create({
+      data: {
+        userId: user.id,
+        provider: "google",
+        model: "gemini-2.5-flash",
+        promptTokens: 0,
+        completionTokens: 0,
+        estimatedCost: 0.001,
+      }
+    }).catch(() => undefined);
 
     return NextResponse.json(result);
-  } catch (error: any) {
-    console.error("AI ATS Error:", error);
-    return NextResponse.json({ error: error.message || 'Failed to analyze resume' }, { status: 500 });
+  } catch (error) {
+    return errorToResponse(error);
   }
 }

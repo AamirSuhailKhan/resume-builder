@@ -61,15 +61,24 @@ try {
   });
 } catch (error) {
   if (error instanceof z.ZodError) {
-    console.error("[ENV] Invalid environment variables:", error.flatten().fieldErrors);
-    // Don't crash immediately in browser or some Next.js build steps, 
-    // but in a real node environment we might want to process.exit(1)
+    const fieldErrors = error.flatten().fieldErrors;
+    console.error("[ENV] Invalid environment variables:", fieldErrors);
+    if (typeof process !== "undefined" && process.env.NODE_ENV !== "test") {
+      // Crash loudly in Node - a misconfigured server should not start.
+      if (typeof window === "undefined") {
+        console.error("[ENV] Server cannot start with invalid env. Exiting.");
+        process.exit(1);
+      }
+    }
   } else {
     console.error("[ENV] Failed to parse environment", error);
   }
 }
 
-export const env = envParsed!;
+if (!envParsed) {
+  throw new Error("[ENV] Environment variables failed validation. Check server logs.");
+}
+export const env = envParsed;
 
 export function getAuthSecret(): string {
   return env.AUTH_SECRET;
@@ -93,4 +102,3 @@ export function getDatabaseUrl(): string {
 export function getRedisUrl(): string | null {
   return env.REDIS_URL || null;
 }
-

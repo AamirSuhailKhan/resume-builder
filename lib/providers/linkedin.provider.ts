@@ -4,7 +4,7 @@ export class LinkedInProvider implements JobProvider {
   name = "LinkedIn";
 
   async fetchJobs(query: string, location?: string, limit: number = 10): Promise<NormalizedJob[]> {
-    console.log(`[LinkedInProvider] Fetching jobs for query: ${query}, location: ${location}`);
+    console.info(`[LinkedInProvider] Fetching jobs for query: ${query}, location: ${location}, limit: ${limit}`);
     
     // In a real production system, this would use LinkedIn API or an Apify scraper
     // For now, we simulate fetching with the proper interface.

@@ -13,10 +13,11 @@
  *
  *   // Get personalised insights for the current user's resume
  *   const insights = await getJobInsights(resume);
- *   console.log(insights.market_insight);
+ *   console.info(insights.market_insight);
  *   // "You need AWS and TypeScript to match 78% of relevant jobs."
  */
 
+import { ResumeData } from "@/lib/storage";
 import { JobIntelligenceOutput, ParsedJob } from "./types";
 
 // ─── Analyze JDs ──────────────────────────────────────────────────────────────
@@ -63,7 +64,7 @@ export interface InsightsResponse extends JobIntelligenceOutput {
  * provided resume. Requires at least one JD to have been analyzed first.
  */
 export async function getJobInsights(
-  resume: any,
+  resume: ResumeData,
   options: { forceRefresh?: boolean } = {}
 ): Promise<InsightsResponse> {
   const res = await fetch("/api/job/insights", {

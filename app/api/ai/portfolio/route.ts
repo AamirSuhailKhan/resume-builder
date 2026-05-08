@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/session";
 import { apiOk, errorToResponse } from "@/lib/api/response";
@@ -16,21 +17,25 @@ export async function POST(req: Request) {
     const user = await requireUser();
     const body = await req.json().catch(() => ({}));
     const parsed = requestSchema.parse(body ?? {});
+    const jobPayload = {
+      theme: parsed.theme,
+      ...(parsed.resumeId ? { resumeId: parsed.resumeId } : {}),
+    } satisfies Prisma.InputJsonObject;
 
     const jobRecord = await prisma.job.create({
       data: {
         userId: user.id,
-        resumeId: parsed.resumeId,
+        resumeId: parsed.resumeId ?? null,
         type: "ai_portfolio",
         status: "queued",
-        payload: parsed,
+        payload: jobPayload,
       },
     });
 
     await enqueuePortfolio({
       jobRecordId: jobRecord.id,
       userId: user.id,
-      resumeId: parsed.resumeId,
+      ...(parsed.resumeId ? { resumeId: parsed.resumeId } : {}),
       theme: parsed.theme,
     });
 

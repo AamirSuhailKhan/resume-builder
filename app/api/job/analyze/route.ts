@@ -16,7 +16,11 @@
  * }
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/session";
+import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
+import { errorToResponse } from "@/lib/api/response";
+import { prisma } from "@/lib/db/prisma";
 import { parseJobDescription } from "@/lib/job-intelligence/jd-parser";
 import { jobRepository } from "@/lib/job-intelligence/job-aggregator";
 import { invalidateMarketCache } from "@/lib/job-intelligence/market-analyzer";
@@ -26,8 +30,12 @@ export const runtime = "nodejs";
 
 const MAX_JDS = 50;
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const user = await requireUser();
+    const limited = await applyRateLimit(req, getClientIdentifier(req), "ai");
+    if (limited) return limited;
+
     const body = await req.json();
 
     // ── Input validation ────────────────────────────────────────────────────
@@ -68,14 +76,14 @@ export async function POST(req: Request) {
         batch.map((jd) => parseJobDescription(jd))
       );
 
-      for (let j = 0; j < batchResults.length; j++) {
-        const result = batchResults[j];
+      for (const [j, result] of batchResults.entries()) {
         if (result.status === "fulfilled") {
           results.push(result.value);
           // Persist each parsed job and invalidate cache
           await jobRepository.save(result.value);
         } else {
-          errors.push({ index: i + j, error: result.reason?.message ?? "Parse failed" });
+          const message = result.reason instanceof Error ? result.reason.message : "Parse failed";
+          errors.push({ index: i + j, error: message });
         }
       }
     }
@@ -87,16 +95,23 @@ export async function POST(req: Request) {
 
     const jobsInDatabase = await jobRepository.count();
 
+    await prisma.aIUsage.create({
+      data: {
+        userId: user.id,
+        provider: "google",
+        model: "gemini-2.5-flash",
+        promptTokens: 0,
+        completionTokens: 0,
+        estimatedCost: 0.001,
+      }
+    }).catch(() => undefined);
+
     return NextResponse.json({
       parsed: results,
       jobsInDatabase,
       ...(errors.length > 0 && { parseErrors: errors }),
     });
-  } catch (error: any) {
-    console.error("[POST /api/job/analyze]", error);
-    return NextResponse.json(
-      { error: error.message ?? "Internal server error" },
-      { status: 500 }
-    );
+  } catch (error) {
+    return errorToResponse(error);
   }
 }

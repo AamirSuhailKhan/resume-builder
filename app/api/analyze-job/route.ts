@@ -1,10 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { requireUser } from "@/lib/auth/session";
+import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
+import { errorToResponse } from "@/lib/api/response";
+import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const user = await requireUser();
+    const limited = await applyRateLimit(req, getClientIdentifier(req), "ai");
+    if (limited) return limited;
+
     const { jobDescription } = await req.json();
 
     if (!jobDescription?.trim()) {
@@ -70,8 +78,7 @@ ${jobDescription}
     const raw = response.text ?? '{}';
     const result = JSON.parse(raw);
 
-    // Validate and sanitize the AI response
-    return NextResponse.json({
+    const payload = {
       required_skills: Array.isArray(result?.required_skills) ? result.required_skills.map(String) : [],
       optional_skills: Array.isArray(result?.optional_skills) ? result.optional_skills.map(String) : [],
       keywords: Array.isArray(result?.keywords) ? result.keywords.map(String) : [],
@@ -79,13 +86,22 @@ ${jobDescription}
       seniority: typeof result?.seniority === "string" ? result.seniority : "",
       hidden_expectations: Array.isArray(result?.hidden_expectations) ? result.hidden_expectations.map(String) : [],
       industry_signals: Array.isArray(result?.industry_signals) ? result.industry_signals.map(String) : [],
-    });
+    };
 
-  } catch (error: any) {
-    console.error('Analyze Job Route Error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to analyze job description' },
-      { status: 500 }
-    );
+    await prisma.aIUsage.create({
+      data: {
+        userId: user.id,
+        provider: "google",
+        model: "gemini-2.5-flash",
+        promptTokens: 0,
+        completionTokens: 0,
+        estimatedCost: 0.001,
+      }
+    }).catch(() => undefined);
+
+    return NextResponse.json(payload);
+
+  } catch (error) {
+    return errorToResponse(error);
   }
 }

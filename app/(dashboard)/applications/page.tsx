@@ -1,4 +1,5 @@
 import { ApplicationTracker } from "@/features/applications/ApplicationTracker";
+import { ApplicationRecord, ApplicationStage } from "@/features/platform/data";
 import { ApplicationService } from "@/lib/services/application.service";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -11,9 +12,9 @@ export default async function ApplicationsPage() {
   
   const applications = await ApplicationService.getApplicationsForUser(session.user.id);
   
-  const mappedApps = applications.map(app => {
+  const mappedApps: ApplicationRecord[] = applications.map(app => {
     // map prisma enum to UI stage string
-    let stageStr = "Applied";
+    let stageStr: ApplicationStage = "Applied";
     if (app.status === "applied") stageStr = "Applied";
     else if (app.status === "interview") stageStr = "Interview";
     else if (app.status === "rejected") stageStr = "Rejected";
@@ -30,5 +31,5 @@ export default async function ApplicationsPage() {
     };
   });
 
-  return <ApplicationTracker initialApplications={mappedApps as any} />;
+  return <ApplicationTracker initialApplications={mappedApps} />;
 }

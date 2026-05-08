@@ -74,7 +74,7 @@ export const EditableText = React.memo(function EditableText({
 
   // ── PDF / static mode ──────────────────────────────────────────────────────
   if (!isEditing) {
-    const StaticEl = Tag as any;
+    const StaticEl: React.ElementType<{ className?: string; children?: React.ReactNode }> = Tag;
     return <StaticEl className={className}>{value || ""}</StaticEl>;
   }
 

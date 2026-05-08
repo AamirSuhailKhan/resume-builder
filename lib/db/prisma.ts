@@ -1,6 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
 import { getDatabaseUrl } from "@/lib/env";
 
 declare global {
@@ -11,14 +10,12 @@ declare global {
 function createPrismaClient(): PrismaClient {
   const connectionString = getDatabaseUrl();
 
-  const pool = new Pool({
+  const adapter = new PrismaPg({
     connectionString,
     max: 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
   });
-
-  const adapter = new PrismaPg(pool);
 
   return new PrismaClient({
     adapter,

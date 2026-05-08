@@ -1,10 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { requireUser } from "@/lib/auth/session";
+import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
+import { errorToResponse } from "@/lib/api/response";
+import { prisma } from "@/lib/db/prisma";
 
 export const runtime = "nodejs";
 
-export async function POST(req: Request) {
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+export async function POST(req: NextRequest) {
   try {
+    const user = await requireUser();
+    const limited = await applyRateLimit(req, getClientIdentifier(req), "ai");
+    if (limited) return limited;
+
     const { resumeData, jobDescription } = await req.json();
 
     if (!resumeData || !jobDescription?.trim()) {
@@ -93,38 +105,56 @@ ${jobDescription}
 
     const raw = response.text ?? '{}';
     const result = JSON.parse(raw);
+    const resultRecord = asRecord(result);
+    const scores = asRecord(resultRecord.scores);
+    const tailoredPackage = asRecord(resultRecord.tailored_package);
+    const metricsAndProof = asRecord(resultRecord.metrics_and_proof);
 
-    // Validate and sanitize the AI response
-    return NextResponse.json({
+    const payload = {
       scores: {
-        before: typeof result?.scores?.before === 'number' ? result.scores.before : 45,
-        after: typeof result?.scores?.after === 'number' ? result.scores.after : 85,
+        before: typeof scores.before === 'number' ? scores.before : 45,
+        after: typeof scores.after === 'number' ? scores.after : 85,
       },
       tailored_package: {
-        resume: result?.tailored_package?.resume || "",
-        cover_letter: result?.tailored_package?.cover_letter || "",
-        email: result?.tailored_package?.email || "",
+        resume: typeof tailoredPackage.resume === "string" ? tailoredPackage.resume : "",
+        cover_letter: typeof tailoredPackage.cover_letter === "string" ? tailoredPackage.cover_letter : "",
+        email: typeof tailoredPackage.email === "string" ? tailoredPackage.email : "",
       },
-      optimizations: Array.isArray(result?.optimizations) ? result.optimizations.map((opt: any) => ({
-        original: String(opt?.original || ''),
-        improved: String(opt?.improved || ''),
-        reason: String(opt?.reason || ''),
-        impact: String(opt?.impact || '')
-      })) : [],
+      optimizations: Array.isArray(resultRecord.optimizations) ? resultRecord.optimizations.map((opt) => {
+        const optimization = asRecord(opt);
+        return {
+          original: String(optimization.original || ''),
+          improved: String(optimization.improved || ''),
+          reason: String(optimization.reason || ''),
+          impact: String(optimization.impact || '')
+        };
+      }) : [],
       metrics_and_proof: {
-        suggested_metrics: Array.isArray(result?.metrics_and_proof?.suggested_metrics) ? result.metrics_and_proof.suggested_metrics.map(String) : [],
-        proof_suggestions: Array.isArray(result?.metrics_and_proof?.proof_suggestions) ? result.metrics_and_proof.proof_suggestions.map((p: any) => ({
-          achievement: String(p?.achievement || ''),
-          suggested_proof: String(p?.suggested_proof || '')
-        })) : []
+        suggested_metrics: Array.isArray(metricsAndProof.suggested_metrics) ? metricsAndProof.suggested_metrics.map(String) : [],
+        proof_suggestions: Array.isArray(metricsAndProof.proof_suggestions) ? metricsAndProof.proof_suggestions.map((p) => {
+          const proof = asRecord(p);
+          return {
+            achievement: String(proof.achievement || ''),
+            suggested_proof: String(proof.suggested_proof || '')
+          };
+        }) : []
       }
-    });
+    };
 
-  } catch (error: any) {
-    console.error('Optimize Route Error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to generate application package' },
-      { status: 500 }
-    );
+    await prisma.aIUsage.create({
+      data: {
+        userId: user.id,
+        provider: "google",
+        model: "gemini-2.5-flash",
+        promptTokens: 0,
+        completionTokens: 0,
+        estimatedCost: 0.001,
+      }
+    }).catch(() => undefined);
+
+    return NextResponse.json(payload);
+
+  } catch (error) {
+    return errorToResponse(error);
   }
 }

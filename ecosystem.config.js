@@ -1,3 +1,7 @@
+// NOTE: This PM2 config is for VPS/bare metal deployments only.
+// For containerised deployments, use docker/worker.Dockerfile instead.
+// Do not use both simultaneously.
+
 module.exports = {
   apps: [
     {
