@@ -1,14 +1,12 @@
 "use client";
 
+import { useCallback } from "react";
+
 import { Activity, CheckCircle2, CircleDashed, ShieldCheck, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useWorkflowEvents } from "@/hooks/useWorkflowEvents";
-import {
-  selectWorkflowEvents,
-  selectWorkflowStatus,
-  useWorkflowStore,
-} from "@/store/useWorkflowStore";
+import { useWorkflowStore, EMPTY_ARRAY } from "@/store/useWorkflowStore";
 import { cn } from "@/lib/utils";
 
 export function WorkflowVisualizer({
@@ -19,8 +17,12 @@ export function WorkflowVisualizer({
   title?: string;
 }) {
   useWorkflowEvents(workflowId);
-  const events = useWorkflowStore(selectWorkflowEvents(workflowId));
-  const status = useWorkflowStore(selectWorkflowStatus(workflowId));
+  const events = useWorkflowStore(
+    useCallback((state) => state.eventsByWorkflow[workflowId] ?? EMPTY_ARRAY, [workflowId])
+  );
+  const status = useWorkflowStore(
+    useCallback((state) => state.statusByWorkflow[workflowId] ?? "disconnected", [workflowId])
+  );
 
   return (
     <Card variant="elevated">

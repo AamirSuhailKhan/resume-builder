@@ -99,6 +99,9 @@ model User {
   interviewSessions InterviewSession[]
   aiUsages          AIUsage[]
   careerProfile     CareerProfile?
+  browserSessions   BrowserSession[]
+  browserExecutions BrowserExecution[]
+  executionReplays  ExecutionReplay[]
   careerMemories    CareerMemory[]
   workflowRuns      WorkflowRun[]
   agentRuns         AgentRun[]
@@ -623,4 +626,74 @@ model IdempotencyKey {
   @@index([key])
   @@index([userId, operation])
   // Retention: 7 days — purge expired keys in cleanup worker
+}
+
+model BrowserSession {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  domain       String   // e.g., "linkedin.com", "greenhouse.io"
+  storageState Json     // Playwright storageState containing cookies & origins
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, domain])
+  @@index([userId])
+}
+
+model BrowserExecution {
+  id           String   @id @default(uuid()) @db.Uuid
+  workflowId   String   @db.Uuid
+  userId       String   @db.Uuid
+  status       String   // "initializing", "running", "paused", "completed", "failed"
+  contextId    String?  // References internal Playwright context UUID if active
+  metadata     Json?    // Any launch parameters or debug info
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([userId])
+}
+
+model ExecutionScreenshot {
+  id           String   @id @default(uuid()) @db.Uuid
+  executionId  String   @db.Uuid
+  workflowId   String   @db.Uuid
+  url          String   // The URL of the page at the time
+  storageKey   String   // Storage reference (e.g. Supabase storage or base64)
+  createdAt    DateTime @default(now())
+
+  @@index([executionId])
+  @@index([workflowId, createdAt])
+}
+
+model DOMAction {
+  id           String   @id @default(uuid()) @db.Uuid
+  executionId  String   @db.Uuid
+  workflowId   String   @db.Uuid
+  stepId       String?
+  actionType   String   // "click", "type", "navigate", "submit"
+  selector     String?
+  value        String?  // the text typed or extracted
+  url          String
+  success      Boolean
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  @@index([executionId])
+  @@index([workflowId, createdAt])
+}
+
+model ExecutionReplay {
+  id           String   @id @default(uuid()) @db.Uuid
+  workflowId   String   @db.Uuid @unique
+  userId       String   @db.Uuid
+  artifactsUrl String   // Location of compressed replay file
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

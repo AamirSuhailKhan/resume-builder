@@ -33,6 +33,16 @@ export const stepKinds = [
   "branch",
   "delay",
   "emit",
+  "browser.navigate",
+  "browser.click",
+  "browser.type",
+  "browser.upload",
+  "browser.extract",
+  "browser.submit",
+  "browser.wait",
+  "browser.screenshot",
+  "browser.evaluate",
+  "browser.scroll",
 ] as const;
 
 export type WorkflowType = (typeof workflowTypes)[number];

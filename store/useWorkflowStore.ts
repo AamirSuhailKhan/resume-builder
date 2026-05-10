@@ -19,6 +19,8 @@ interface WorkflowStore {
   clearWorkflow: (workflowId: string) => void;
 }
 
+export const EMPTY_ARRAY: WorkflowEventView[] = [];
+
 export const useWorkflowStore = create<WorkflowStore>()((set) => ({
   eventsByWorkflow: {},
   statusByWorkflow: {},
@@ -34,12 +36,15 @@ export const useWorkflowStore = create<WorkflowStore>()((set) => ({
       };
     }),
   setStatus: (workflowId, status) =>
-    set((state) => ({
-      statusByWorkflow: {
-        ...state.statusByWorkflow,
-        [workflowId]: status,
-      },
-    })),
+    set((state) => {
+      if (state.statusByWorkflow[workflowId] === status) return state;
+      return {
+        statusByWorkflow: {
+          ...state.statusByWorkflow,
+          [workflowId]: status,
+        },
+      };
+    }),
   clearWorkflow: (workflowId) =>
     set((state) => {
       const eventsByWorkflow = { ...state.eventsByWorkflow };
@@ -51,7 +56,7 @@ export const useWorkflowStore = create<WorkflowStore>()((set) => ({
 }));
 
 export const selectWorkflowEvents = (workflowId: string) => (state: WorkflowStore) =>
-  state.eventsByWorkflow[workflowId] ?? [];
+  state.eventsByWorkflow[workflowId] ?? EMPTY_ARRAY;
 
 export const selectWorkflowStatus = (workflowId: string) => (state: WorkflowStore) =>
   state.statusByWorkflow[workflowId] ?? "disconnected";
