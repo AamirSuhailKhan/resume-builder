@@ -27,24 +27,29 @@ export function JobIntelligencePage() {
 
   const analyze = async () => {
     setStatus("queued");
-    const res = await fetch("/api/ai/job-intelligence", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobDescription: jd }),
-    }).catch(() => undefined);
-    
-    // Simulating polling for now
-    window.setTimeout(() => {
-      setStatus("done");
-      // Placeholder data until worker is fully hooked up to frontend polling
-      setParsedData({
-        skills: ["React", "TypeScript", "Next.js"],
-        tools: ["Prisma", "PostgreSQL"],
-        experience: ["Product-minded", "Build workflows"],
-        missing: ["Queues", "UX Judgment"]
+    try {
+      const res = await fetch("/api/ai/job-intelligence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobDescription: jd }),
       });
-      setMatchScore(82);
-    }, 1500);
+      
+      if (!res.ok) throw new Error("Failed to analyze job description");
+      
+      const data = await res.json();
+      
+      setParsedData({
+        skills: data.skills || [],
+        tools: data.tools || [],
+        experience: data.experience || [],
+        missing: data.missing || []
+      });
+      setMatchScore(data.matchScore || 0);
+      setStatus("done");
+    } catch (err) {
+      console.error(err);
+      setStatus("idle");
+    }
   };
 
   return (

@@ -15,6 +15,7 @@ export interface DashboardMetrics {
   savedOpportunities: number;
   aiCost: number;
   totalTokens: number;
+  resumeScore: number;
   degraded: boolean;
   degradedReason?: string;
 }
@@ -50,6 +51,7 @@ const EMPTY_METRICS: DashboardMetrics = {
   savedOpportunities: 0,
   aiCost: 0,
   totalTokens: 0,
+  resumeScore: 0,
   degraded: true,
 };
 
@@ -72,7 +74,7 @@ export class AnalyticsService {
   static async getDashboardMetrics(userId: string): Promise<DashboardMetrics> {
     try {
       // Run all queries concurrently. Catch each independently.
-      const [resumes, applications, opportunities, aiUsage] = await Promise.all([
+      const [resumes, applications, opportunities, aiUsage, atsScore] = await Promise.all([
         prisma.resume.count({ where: { userId } }).catch(() => 0),
         prisma.application.count({ where: { userId } }).catch(() => 0),
         prisma.jobOpportunity.count({ where: { userId } }).catch(() => 0),
@@ -86,6 +88,12 @@ export class AnalyticsService {
             },
           })
           .catch(() => ({ _sum: { estimatedCost: null, promptTokens: null, completionTokens: null } })),
+        prisma.aTSScoreHistory
+          .aggregate({
+            where: { userId },
+            _avg: { score: true }
+          })
+          .catch(() => ({ _avg: { score: null } }))
       ]);
 
       return {
@@ -95,6 +103,7 @@ export class AnalyticsService {
         aiCost: aiUsage._sum.estimatedCost ?? 0,
         totalTokens:
           (aiUsage._sum.promptTokens ?? 0) + (aiUsage._sum.completionTokens ?? 0),
+        resumeScore: Math.round(atsScore._avg.score ?? 0),
         degraded: false,
       };
     } catch (err: unknown) {

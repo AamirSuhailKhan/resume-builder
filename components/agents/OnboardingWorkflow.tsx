@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, CheckCircle2, Sparkles, BrainCircuit } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useEventSource } from "@/hooks/useEventSource";
 
 const STEPS = [
   { id: "analyze", label: "Parsing resume and extracting skills" },
@@ -16,20 +17,61 @@ const STEPS = [
 export function OnboardingWorkflow({ userId }: { userId: string }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isComplete, setIsComplete] = useState(false);
+  const [workflowId, setWorkflowId] = useState<string | null>(null);
+
+  useEventSource(workflowId ? `/api/v1/events/stream?workflowId=${workflowId}` : null, {
+    onMessage: (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "step.completed") {
+          setCurrentStepIndex((prev) => Math.min(prev + 1, STEPS.length));
+        }
+        if (data.type === "workflow.completed") {
+          setCurrentStepIndex(STEPS.length);
+          setTimeout(() => setIsComplete(true), 1500);
+        }
+      } catch (err) {}
+    }
+  });
 
   useEffect(() => {
-    // Simulate real-time staggered orchestration processing
-    if (currentStepIndex >= STEPS.length) {
-      setTimeout(() => setIsComplete(true), 1500);
-      return;
+    let mounted = true;
+    
+    async function startOnboarding() {
+      try {
+        const res = await fetch("/api/v1/workflows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type: "career_coaching", goal: "Initialize Career OS Profile", start: true })
+        });
+        const data = await res.json();
+        if (mounted && data.data?.id) {
+          setWorkflowId(data.data.id);
+        }
+      } catch (err) {
+        console.error("Failed to start onboarding workflow", err);
+        // Fallback for demo/resilience
+        if (mounted) {
+          const fallbackTimer = setInterval(() => {
+            setCurrentStepIndex((prev) => {
+              if (prev >= STEPS.length) {
+                clearInterval(fallbackTimer);
+                setIsComplete(true);
+                return prev;
+              }
+              return prev + 1;
+            });
+          }, 2000);
+        }
+      }
     }
+    
+    startOnboarding();
+    
+    return () => { mounted = false; };
+  }, []);
 
-    const timer = setTimeout(() => {
-      setCurrentStepIndex((prev) => prev + 1);
-    }, 1800 + Math.random() * 1000); // Random delay between 1.8s and 2.8s
-
-    return () => clearTimeout(timer);
-  }, [currentStepIndex]);
+  // Effect removed, replaced by startOnboarding and useEventSource
 
   return (
     <div className="flex min-h-[60vh] w-full flex-col items-center justify-center animate-in fade-in zoom-in duration-500">

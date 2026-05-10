@@ -30,7 +30,7 @@ export default async function AnalyticsPage() {
 
   const dashboardMetrics = {
     responseRate: `${realResponseRate}%`, 
-    resumeScore: "0",
+    resumeScore: metrics.resumeScore.toString(),
     interviewPace: totalInterviews.toString(),
   };
 

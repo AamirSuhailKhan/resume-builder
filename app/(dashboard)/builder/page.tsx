@@ -104,6 +104,10 @@ function BuilderContent() {
   const setIsGeneratingPDF = useUIStore(selectSetIsGeneratingPDF);
 
   const [initState, setInitState] = useState<"loading" | "ready">("loading");
+  const [versions, setVersions] = useState<any[]>([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [rollingBack, setRollingBack] = useState<string | null>(null);
+
   const autosave = useResumeAutosave(activeResumeId, {
     enabled: initState === "ready" && isHydrated && isValidResumeId(activeResumeId),
   });
@@ -204,6 +208,32 @@ function BuilderContent() {
     }, 150);
   }, [toPDF, setIsGeneratingPDF]);
 
+  useEffect(() => {
+    if (isHistoryOpen && resumeData?.id) {
+      setLoadingVersions(true);
+      fetch(`/api/v1/resumes/${resumeData.id}/versions`)
+        .then(res => res.json())
+        .then(data => setVersions(data.data || []))
+        .catch(console.error)
+        .finally(() => setLoadingVersions(false));
+    }
+  }, [isHistoryOpen, resumeData?.id]);
+
+  const handleRollback = async (versionId: string) => {
+    if (!resumeData?.id) return;
+    setRollingBack(versionId);
+    try {
+      const res = await fetch(`/api/v1/resumes/${resumeData.id}/versions/${versionId}/rollback`, { method: "POST" });
+      if (res.ok) {
+        window.location.reload(); 
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setRollingBack(null);
+    }
+  };
+
   // ── 🔥 FIX 4/7/9: RENDERING GUARDS ────────────────────────────────────────
 
   if (authLoading || !hasRehydrated || !isHydrated || initState === "loading") {
@@ -244,7 +274,32 @@ function BuilderContent() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <p className="text-sm text-gray-500 text-center font-medium opacity-60">No previous versions found.</p>
+              
+              <div className="flex flex-col gap-4 overflow-y-auto max-h-[calc(100vh-100px)] custom-scrollbar pb-10">
+                {loadingVersions ? (
+                  <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-indigo-500" /></div>
+                ) : versions.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center font-medium opacity-60">No previous versions found.</p>
+                ) : (
+                  versions.map((v: any) => (
+                    <div key={v.id} className="p-4 rounded-xl border border-gray-100 bg-gray-50 hover:border-indigo-200 transition-colors">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-xs font-bold text-gray-400">v{v.version}</span>
+                        <span className="text-xs font-medium text-gray-500">{new Date(v.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <h4 className="text-sm font-bold text-gray-900 mb-4">{v.title || "Autosave"}</h4>
+                      <Button 
+                        onClick={() => handleRollback(v.id)} 
+                        disabled={rollingBack !== null}
+                        variant="outline" 
+                        className="w-full text-xs font-bold h-8 rounded-lg"
+                      >
+                        {rollingBack === v.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Restore Version"}
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}

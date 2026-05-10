@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { logger } from "@/lib/logger";
 import { WorkflowEventInput } from "./types";
+import { getQueueRedisConnection } from "@/lib/queue/connection";
 
 type PersistedWorkflowEvent = {
   id: string;
@@ -55,6 +56,17 @@ export class OrchestrationEventBus {
       localEmitter.emit(this.workflowChannel(event.workflowId), persisted);
     }
 
+    // Publish to Redis for multi-instance fanout
+    try {
+      const redis = getQueueRedisConnection();
+      await redis.publish(this.channel(userId), JSON.stringify(persisted));
+      if (event.workflowId) {
+        await redis.publish(this.workflowChannel(event.workflowId), JSON.stringify(persisted));
+      }
+    } catch (err) {
+      logger.error("Failed to publish event to Redis", err);
+    }
+
     logger.info({
       workflowId: event.workflowId,
       eventType: event.type,
@@ -88,11 +100,11 @@ export class OrchestrationEventBus {
     });
   }
 
-  private static channel(userId: string) {
-    return `orchestration:user:${userId}`;
+  static channel(userId: string) {
+    return `career-os:user:${userId}`;
   }
 
-  private static workflowChannel(workflowId: string) {
-    return `orchestration:workflow:${workflowId}`;
+  static workflowChannel(workflowId: string) {
+    return `career-os:workflow:${workflowId}`;
   }
 }

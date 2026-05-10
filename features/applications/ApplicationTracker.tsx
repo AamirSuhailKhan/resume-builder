@@ -27,11 +27,34 @@ export function ApplicationTracker({ initialApplications }: { initialApplication
     );
   }, [items]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const overStage = event.over?.id as ApplicationStage | undefined;
     const activeId = String(event.active.id);
     if (overStage && stages.includes(overStage)) {
+      const activeItem = items.find(item => item.id === activeId);
+      if (!activeItem || activeItem.stage === overStage) {
+        setActive(null);
+        return;
+      }
+      
+      const previousStage = activeItem.stage;
+
+      // Optimistic update
       setItems((current) => current.map((item) => (item.id === activeId ? { ...item, stage: overStage } : item)));
+      
+      try {
+        const res = await fetch(`/api/v1/applications/${activeId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stage: overStage }),
+        });
+        
+        if (!res.ok) throw new Error("Failed to persist stage change");
+      } catch (err) {
+        console.error("Drag and drop persistence failed:", err);
+        // Rollback
+        setItems((current) => current.map((item) => (item.id === activeId ? { ...item, stage: previousStage } : item)));
+      }
     }
     setActive(null);
   };

@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/auth";
+import { getQueueRedisConnection } from "@/lib/queue/connection";
+import { OrchestrationEventBus } from "@/lib/orchestration/events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,6 +12,11 @@ export async function GET(req: NextRequest) {
   if (!session?.user?.id) {
     return new Response("Unauthorized", { status: 401 });
   }
+
+  const workflowId = req.nextUrl.searchParams.get("workflowId");
+  const channel = workflowId
+    ? OrchestrationEventBus.workflowChannel(workflowId)
+    : OrchestrationEventBus.channel(session.user.id);
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -23,9 +30,27 @@ export async function GET(req: NextRequest) {
         }
       };
 
-      // In a real multi-instance environment, you'd subscribe to Redis pub/sub here.
-      // For now, we will send an initial heartbeat and then close, or keep open with keepalive.
-      sendEvent({ type: "connected", timestamp: new Date().toISOString() });
+      sendEvent({ type: "connected", timestamp: new Date().toISOString(), channel });
+
+      let subscriber: ReturnType<typeof getQueueRedisConnection> | null = null;
+
+      try {
+        subscriber = getQueueRedisConnection().duplicate();
+        await subscriber.subscribe(channel);
+        
+        subscriber.on("message", (ch, message) => {
+          if (ch === channel) {
+            try {
+              const eventData = JSON.parse(message);
+              sendEvent(eventData);
+            } catch (err) {
+              console.error("Failed to parse Redis message", err);
+            }
+          }
+        });
+      } catch (err) {
+        console.error("Redis subscription failed", err);
+      }
 
       const interval = setInterval(() => {
         sendEvent({ type: "heartbeat", timestamp: new Date().toISOString() });
@@ -33,6 +58,10 @@ export async function GET(req: NextRequest) {
 
       req.signal.addEventListener("abort", () => {
         clearInterval(interval);
+        if (subscriber) {
+          subscriber.unsubscribe(channel).catch(() => {});
+          subscriber.quit().catch(() => {});
+        }
         try {
           controller.close();
         } catch (e) {}

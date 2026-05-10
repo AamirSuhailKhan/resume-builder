@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, CheckCircle2, AlertCircle, PlayCircle, Bot } from "lucide-react";
+import { useEventSource } from "@/hooks/useEventSource";
 
 export type ActivityEvent = {
   id: string;
@@ -48,14 +49,40 @@ const DEMO_EVENTS: ActivityEvent[] = [
 export function LiveActivityFeed({ events = [], simulateDemo = false }: LiveActivityFeedProps) {
   const [feed, setFeed] = useState<ActivityEvent[]>(events);
 
-  useEffect(() => {
-    if (simulateDemo && feed.length === 0) {
-      setFeed(DEMO_EVENTS);
+  const streamUrl = simulateDemo ? null : "/api/v1/events/stream";
+  
+  // Connect to SSE using robust shared hook
+  useEventSource(streamUrl, {
+    autoReconnect: true,
+    onMessage: (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "heartbeat" || data.type === "connected") return;
+        
+        setFeed((prev) => {
+          const newFeed = [data as ActivityEvent, ...prev].slice(0, 50);
+          return newFeed;
+        });
+      } catch (err) {
+        console.error("Failed to parse SSE message", err);
+      }
+    }
+  });
 
-      const timer = setTimeout(() => {
-        setFeed((prev) => [
-          ...prev.filter(e => e.id !== "3"),
-          { ...DEMO_EVENTS[2], status: "completed" } as ActivityEvent,
+  // Isolated Demo Mode Logic
+  useEffect(() => {
+    if (!simulateDemo) return;
+    
+    if (feed.length === 0) {
+      setFeed(DEMO_EVENTS);
+    }
+
+    const timer = setTimeout(() => {
+      setFeed((prev) => {
+        // Prevent duplicate completions if already triggered
+        if (prev.some(e => e.id === "4")) return prev;
+        
+        return [
           {
             id: "4",
             timestamp: new Date().toLocaleTimeString([], { hour12: false }),
@@ -63,62 +90,15 @@ export function LiveActivityFeed({ events = [], simulateDemo = false }: LiveActi
             message: "Review generated cover letter before final submission.",
             status: "approval",
             reasoning: "Policy requires human approval for unverified salary field.",
-          }
-        ]);
-      }, 5000);
+          },
+          { ...DEMO_EVENTS[2], status: "completed" } as ActivityEvent,
+          ...prev.filter(e => e.id !== "3")
+        ];
+      });
+    }, 5000);
 
-      return () => clearTimeout(timer);
-      let eventSource: EventSource | null = null;
-      let retryCount = 0;
-      let reconnectTimeout: NodeJS.Timeout;
-
-      const connect = () => {
-        eventSource = new EventSource("/api/v1/events/stream");
-
-        eventSource.onopen = () => {
-          retryCount = 0;
-        };
-
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === "heartbeat" || data.type === "connected") return;
-            
-            setFeed((prev) => {
-              // Keep last 50 events to prevent memory bloat
-              const newFeed = [data as ActivityEvent, ...prev].slice(0, 50);
-              return newFeed;
-            });
-          } catch (err) {
-            console.error("Failed to parse SSE message", err);
-          }
-        };
-
-        eventSource.onerror = (error) => {
-          console.error("SSE connection error", error);
-          eventSource?.close();
-          
-          // Exponential backoff
-          const timeout = Math.min(1000 * Math.pow(2, retryCount), 30000);
-          retryCount++;
-          
-          if (retryCount < 10) {
-            reconnectTimeout = setTimeout(connect, timeout);
-          } else {
-            console.error("SSE max retries reached. Stopping reconnection.");
-          }
-        };
-      };
-
-      connect();
-
-      return () => {
-        if (reconnectTimeout) clearTimeout(reconnectTimeout);
-        if (eventSource) eventSource.close();
-      };
-    }
-    return undefined;
-  }, [events, simulateDemo, feed.length]);
+    return () => clearTimeout(timer);
+  }, [simulateDemo]);
 
   return (
     <div className="w-full h-full rounded-xl border border-border bg-black/95 text-green-500 overflow-hidden font-mono text-sm flex flex-col shadow-2xl relative">
