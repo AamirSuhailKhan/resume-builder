@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
 import { AnalyticsService } from "@/lib/services/analytics.service";
 import { CareerOSService } from "@/lib/services/career-os.service";
-import { JobsService } from "@/lib/services/jobs.service";
+import { DashboardQueryService } from "@/lib/services/dashboard-query.service";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { LiveActivityFeed } from "@/components/agents/LiveActivityFeed";
@@ -49,8 +49,7 @@ function WorkflowStatusIcon({ status }: { status: string }) {
 
 // ── Independent Widgets ───────────────────────────────────────────────────
 
-async function InfrastructureBanner({ userId }: { userId: string }) {
-  const metrics = await AnalyticsService.getDashboardMetrics(userId).catch(() => ({ degraded: true, degradedReason: "unknown" }));
+async function InfrastructureBanner({ metrics }: { metrics: any }) {
   if (!metrics.degraded) return null;
 
   return (
@@ -77,25 +76,14 @@ async function InfrastructureBanner({ userId }: { userId: string }) {
   );
 }
 
-async function MetricsRow({ userId }: { userId: string }) {
-  const [metrics, opportunities, workflows, approvals] = await Promise.all([
-    AnalyticsService.getDashboardMetrics(userId).catch(() => ({ degraded: true, totalApplications: 0, totalResumes: 0, aiCost: 0 })),
-    JobsService.getOpportunitiesForUser(userId).catch(() => []),
-    CareerOSService.listWorkflowRuns(userId, 10).catch(() => []),
-    CareerOSService.listApprovalRequests(userId, "pending").catch(() => []),
-  ]);
-
+async function MetricsRow({ metrics, hotMatchesCount, activeWorkflowsCount, approvalsCount }: { metrics: any, hotMatchesCount: number, activeWorkflowsCount: number, approvalsCount: number }) {
   const schemaReady = !metrics.degraded;
-  const hotMatches = opportunities.filter((job) => job.matchScore >= 88);
-  const activeWorkflows = workflows.filter((wf) =>
-    ["queued", "running", "retrying", "waiting_for_approval"].includes(wf.status)
-  );
 
   return (
     <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-      <Metric label="Top matches" value={`${hotMatches.length}`} href="/matches" icon={<BriefcaseBusiness className="h-4 w-4" />} />
-      <Metric label="Agent runs" value={schemaReady ? `${activeWorkflows.length}` : "—"} href="/agents" icon={<GitBranch className="h-4 w-4" />} />
-      <Metric label="Approvals" value={schemaReady ? `${approvals.length}` : "—"} href="/agents" icon={<ShieldCheck className="h-4 w-4" />} urgent={approvals.length > 0} />
+      <Metric label="Top matches" value={`${hotMatchesCount}`} href="/matches" icon={<BriefcaseBusiness className="h-4 w-4" />} />
+      <Metric label="Agent runs" value={schemaReady ? `${activeWorkflowsCount}` : "—"} href="/agents" icon={<GitBranch className="h-4 w-4" />} />
+      <Metric label="Approvals" value={schemaReady ? `${approvalsCount}` : "—"} href="/agents" icon={<ShieldCheck className="h-4 w-4" />} urgent={approvalsCount > 0} />
       <Metric label="Applications" value={`${metrics.totalApplications || 0}`} href="/applications" icon={<KanbanSquare className="h-4 w-4" />} />
       <Metric label="Resumes" value={`${metrics.totalResumes || 0}`} href="/analytics" icon={<FileText className="h-4 w-4" />} />
       <Metric label="AI cost" value={`$${(metrics.aiCost || 0).toFixed(2)}`} href="/auto-apply" icon={<Sparkles className="h-4 w-4" />} />
@@ -103,9 +91,7 @@ async function MetricsRow({ userId }: { userId: string }) {
   );
 }
 
-async function TopMatchesWidget({ userId }: { userId: string }) {
-  const opportunities = await JobsService.getOpportunitiesForUser(userId).catch(() => []);
-  
+async function TopMatchesWidget({ opportunities }: { opportunities: any[] }) {
   return (
     <Card variant="elevated">
       <CardHeader>
@@ -118,7 +104,7 @@ async function TopMatchesWidget({ userId }: { userId: string }) {
             href="/matches"
             className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface p-4 transition hover:bg-surface-muted"
           >
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-foreground">{job.company}</p>
               <p className="truncate text-sm text-muted-foreground">{job.role}</p>
             </div>
@@ -136,12 +122,7 @@ async function TopMatchesWidget({ userId }: { userId: string }) {
   );
 }
 
-async function ActiveWorkflowsWidget({ userId }: { userId: string }) {
-  const workflows = await CareerOSService.listWorkflowRuns(userId, 10).catch(() => []);
-  const activeWorkflows = workflows.filter((wf) =>
-    ["queued", "running", "retrying", "waiting_for_approval"].includes(wf.status)
-  );
-
+async function ActiveWorkflowsWidget({ activeWorkflows }: { activeWorkflows: any[] }) {
   return (
     <Card variant="glass">
       <CardHeader>
@@ -181,10 +162,10 @@ export async function CommandCenter() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  // Domain boundary validation -> Auto-initializes profile if empty
-  let profile;
+  // 1. Single optimized database fetch for the entire dashboard
+  let viewData;
   try {
-    profile = await CareerOSService.getOrCreateProfile(userId);
+    viewData = await DashboardQueryService.getCommandCenterView(userId);
   } catch (error) {
     if (error instanceof AuthConsistencyError || (error instanceof Error && error.name === "AuthConsistencyError")) {
       return (
@@ -196,13 +177,9 @@ export async function CommandCenter() {
     throw error;
   }
 
-  // If we couldn't get a profile (e.g. auth inconsistency), redirect to login
-  if (!profile) redirect("/login");
+  if (!viewData.profile) redirect("/login");
 
-  // Check if user is completely new (no workflows, no resumes)
-  const isNewUser = await CareerOSService.listWorkflowRuns(userId, 1).then(runs => runs.length === 0).catch(() => false);
-
-  if (isNewUser) {
+  if (viewData.isNewUser) {
     return (
       <SectionShell>
         <OnboardingWorkflow userId={userId} />
@@ -214,7 +191,7 @@ export async function CommandCenter() {
     <SectionShell>
       <ErrorBoundary>
         <Suspense fallback={null}>
-          <InfrastructureBanner userId={userId} />
+          <InfrastructureBanner metrics={viewData.metrics} />
         </Suspense>
       </ErrorBoundary>
 
@@ -233,21 +210,26 @@ export async function CommandCenter() {
 
       <ErrorBoundary>
         <Suspense fallback={<div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6"><Skeleton className="h-32" /><Skeleton className="h-32" /><Skeleton className="h-32" /></div>}>
-          <MetricsRow userId={userId} />
+          <MetricsRow 
+            metrics={viewData.metrics}
+            hotMatchesCount={viewData.opportunities.filter((j: any) => j.matchScore >= 88).length}
+            activeWorkflowsCount={viewData.activeWorkflows.length}
+            approvalsCount={viewData.pendingApprovalsCount}
+          />
         </Suspense>
       </ErrorBoundary>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_420px]">
-        <div className="space-y-6">
+        <div className="space-y-6 min-w-0">
           <ErrorBoundary>
             <Suspense fallback={<Skeleton className="h-[200px]" />}>
-              <TopMatchesWidget userId={userId} />
+              <TopMatchesWidget opportunities={viewData.opportunities} />
             </Suspense>
           </ErrorBoundary>
 
           <ErrorBoundary>
             <Suspense fallback={<Skeleton className="h-[300px]" />}>
-              <ActiveWorkflowsWidget userId={userId} />
+              <ActiveWorkflowsWidget activeWorkflows={viewData.activeWorkflows} />
             </Suspense>
           </ErrorBoundary>
         </div>

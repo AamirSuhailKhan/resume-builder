@@ -648,8 +648,12 @@ model BrowserExecution {
   workflowId   String   @db.Uuid
   userId       String   @db.Uuid
   status       String   // "initializing", "running", "paused", "completed", "failed"
+  currentUrl   String?  // Last known URL the browser is on
+  currentTitle String?  // Last known page title
   contextId    String?  // References internal Playwright context UUID if active
   metadata     Json?    // Any launch parameters or debug info
+  startedAt    DateTime?
+  completedAt  DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -657,6 +661,7 @@ model BrowserExecution {
 
   @@index([workflowId])
   @@index([userId])
+  @@index([status, createdAt])
 }
 
 model ExecutionScreenshot {
@@ -685,6 +690,21 @@ model DOMAction {
   createdAt    DateTime @default(now())
 
   @@index([executionId])
+  @@index([workflowId, createdAt])
+}
+
+model ExecutionReasoning {
+  id           String   @id @default(uuid()) @db.Uuid
+  executionId  String   @db.Uuid
+  workflowId   String   @db.Uuid
+  decision     String   // What the AI decided to do
+  reasoning    String   // Why it made that decision
+  confidence   Float    @default(0.8) // 0.0 to 1.0
+  alternatives Json?    // Other options considered
+  context      Json?    // Page context at decision time
+  createdAt    DateTime @default(now())
+
+  @@index([executionId, createdAt])
   @@index([workflowId, createdAt])
 }
 

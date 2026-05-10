@@ -14,24 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
 import { WorkflowVisualizer } from "@/components/agents/WorkflowVisualizer";
-import { CareerOSService } from "@/lib/services/career-os.service";
+import { DashboardQueryService } from "@/lib/services/dashboard-query.service";
 
 export async function AgentRunsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const userId = session.user.id;
-  const [profile, workflows, approvals, memories] = await Promise.all([
-    CareerOSService.getOrCreateProfile(userId),
-    CareerOSService.listWorkflowRuns(userId, 12),
-    CareerOSService.listApprovalRequests(userId, "pending"),
-    CareerOSService.listMemories(userId, { limit: 8 }),
-  ]);
-
-  const runningCount = workflows.filter((workflow) =>
-    ["queued", "running", "retrying", "waiting_for_approval"].includes(workflow.status)
-  ).length;
-  const completedCount = workflows.filter((workflow) => workflow.status === "completed").length;
+  const { profile, recentWorkflows: workflows, activeCount, completedCount, pendingApprovals: approvals, memories } = await DashboardQueryService.getAgentRunsView(userId);
 
   return (
     <SectionShell>
@@ -50,7 +40,7 @@ export async function AgentRunsPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-4">
-        <AgentMetric label="Active workflows" value={`${runningCount}`} icon={<GitBranch className="h-4 w-4" />} />
+        <AgentMetric label="Active workflows" value={`${activeCount}`} icon={<GitBranch className="h-4 w-4" />} />
         <AgentMetric label="Pending approvals" value={`${approvals.length}`} icon={<ShieldCheck className="h-4 w-4" />} />
         <AgentMetric label="Career memories" value={`${memories.length}`} icon={<Database className="h-4 w-4" />} />
         <AgentMetric label="Completed" value={`${completedCount}`} icon={<CheckCircle2 className="h-4 w-4" />} />
@@ -60,7 +50,7 @@ export async function AgentRunsPage() {
         <Card variant="elevated">
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Workflow Timeline</CardTitle>
-            <Badge variant={runningCount > 0 ? "primary" : "neutral"}>{runningCount > 0 ? "Live" : "Idle"}</Badge>
+            <Badge variant={activeCount > 0 ? "primary" : "neutral"}>{activeCount > 0 ? "Live" : "Idle"}</Badge>
           </CardHeader>
           <CardContent className="space-y-3">
             {workflows.map((workflow) => (
@@ -73,11 +63,15 @@ export async function AgentRunsPage() {
                     </div>
                     <p className="mt-3 truncate text-sm font-semibold text-foreground">{workflow.goal}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {workflow.agentRuns.length} agent run{workflow.agentRuns.length === 1 ? "" : "s"} · {formatDate(workflow.updatedAt)}
+                      {workflow._count.agentRuns} agent run{workflow._count.agentRuns === 1 ? "" : "s"} · {formatDate(workflow.updatedAt)}
                     </p>
                   </div>
-                  <Link href={`/api/v1/workflows/${workflow.id}`} className="text-xs font-medium text-accent">
-                    JSON
+                  <Link
+                    href={`/execution/${workflow.id}`}
+                    className="shrink-0 flex items-center gap-1.5 rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 transition-colors border border-primary/20"
+                  >
+                    <span className="relative flex h-1.5 w-1.5"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" /><span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" /></span>
+                    Watch
                   </Link>
                 </div>
 

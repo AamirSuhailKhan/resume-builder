@@ -64,7 +64,7 @@ export class OrchestrationEventBus {
         await redis.publish(this.workflowChannel(event.workflowId), JSON.stringify(persisted));
       }
     } catch (err) {
-      logger.error("Failed to publish event to Redis", err);
+      logger.error({ err }, "Failed to publish event to Redis");
     }
 
     logger.info({

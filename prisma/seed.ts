@@ -2,7 +2,7 @@
  * prisma/seed.ts — Production-quality seed for Career OS dashboard.
  * Generates realistic orchestration telemetry that makes the UI feel alive.
  */
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const ago = (ms: number) => new Date(Date.now() - ms);

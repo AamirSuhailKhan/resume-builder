@@ -1,3 +1,4 @@
+import "server-only";
 import { WorkflowStatus } from "@prisma/client";
 import { z } from "zod";
 import { CareerOSService } from "@/lib/services/career-os.service";

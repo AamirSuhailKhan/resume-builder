@@ -75,9 +75,10 @@ export async function checkSchemaHealth(force = false): Promise<SchemaHealthResu
     healthy: missingTables.length === 0 && !errorMessage,
     missingTables,
     checkedAt: new Date().toISOString(),
-    errorCode,
-    errorMessage,
   };
+
+  if (errorCode !== undefined) result.errorCode = errorCode;
+  if (errorMessage !== undefined) result.errorMessage = errorMessage;
 
   cachedResult = result;
   cacheExpiry = now + CACHE_TTL_MS;

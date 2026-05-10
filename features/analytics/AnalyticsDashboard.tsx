@@ -29,7 +29,7 @@ export function AnalyticsDashboard({ trendData, metrics }: { trendData: Analytic
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
-        <Card variant="elevated">
+        <Card variant="elevated" className="min-w-0">
           <CardHeader>
             <CardTitle>Improvement Trends</CardTitle>
           </CardHeader>
@@ -53,7 +53,7 @@ export function AnalyticsDashboard({ trendData, metrics }: { trendData: Analytic
           </CardContent>
         </Card>
 
-        <Card variant="glass">
+        <Card variant="glass" className="min-w-0">
           <CardHeader>
             <CardTitle>Interview Momentum</CardTitle>
           </CardHeader>

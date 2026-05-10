@@ -118,44 +118,50 @@ export function LiveActivityFeed({ events = [], simulateDemo = false }: LiveActi
       
       <div className="p-4 flex-1 overflow-y-auto space-y-4 max-h-[400px]">
         <AnimatePresence initial={false}>
-          {feed.map((event) => (
-            <motion.div
-              key={event.id}
-              initial={{ opacity: 0, x: -10, scale: 0.95 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              layout
-              className="flex gap-3 relative"
-            >
-              <div className="flex flex-col items-center pt-1">
-                {event.status === "running" && <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />}
-                {event.status === "completed" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                {event.status === "error" && <AlertCircle className="h-4 w-4 text-red-500" />}
-                {event.status === "approval" && <PlayCircle className="h-4 w-4 text-amber-500 animate-pulse" />}
-                <div className="w-[1px] h-full bg-border mt-2" />
-              </div>
-              
-              <div className="flex flex-col flex-1 pb-4">
-                <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-muted-foreground text-xs opacity-60">[{event.timestamp}]</span>
-                  <span className="text-white font-medium tracking-tight">{event.agent}</span>
-                </div>
-                <div className={`text-sm ${event.status === 'error' ? 'text-red-400' : event.status === 'approval' ? 'text-amber-400' : 'text-gray-300'}`}>
-                  {event.message}
+          {feed.map((event, index) => {
+            const isNewest = index === 0;
+            const opacityValue = Math.max(0.35, 1 - index * 0.15);
+            
+            return (
+              <motion.div
+                key={event.id}
+                initial={{ opacity: 0, filter: "brightness(2)" }}
+                animate={{ opacity: opacityValue, filter: "brightness(1)" }}
+                layout="position"
+                transition={{ duration: 0.3 }}
+                className="flex gap-3 relative"
+              >
+                <div className="flex flex-col items-center pt-1">
+                  {event.status === "running" && <Loader2 className={`h-4 w-4 text-blue-500 ${isNewest ? "animate-spin" : ""}`} />}
+                  {event.status === "completed" && <CheckCircle2 className={`h-4 w-4 text-green-500 ${isNewest ? "drop-shadow-[0_0_6px_rgba(34,197,94,0.8)]" : ""}`} />}
+                  {event.status === "error" && <AlertCircle className="h-4 w-4 text-red-500" />}
+                  {event.status === "approval" && <PlayCircle className={`h-4 w-4 text-amber-500 ${isNewest ? "animate-pulse drop-shadow-[0_0_6px_rgba(245,158,11,0.8)]" : ""}`} />}
+                  <div className="w-[1px] h-full bg-border mt-2" />
                 </div>
                 
-                {event.reasoning && (
-                  <div className="mt-2 pl-3 border-l-2 border-border/50 text-xs text-gray-500 italic bg-white/5 py-1 px-2 rounded-r">
-                    <span className="text-purple-400 font-semibold non-italic">Reasoning:</span> {event.reasoning}
+                <div className={`flex flex-col flex-1 pb-4 transition-all duration-500 ${isNewest ? "brightness-125" : "brightness-100"}`}>
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className={`text-xs ${isNewest ? "text-green-400 font-bold" : "text-muted-foreground opacity-60"}`}>[{event.timestamp}]</span>
+                    <span className={`font-medium tracking-tight ${isNewest ? "text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.4)]" : "text-gray-300"}`}>{event.agent}</span>
                   </div>
-                )}
-                {event.metrics && (
-                  <div className="mt-2 text-xs text-blue-400 bg-blue-500/10 px-2 py-1 rounded inline-block border border-blue-500/20">
-                    {event.metrics}
+                  <div className={`text-sm ${event.status === 'error' ? 'text-red-400' : event.status === 'approval' ? 'text-amber-400' : 'text-gray-300'}`}>
+                    {event.message}
                   </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
+                  
+                  {event.reasoning && (
+                    <div className="mt-2 pl-3 border-l-2 border-border/50 text-xs text-gray-500 italic bg-white/5 py-1 px-2 rounded-r">
+                      <span className="text-purple-400 font-semibold non-italic">Reasoning:</span> {event.reasoning}
+                    </div>
+                  )}
+                  {event.metrics && (
+                    <div className="mt-2 text-xs text-blue-400 bg-blue-500/10 px-2 py-1 rounded inline-block border border-blue-500/20">
+                      {event.metrics}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </div>
     </div>
