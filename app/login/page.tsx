@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FileText } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,10 @@ import {
   useSessionUser,
 } from "@/store/useAuthStore";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isSessionExpired = searchParams?.get("error") === "SessionExpired";
   const { user, loading } = useSessionUser();
   const error = useAuthStore(selectAuthError);
   const signInWithGoogle = useAuthStore(selectSignIn);
@@ -48,10 +50,23 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">
-          Sign in to continue
-        </h1>
-        <p className="text-gray-500 mb-8 font-medium">Your AI-powered resume builder</p>
+        {isSessionExpired ? (
+          <>
+            <h1 className="text-2xl font-black text-gray-900 mb-2 tracking-tight">
+              Reconnecting workspace...
+            </h1>
+            <p className="text-gray-500 mb-8 font-medium max-w-sm mx-auto leading-relaxed">
+              Your secure session expired after a system update. Please log back in to reconnect your AI Career OS.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">
+              Sign in to continue
+            </h1>
+            <p className="text-gray-500 mb-8 font-medium">Your AI-powered resume builder</p>
+          </>
+        )}
 
         {error && (
           <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl text-sm text-rose-700 font-medium">
@@ -94,5 +109,13 @@ export default function LoginPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -7,6 +7,7 @@ import {
   Bot,
   BriefcaseBusiness,
   FileText,
+  GitBranch,
   KanbanSquare,
   LayoutDashboard,
   LogOut,
@@ -22,6 +23,7 @@ import { useResumeStore } from "@/store/useResumeStore";
 
 const sidebarNavItems = [
   { title: "Command Center", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Agent Runs", href: "/agents", icon: GitBranch },
   { title: "Resume Builder", href: "/builder", icon: FileText },
   { title: "Job Intelligence", href: "/job-intelligence", icon: Bot },
   { title: "Job Matches", href: "/matches", icon: BriefcaseBusiness },

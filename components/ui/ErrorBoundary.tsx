@@ -29,11 +29,22 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[CRITICAL UI ERROR]", {
+    // Structured logging for external telemetry (e.g., Datadog/Sentry)
+    const errorContext = {
+      timestamp: new Date().toISOString(),
+      name: error.name,
       message: error.message,
       stack: error.stack,
       componentStack: info.componentStack,
-    });
+      isSSR: typeof window === "undefined",
+    };
+
+    if (process.env.NODE_ENV === "development") {
+      console.error("[ErrorBoundary: DEV_CONTEXT]", errorContext);
+    } else {
+      // In production, this would be a beacon/fetch to an observability endpoint
+      console.error("[ErrorBoundary: PROD_CRITICAL]", JSON.stringify(errorContext));
+    }
   }
 
   handleRetry = () => {
@@ -45,25 +56,26 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback;
 
       return (
-        <div className="m-4 flex min-h-[400px] w-full flex-col items-center justify-center rounded-lg border border-danger/20 bg-danger/5 p-8 text-center animate-in fade-in">
-          <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-lg border border-danger/20 bg-danger/10 text-danger shadow-sm">
-            <AlertTriangle className="h-8 w-8" />
+        <div className="flex w-full flex-col items-center justify-center rounded-lg border border-danger/20 bg-danger/5 p-6 text-center animate-in fade-in">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg border border-danger/20 bg-danger/10 text-danger shadow-sm">
+            <AlertTriangle className="h-5 w-5" />
           </div>
           
-          <h2 className="mb-2 text-xl font-semibold tracking-normal text-foreground">Component Error</h2>
+          <h3 className="mb-2 text-base font-semibold tracking-normal text-foreground">Widget failed to load</h3>
           
-          <div className="mb-8 w-full max-w-md rounded-lg border border-danger/20 bg-surface p-4 shadow-sm">
-            <p className="break-words font-mono text-sm text-danger">
-              {this.state.error?.message || "Unknown rendering failure"}
+          <div className="mb-4 w-full max-w-sm rounded-lg border border-danger/20 bg-surface p-3 shadow-sm text-left overflow-auto max-h-48">
+            <p className="break-words font-mono text-xs font-semibold text-danger mb-2">
+              {this.state.error?.name}: {this.state.error?.message || "Unknown rendering failure"}
             </p>
+            {process.env.NODE_ENV === "development" && this.state.error?.stack && (
+              <pre className="text-[10px] leading-relaxed text-danger/80 whitespace-pre-wrap">
+                {this.state.error.stack}
+              </pre>
+            )}
           </div>
 
-          <p className="mb-8 max-w-xs text-sm font-medium text-muted-foreground">
-            This part of the app crashed. We&apos;ve logged the error. Try resetting the component below.
-          </p>
-
-          <Button onClick={this.handleRetry} size="lg">
-            <RefreshCcw className="mr-2 h-4 w-4" /> Reset Component
+          <Button onClick={this.handleRetry} size="sm" variant="outline">
+            <RefreshCcw className="mr-2 h-3.5 w-3.5" /> Retry
           </Button>
         </div>
       );

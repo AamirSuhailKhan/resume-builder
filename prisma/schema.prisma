@@ -1,6 +1,6 @@
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters", "fullTextSearchPostgres"]
+  previewFeatures = ["fullTextSearchPostgres"]
 }
 
 datasource db {
@@ -46,6 +46,38 @@ enum DataSourceType {
   ai_inferred
 }
 
+enum WorkflowStatus {
+  draft
+  planned
+  waiting_for_data
+  waiting_for_approval
+  queued
+  running
+  blocked
+  retrying
+  completed
+  failed
+  canceled
+}
+
+enum AgentRunStatus {
+  planned
+  queued
+  running
+  waiting_for_approval
+  completed
+  failed
+  canceled
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  expired
+  canceled
+}
+
 model User {
   id             String    @id @default(uuid()) @db.Uuid
   name           String?
@@ -66,8 +98,189 @@ model User {
   applications      Application[]
   interviewSessions InterviewSession[]
   aiUsages          AIUsage[]
+  careerProfile     CareerProfile?
+  careerMemories    CareerMemory[]
+  workflowRuns      WorkflowRun[]
+  agentRuns         AgentRun[]
+  approvalRequests  ApprovalRequest[]
+  applicationArtifacts ApplicationArtifact[]
+  workflowEvents    WorkflowEvent[]
 
   @@index([email])
+}
+
+model CareerProfile {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @db.Uuid
+  headline          String?
+  summary           String?
+  goals             Json?
+  preferences       Json?
+  constraints       Json?
+  salaryExpectation Json?
+  autonomyPolicy    Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model CareerMemory {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  type        String
+  title       String
+  content     String
+  evidenceRef String?
+  confidence  Float     @default(0.7)
+  source      String    @default("user")
+  visibility  String    @default("private")
+  metadata    Json?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([userId, createdAt])
+}
+
+model WorkflowRun {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @db.Uuid
+  type        String
+  status      WorkflowStatus @default(draft)
+  goal        String
+  plan        Json?
+  policy      Json?
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  completedAt DateTime?
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agentRuns        AgentRun[]
+  approvalRequests ApprovalRequest[]
+  events           WorkflowEvent[]
+
+  @@index([userId, status, createdAt])
+  @@index([type, status])
+}
+
+model WorkflowEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  workflowId  String?  @db.Uuid
+  agentRunId  String?  @db.Uuid
+  stepId      String?  @db.Uuid
+  type        String
+  source      String
+  visibility  String   @default("internal")
+  payload     Json
+  traceId     String
+  sequence    BigInt   @default(autoincrement())
+  createdAt   DateTime @default(now())
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflow WorkflowRun? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([workflowId, sequence])
+  @@index([traceId])
+  @@index([type, createdAt])
+}
+
+model AgentRun {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @db.Uuid
+  workflowId  String?        @db.Uuid
+  agentType   String
+  status      AgentRunStatus @default(planned)
+  input       Json?
+  output      Json?
+  costUsd     Float          @default(0)
+  tokenUsage  Json?
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflow WorkflowRun? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+  steps    AgentStep[]
+
+  @@index([userId, status, createdAt])
+  @@index([workflowId, createdAt])
+  @@index([agentType, status])
+}
+
+model AgentStep {
+  id          String    @id @default(uuid()) @db.Uuid
+  agentRunId  String    @db.Uuid
+  stepType    String
+  status      String
+  summary     String
+  input       Json?
+  output      Json?
+  error       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  agentRun AgentRun @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
+
+  @@index([agentRunId, createdAt])
+  @@index([stepType, status])
+}
+
+model ApprovalRequest {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String         @db.Uuid
+  workflowId  String?        @db.Uuid
+  type        String
+  status      ApprovalStatus @default(pending)
+  title       String
+  summary     String
+  payload     Json
+  riskFlags   Json?
+  decision    Json?
+  expiresAt   DateTime?
+  decidedAt   DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflow WorkflowRun? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, createdAt])
+  @@index([workflowId, status])
+}
+
+model ApplicationArtifact {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  applicationId String?  @db.Uuid
+  resumeId      String?  @db.Uuid
+  type          String
+  title         String
+  content       Json
+  source        String   @default("agent")
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  resume      Resume?      @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+
+  @@index([userId, type, createdAt])
+  @@index([applicationId])
+  @@index([resumeId, createdAt])
 }
 
 model Account {
@@ -120,6 +333,7 @@ model Resume {
   versions     ResumeVersion[]
   jobs         Job[]
   applications Application[]
+  applicationArtifacts ApplicationArtifact[]
 
   @@index([userId, updatedAt])
   @@index([userId, id])
@@ -222,6 +436,7 @@ model Application {
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   resume         Resume?         @relation(fields: [resumeId], references: [id], onDelete: SetNull)
   jobOpportunity JobOpportunity? @relation(fields: [jobOpportunityId], references: [id], onDelete: SetNull)
+  artifacts      ApplicationArtifact[]
 
   @@index([userId, status])
   @@index([resumeId, createdAt])
