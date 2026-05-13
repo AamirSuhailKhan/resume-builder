@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { normalizeResume } from "@/lib/normalizeResume";
 import { AutosavePayload } from "@/lib/queue/types";
+import { logger } from "@/lib/logger";
 
 const VERSION_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -37,7 +38,7 @@ export async function handleAutosave(payload: AutosavePayload) {
     title: payload.title,
   });
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     await tx.job.update({
       where: { id: payload.jobRecordId },
       data: { status: "processing", attempts: { increment: 1 }, lastError: null },
@@ -73,4 +74,20 @@ export async function handleAutosave(payload: AutosavePayload) {
 
     return { resumeId: payload.resumeId, version: nextVersion };
   });
+
+  // ── Async memory extraction — runs AFTER the transaction, never blocks autosave ──
+  // Import lazily so the server-only service doesn't load in every worker context
+  setImmediate(async () => {
+    try {
+      const { memoryService } = await import("@/lib/services/memory.service");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await memoryService.extractMemoriesFromResume(payload.userId, normalized as any);
+      logger.info({ userId: payload.userId, resumeId: payload.resumeId }, "[autosave] Career memories updated.");
+    } catch (err) {
+      // Non-fatal — autosave already succeeded; memory extraction is best-effort
+      logger.warn({ err, userId: payload.userId }, "[autosave] Memory extraction failed (non-fatal).");
+    }
+  });
+
+  return result;
 }

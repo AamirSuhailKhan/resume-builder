@@ -12,6 +12,7 @@ import { optimizeResume, mergeOptimizedResume, OptimizeResult, generateApplicati
 import { ScoreAnimator } from "@/features/ats/components/ScoreAnimator";
 import { ImprovementSummary } from "@/features/ats/components/ImprovementSummary";
 import { PaywallSection } from "@/features/ats/components/PaywallSection";
+import { SuggestionEditor } from "@/components/suggestions";
 import {
   useResumeStore,
   selectResumesById,
@@ -24,6 +25,7 @@ import {
 } from "@/store/useResumeStore";
 import { normalizeResume } from "@/lib/normalizeResume";
 import { ResumeData } from "@/lib/storage";
+import type { ResumeSuggestion, SuggestionSession } from "@/types/suggestions";
 
 type OptimizationStep = "idle" | "analyzing" | "generating" | "done" | "error";
 
@@ -68,6 +70,66 @@ Requirements:
 - Proven track record of improving performance and SEO.
 - Experience with complex state management (Zustand, Redux).
 - Ability to deliver high-quality, impactful features and drive UI architecture.`;
+
+function findSuggestionPath(resume: ResumeData, original: string) {
+  if (original && resume.personal.summary.includes(original)) return "personal.summary";
+
+  const experienceIndex = resume.experience.findIndex((experience) => (
+    experience.points.includes(original) ||
+    experience.role.includes(original) ||
+    experience.company.includes(original)
+  ));
+  if (experienceIndex >= 0) {
+    const experience = resume.experience[experienceIndex];
+    if (experience?.role.includes(original)) return `experience[${experienceIndex}].role`;
+    if (experience?.company.includes(original)) return `experience[${experienceIndex}].company`;
+    return `experience[${experienceIndex}].points`;
+  }
+
+  return "personal.summary";
+}
+
+function buildSuggestionSession(
+  resume: ResumeData,
+  optimizations: OptimizeResult["optimizations"],
+  scores: OptimizeResult["scores"],
+  jobDescription: string,
+  resumeId?: string,
+): SuggestionSession | null {
+  const now = new Date().toISOString();
+  const suggestions = optimizations.flatMap((optimization, index): ResumeSuggestion[] => {
+    if (!optimization.improved.trim()) return [];
+    const path = findSuggestionPath(resume, optimization.original);
+    return [{
+      id: `optimizer-${index}`,
+      ...(resumeId ? { resumeId } : {}),
+      section: path.startsWith("experience") ? "experience" : "summary",
+      path,
+      original: optimization.original,
+      suggested: optimization.improved,
+      rationale: optimization.reason || "Suggested by the optimizer.",
+      impact: optimization.impact,
+      scoreDelta: Math.max(1, Math.round((scores.after - scores.before) / Math.max(optimizations.length, 1))),
+      status: "pending",
+      createdAt: now,
+    }];
+  });
+
+  if (suggestions.length === 0) return null;
+
+  return {
+    id: `optimizer-${resume.id}-${scores.after}`,
+    ...(resumeId ? { resumeId } : {}),
+    source: "optimizer",
+    createdAt: now,
+    updatedAt: now,
+    jobDescription,
+    resumeSnapshot: resume,
+    suggestions,
+    scores,
+    persisted: false,
+  };
+}
 
 // --- Reusable Components ---
 
@@ -131,6 +193,19 @@ export default function ApplicationMaximizerPage() {
   }, [resumesById, selectedId]);
 
   const isBusy = step !== "idle" && step !== "done" && step !== "error";
+
+  const suggestionSession = useMemo(() => {
+    if (!result) return null;
+    const targetResume = isDemoMode ? normalizeResume(DEMO_RESUME) : resume;
+    if (!targetResume) return null;
+    return buildSuggestionSession(
+      targetResume,
+      result.optimizations,
+      result.scores,
+      isDemoMode ? DEMO_JD : job,
+      isDemoMode ? undefined : selectedId,
+    );
+  }, [isDemoMode, job, result, resume, selectedId]);
 
   const executeAnalysis = async (targetResume: ResumeData, targetJob: string, isDemo: boolean) => {
     setStep("analyzing");
@@ -355,6 +430,14 @@ export default function ApplicationMaximizerPage() {
               <ImprovementSummary result={result} />
             </div>
           </div>
+
+          {suggestionSession && (
+            <SuggestionEditor
+              session={suggestionSession}
+              persist={!isDemoMode}
+              onApplied={(updatedResume) => upsertResume(updatedResume, true)}
+            />
+          )}
 
           {/* SUCCESS BANNER */}
           {showSuccessBanner && (

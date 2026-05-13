@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, Command, Menu, Search, Sparkles } from "lucide-react";
+import { Command, Menu, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ApprovalBell } from "@/components/approvals/ApprovalBell";
 
 const titles: Record<string, string> = {
   "/dashboard": "Command Center",
@@ -48,9 +49,7 @@ export function Topbar() {
 
         <div className="flex items-center gap-2">
           <Badge variant="success" className="hidden sm:inline-flex">AI queue healthy</Badge>
-          <Button variant="ghost" size="icon" aria-label="Notifications">
-            <Bell className="h-4 w-4" />
-          </Button>
+          <ApprovalBell />
           <Link href="/auto-apply">
             <Button size="sm">
               <Sparkles className="h-4 w-4" />
@@ -62,3 +61,4 @@ export function Topbar() {
     </header>
   );
 }
+

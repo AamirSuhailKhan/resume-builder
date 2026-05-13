@@ -5,6 +5,8 @@ import { requireUser } from "@/lib/auth/session";
 import { NextRequest, NextResponse } from "next/server";
 import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
 import { errorToResponse } from "@/lib/api/response";
+import { memoryService } from "@/lib/services/memory.service";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -72,6 +74,19 @@ export async function POST(req: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+    // ── Retrieve career memories for evidence-based suggestions ──
+    let memoriesContext = "";
+    try {
+      const memories = await memoryService.searchMemories(user.id, jobDescription, 5);
+      if (memories.length > 0) {
+        memoriesContext = `\n\nCandidate's verified career memories (use ONLY for evidence-based suggestions — do NOT fabricate):\n${memories
+          .map((m) => `[${m.type}] ${m.title}: ${m.content}`)
+          .join("\n")}`;
+      }
+    } catch (err) {
+      logger.warn({ err, userId: user.id }, "[optimize-resume] Memory retrieval failed — continuing without memories.");
+    }
+
     const prompt = `
 You are an expert ATS optimizer and career coach. Optimize this resume for this job description.
 Return ONLY valid JSON matching this schema:
@@ -85,7 +100,7 @@ Return ONLY valid JSON matching this schema:
 }
 
 Resume Data: ${JSON.stringify(resumeData)}
-Job Description: ${jobDescription}
+Job Description: ${jobDescription}${memoriesContext}
 `;
 
     const response = await ai.models.generateContent({

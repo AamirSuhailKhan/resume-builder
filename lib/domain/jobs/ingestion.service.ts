@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { logger } from "@/lib/logger";
 import { NormalizedProviderJob, ProviderResponse } from "./provider.types";
 import { publishJobIngested, publishProviderFailed } from "@/lib/events/bus";
+import { GhostJobDetector } from "@/lib/job-intelligence/ghost-detector";
 
 // Simple Levenshtein-based fuzzy check for deduplication
 function areSimilar(a: string, b: string, threshold = 0.8): boolean {
@@ -65,7 +66,7 @@ export class JobIngestionService {
           : null;
 
       try {
-        await prisma.jobOpportunity.create({
+        const newJob = await prisma.jobOpportunity.create({
           data: {
             userId,
             company: job.company,
@@ -85,6 +86,23 @@ export class JobIngestionService {
             },
           },
         });
+
+        // Run ghost detection
+        try {
+          const detector = new GhostJobDetector();
+          const { score, signals, verdict } = await detector.score(newJob);
+          
+          await prisma.jobOpportunity.update({
+            where: { id: newJob.id },
+            data: {
+              ghostScore: score,
+              ghostSignals: { signals, verdict, detectedAt: new Date().toISOString() },
+              lastVerifiedAt: new Date(),
+            },
+          });
+        } catch (err) {
+          logger.warn({ err, jobId: newJob.id }, "[Ingestion] Failed to run ghost job detection");
+        }
 
         // Track for in-memory dedup within same batch
         existing.push({ company: job.company, role: job.title });

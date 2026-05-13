@@ -3,6 +3,7 @@ import { Page } from "playwright";
 import { logger } from "@/lib/logger";
 import { OrchestrationEventBus } from "@/lib/orchestration/events";
 import { prisma } from "@/lib/db/prisma";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 /**
  * BrowserExecutor — wraps a live Playwright Page.
@@ -107,15 +108,37 @@ export class BrowserExecutor {
   async captureScreenshot() {
     try {
       const buffer = await this.page.screenshot({ type: "jpeg", quality: 65 });
-      const base64 = buffer.toString("base64");
+      const filename = `${this.executionId}/${Date.now()}.jpg`;
+
+      // Upload to Supabase Storage (assuming an "executions" bucket exists)
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from("executions")
+        .upload(filename, buffer, {
+          contentType: "image/jpeg",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        logger.warn({ err: uploadError }, "[BrowserExecutor] Failed to upload screenshot to Supabase");
+        // Fallback to base64 if upload fails so the UI doesn't break
+      }
+
+      // Generate public URL (or fallback to base64 if upload failed)
+      let storageKey: string;
+      if (!uploadError) {
+        const { data } = supabaseAdmin.storage.from("executions").getPublicUrl(filename);
+        storageKey = data.publicUrl;
+      } else {
+        const base64 = buffer.toString("base64");
+        storageKey = `data:image/jpeg;base64,${base64}`;
+      }
 
       const screenshot = await prisma.executionScreenshot.create({
         data: {
           executionId: this.executionId,
           workflowId: this.workflowId,
           url: this.page.url(),
-          storageKey: `data:image/jpeg;base64,${base64}`,
-          // TODO: in production, upload buffer to Supabase Storage and store the public URL instead
+          storageKey,
         },
       });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Activity, Clock, Coins, ImageIcon, Zap } from "lucide-react";
 import { useEventSource } from "@/hooks/useEventSource";
@@ -23,7 +23,9 @@ export function ExecutionStatusBar({
   const [screenshotCount, setScreenshotCount] = useState(initialScreenshotCount);
   const [eventCount, setEventCount] = useState(0);
   const [latency, setLatency] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState<number | null>(null);
   const totalCost = agentRuns.reduce((sum, r) => sum + r.costUsd, 0);
+  const isLive = workflowStatus === "running" || workflowStatus === "initializing";
 
   useEventSource(`/api/v1/workflows/${workflowId}/events`, {
     autoReconnect: true,
@@ -41,11 +43,23 @@ export function ExecutionStatusBar({
     },
   });
 
-  const elapsed = startedAt
-    ? Math.round((Date.now() - new Date(startedAt).getTime()) / 1000)
-    : null;
+  useEffect(() => {
+    if (!startedAt) return;
 
-  const isLive = workflowStatus === "running" || workflowStatus === "initializing";
+    const startedAtTime = new Date(startedAt).getTime();
+    const updateElapsed = () => {
+      setElapsed(Math.round((Date.now() - startedAtTime) / 1000));
+    };
+
+    updateElapsed();
+
+    if (!isLive) return;
+
+    const intervalId = window.setInterval(updateElapsed, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [isLive, startedAt]);
+
+  const visibleElapsed = startedAt ? elapsed : null;
 
   return (
     <motion.div
@@ -71,8 +85,8 @@ export function ExecutionStatusBar({
       <div className="h-4 w-px bg-border/40" />
 
       {/* Elapsed */}
-      {elapsed !== null && (
-        <Stat icon={<Clock className="h-3 w-3" />} label={`${elapsed}s elapsed`} />
+      {visibleElapsed !== null && (
+        <Stat icon={<Clock className="h-3 w-3" />} label={`${visibleElapsed}s elapsed`} />
       )}
 
       {/* Events */}

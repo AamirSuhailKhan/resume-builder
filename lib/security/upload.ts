@@ -10,7 +10,7 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/webp",
 ]);
 
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
 export interface FileValidationResult {
   ok: boolean;
@@ -50,6 +50,8 @@ export async function validateUploadedFile(
 
   return { ok: true };
 }
+
+export const validateUpload = validateUploadedFile;
 
 function isMagicBytesValid(bytes: Uint8Array, mimeType: string): boolean {
   // PDF: %PDF

@@ -24,6 +24,7 @@ enum QueueJobType {
   ai_job_intelligence
   ai_auto_apply
   ai_portfolio
+  email_drip
 }
 
 enum QueueJobStatus {
@@ -78,6 +79,23 @@ enum ApprovalStatus {
   canceled
 }
 
+enum BrowserExecutionStatus {
+  queued
+  booting
+  navigating
+  authenticating
+  waiting_for_selector
+  filling_form
+  waiting_for_approval
+  captcha_required
+  uploading_resume
+  submitting
+  completed
+  failed
+  canceled
+  timed_out
+}
+
 model User {
   id             String    @id @default(uuid()) @db.Uuid
   name           String?
@@ -89,25 +107,27 @@ model User {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  accounts          Account[]
-  sessions          Session[]
-  resumes           Resume[]
-  resumeVersions    ResumeVersion[]
-  jobs              Job[]
-  jobOpportunities  JobOpportunity[]
-  applications      Application[]
-  interviewSessions InterviewSession[]
-  aiUsages          AIUsage[]
-  careerProfile     CareerProfile?
-  browserSessions   BrowserSession[]
-  browserExecutions BrowserExecution[]
-  executionReplays  ExecutionReplay[]
-  careerMemories    CareerMemory[]
-  workflowRuns      WorkflowRun[]
-  agentRuns         AgentRun[]
-  approvalRequests  ApprovalRequest[]
+  accounts             Account[]
+  sessions             Session[]
+  resumes              Resume[]
+  resumeVersions       ResumeVersion[]
+  jobs                 Job[]
+  jobOpportunities     JobOpportunity[]
+  connectionPaths      ConnectionPath[]
+  applications         Application[]
+  interviewSessions    InterviewSession[]
+  aiUsages             AIUsage[]
+  careerProfile        CareerProfile?
+  browserSessions      BrowserSession[]
+  browserExecutions    BrowserExecution[]
+  executionReplays     ExecutionReplay[]
+  careerMemories       CareerMemory[]
+  workflowRuns         WorkflowRun[]
+  agentRuns            AgentRun[]
+  approvalRequests     ApprovalRequest[]
   applicationArtifacts ApplicationArtifact[]
-  workflowEvents    WorkflowEvent[]
+  workflowEvents       WorkflowEvent[]
+  emailCampaigns       EmailCampaign[]
 
   @@index([email])
 }
@@ -131,19 +151,22 @@ model CareerProfile {
 }
 
 model CareerMemory {
-  id          String    @id @default(uuid()) @db.Uuid
-  userId      String    @db.Uuid
+  id          String                       @id @default(uuid()) @db.Uuid
+  userId      String                       @db.Uuid
   type        String
   title       String
   content     String
   evidenceRef String?
-  confidence  Float     @default(0.7)
-  source      String    @default("user")
-  visibility  String    @default("private")
+  confidence  Float                        @default(0.7)
+  source      String                       @default("user")
+  visibility  String                       @default("private")
   metadata    Json?
   expiresAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  /// pgvector 1536-dim embedding (text-embedding-3-small).
+  /// Managed via raw SQL — Prisma Client cannot set/read this column directly.
+  embedding   Unsupported("vector(1536)")?
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -174,18 +197,18 @@ model WorkflowRun {
 }
 
 model WorkflowEvent {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @db.Uuid
-  workflowId  String?  @db.Uuid
-  agentRunId  String?  @db.Uuid
-  stepId      String?  @db.Uuid
-  type        String
-  source      String
-  visibility  String   @default("internal")
-  payload     Json
-  traceId     String
-  sequence    BigInt   @default(autoincrement())
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  workflowId String?  @db.Uuid
+  agentRunId String?  @db.Uuid
+  stepId     String?  @db.Uuid
+  type       String
+  source     String
+  visibility String   @default("internal")
+  payload    Json
+  traceId    String
+  sequence   BigInt   @default(autoincrement())
+  createdAt  DateTime @default(now())
 
   user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   workflow WorkflowRun? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
@@ -242,20 +265,20 @@ model AgentStep {
 }
 
 model ApprovalRequest {
-  id          String         @id @default(uuid()) @db.Uuid
-  userId      String         @db.Uuid
-  workflowId  String?        @db.Uuid
-  type        String
-  status      ApprovalStatus @default(pending)
-  title       String
-  summary     String
-  payload     Json
-  riskFlags   Json?
-  decision    Json?
-  expiresAt   DateTime?
-  decidedAt   DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id         String         @id @default(uuid()) @db.Uuid
+  userId     String         @db.Uuid
+  workflowId String?        @db.Uuid
+  type       String
+  status     ApprovalStatus @default(pending)
+  title      String
+  summary    String
+  payload    Json
+  riskFlags  Json?
+  decision   Json?
+  expiresAt  DateTime?
+  decidedAt  DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 
   user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   workflow WorkflowRun? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
@@ -332,10 +355,10 @@ model Resume {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  versions     ResumeVersion[]
-  jobs         Job[]
-  applications Application[]
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions             ResumeVersion[]
+  jobs                 Job[]
+  applications         Application[]
   applicationArtifacts ApplicationArtifact[]
 
   @@index([userId, updatedAt])
@@ -382,22 +405,28 @@ model Job {
 }
 
 model JobOpportunity {
-  id          String         @id @default(uuid()) @db.Uuid
-  userId      String         @db.Uuid
-  company     String
-  role        String
-  location    String?
-  salaryRange String?
-  description String
-  matchScore  Int            @default(0)
-  parsed      Json?
-  sourceUrl   String?
-  sourceType  DataSourceType @default(verified)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @db.Uuid
+  company        String
+  role           String
+  location       String?
+  salaryRange    String?
+  description    String
+  matchScore     Int            @default(0)
+  parsed         Json?
+  sourceUrl      String?
+  sourceType     DataSourceType @default(verified)
+  ghostScore     Float          @default(0)
+  ghostSignals   Json?
+  lastVerifiedAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  applications Application[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications    Application[]
+  hiringContacts  HiringContact[]  @relation("ContactJobs")
+  connectionPaths ConnectionPath[]
+  emailCampaigns  EmailCampaign[]
 
   @@index([userId, matchScore])
   @@index([userId, createdAt])
@@ -436,10 +465,11 @@ model Application {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  resume         Resume?         @relation(fields: [resumeId], references: [id], onDelete: SetNull)
-  jobOpportunity JobOpportunity? @relation(fields: [jobOpportunityId], references: [id], onDelete: SetNull)
+  user           User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume         Resume?               @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  jobOpportunity JobOpportunity?       @relation(fields: [jobOpportunityId], references: [id], onDelete: SetNull)
   artifacts      ApplicationArtifact[]
+  emailCampaign  EmailCampaign?
 
   @@index([userId, status])
   @@index([resumeId, createdAt])
@@ -470,64 +500,64 @@ model InterviewSession {
 model AuditEvent {
   id         String   @id @default(uuid()) @db.Uuid
   userId     String?  @db.Uuid
-  action     String   // e.g. "resume.optimized", "application.created"
-  entityType String?  // e.g. "Resume", "Application"
+  action     String // e.g. "resume.optimized", "application.created"
+  entityType String? // e.g. "Resume", "Application"
   entityId   String?  @db.Uuid
   metadata   Json?
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime @default(now())
+  // Retention: 2 years — purge via cleanup worker
 
   @@index([userId, createdAt])
   @@index([action, createdAt])
-  // Retention: 2 years — purge via cleanup worker
 }
 
 model QueueEvent {
-  id          String   @id @default(uuid()) @db.Uuid
-  bullJobId   String
-  queue       String
-  jobType     String
-  status      String   // queued | active | completed | failed | stalled
-  userId      String?  @db.Uuid
-  durationMs  Int?
-  error       String?
-  payload     Json?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid()) @db.Uuid
+  bullJobId  String
+  queue      String
+  jobType    String
+  status     String // queued | active | completed | failed | stalled
+  userId     String?  @db.Uuid
+  durationMs Int?
+  error      String?
+  payload    Json?
+  createdAt  DateTime @default(now())
+  // Retention: 30 days — purge via cleanup worker
 
   @@index([bullJobId])
   @@index([queue, status, createdAt])
-  // Retention: 30 days — purge via cleanup worker
 }
 
 model ProviderEvent {
-  id               String   @id @default(uuid()) @db.Uuid
-  provider         String
-  success          Boolean
-  jobsFetched      Int      @default(0)
-  jobsInserted     Int      @default(0)
-  jobsSkipped      Int      @default(0)
-  durationMs       Int?
-  error            String?
-  createdAt        DateTime @default(now())
+  id           String   @id @default(uuid()) @db.Uuid
+  provider     String
+  success      Boolean
+  jobsFetched  Int      @default(0)
+  jobsInserted Int      @default(0)
+  jobsSkipped  Int      @default(0)
+  durationMs   Int?
+  error        String?
+  createdAt    DateTime @default(now())
+  // Retention: 90 days
 
   @@index([provider, createdAt])
   @@index([success, createdAt])
-  // Retention: 90 days
 }
 
 model ATSScoreHistory {
-  id       String   @id @default(uuid()) @db.Uuid
-  userId   String   @db.Uuid
-  resumeId String   @db.Uuid
-  score    Int
-  jobTitle String?
-  metadata Json?    // detailed breakdown snapshot
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  resumeId  String   @db.Uuid
+  score     Int
+  jobTitle  String?
+  metadata  Json? // detailed breakdown snapshot
   createdAt DateTime @default(now())
+  // Retention: unlimited (user data)
 
   @@index([resumeId, createdAt])
   @@index([userId, createdAt])
-  // Retention: unlimited (user data)
 }
 
 // ──────────────────────────────────────────────
@@ -537,7 +567,7 @@ model ATSScoreHistory {
 model ConsentRecord {
   id          String   @id @default(uuid()) @db.Uuid
   userId      String   @db.Uuid
-  consentType String   // e.g. "marketing", "data_processing", "ai_training"
+  consentType String // e.g. "marketing", "data_processing", "ai_training"
   granted     Boolean
   ipAddress   String?
   userAgent   String?
@@ -576,21 +606,21 @@ model DeletionRequest {
 // ──────────────────────────────────────────────
 
 model AnalyticsSnapshot {
-  id              String   @id @default(uuid()) @db.Uuid
-  userId          String   @db.Uuid
-  date            DateTime @db.Date
-  applicationsCount Int    @default(0)
-  interviewsCount   Int    @default(0)
-  offersCount       Int    @default(0)
-  avgAtsScore       Float  @default(0)
-  responseRate      Float  @default(0) // interviews / applications
-  jobsIngested      Int    @default(0)
-  metadata          Json?  // arbitrary extra aggregation data
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @db.Uuid
+  date              DateTime @db.Date
+  applicationsCount Int      @default(0)
+  interviewsCount   Int      @default(0)
+  offersCount       Int      @default(0)
+  avgAtsScore       Float    @default(0)
+  responseRate      Float    @default(0) // interviews / applications
+  jobsIngested      Int      @default(0)
+  metadata          Json? // arbitrary extra aggregation data
   createdAt         DateTime @default(now())
+  // Retention: 1 year
 
   @@unique([userId, date])
   @@index([userId, date])
-  // Retention: 1 year
 }
 
 // ──────────────────────────────────────────────
@@ -603,7 +633,7 @@ model FeatureFlag {
   enabled     Boolean  @default(false)
   description String?
   rolloutPct  Int      @default(100) // 0–100 percentage rollout
-  metadata    Json?    // override config, A/B variants, etc.
+  metadata    Json? // override config, A/B variants, etc.
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 
@@ -615,49 +645,79 @@ model FeatureFlag {
 // ──────────────────────────────────────────────
 
 model IdempotencyKey {
-  id         String   @id @default(uuid()) @db.Uuid
-  key        String   @unique
-  userId     String   @db.Uuid
-  operation  String   // e.g. "ats_optimize", "resume_upload"
-  resultRef  String?  // ID of resulting resource, if applicable
-  createdAt  DateTime @default(now())
-  expiresAt  DateTime
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  userId    String   @db.Uuid
+  operation String // e.g. "ats_optimize", "resume_upload"
+  resultRef String? // ID of resulting resource, if applicable
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  // Retention: 7 days — purge expired keys in cleanup worker
 
   @@index([key])
   @@index([userId, operation])
-  // Retention: 7 days — purge expired keys in cleanup worker
+}
+
+model WorkerHeartbeat {
+  id         String   @id @default(uuid()) @db.Uuid
+  workerId   String   @unique
+  workerType String
+  hostname   String
+  lastSeenAt DateTime @default(now())
+  metadata   Json?
+
+  @@index([workerType, lastSeenAt])
+}
+
+model BrowserLease {
+  id               String    @id @default(uuid()) @db.Uuid
+  executionId      String    @db.Uuid
+  browserSessionId String?   @db.Uuid
+  contextId        String
+  leasedAt         DateTime  @default(now())
+  releasedAt       DateTime?
+  status           String // "active", "released", "dead"
+
+  execution BrowserExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+  session   BrowserSession?  @relation(fields: [browserSessionId], references: [id], onDelete: SetNull)
+
+  @@index([executionId])
+  @@index([status])
 }
 
 model BrowserSession {
   id           String   @id @default(uuid()) @db.Uuid
   userId       String   @db.Uuid
-  domain       String   // e.g., "linkedin.com", "greenhouse.io"
-  storageState Json     // Playwright storageState containing cookies & origins
+  domain       String // e.g., "linkedin.com", "greenhouse.io"
+  storageState String // Encrypted Playwright storageState
   expiresAt    DateTime
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leases BrowserLease[]
 
   @@unique([userId, domain])
   @@index([userId])
 }
 
 model BrowserExecution {
-  id           String   @id @default(uuid()) @db.Uuid
-  workflowId   String   @db.Uuid
-  userId       String   @db.Uuid
-  status       String   // "initializing", "running", "paused", "completed", "failed"
-  currentUrl   String?  // Last known URL the browser is on
-  currentTitle String?  // Last known page title
-  contextId    String?  // References internal Playwright context UUID if active
-  metadata     Json?    // Any launch parameters or debug info
-  startedAt    DateTime?
-  completedAt  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String                 @id @default(uuid()) @db.Uuid
+  workflowId      String                 @db.Uuid
+  userId          String                 @db.Uuid
+  status          BrowserExecutionStatus @default(queued)
+  currentUrl      String? // Last known URL the browser is on
+  currentTitle    String? // Last known page title
+  contextId       String? // References internal Playwright context UUID if active
+  metadata        Json? // Any launch parameters or debug info
+  startedAt       DateTime?
+  completedAt     DateTime?
+  lastHeartbeatAt DateTime?
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leases BrowserLease[]
 
   @@index([workflowId])
   @@index([userId])
@@ -665,29 +725,32 @@ model BrowserExecution {
 }
 
 model ExecutionScreenshot {
-  id           String   @id @default(uuid()) @db.Uuid
-  executionId  String   @db.Uuid
-  workflowId   String   @db.Uuid
-  url          String   // The URL of the page at the time
-  storageKey   String   // Storage reference (e.g. Supabase storage or base64)
-  createdAt    DateTime @default(now())
+  id          String   @id @default(uuid()) @db.Uuid
+  executionId String   @db.Uuid
+  workflowId  String   @db.Uuid
+  url         String // The URL of the page at the time
+  storageKey  String // Storage reference (e.g. Supabase storage or base64)
+  createdAt   DateTime @default(now())
 
   @@index([executionId])
   @@index([workflowId, createdAt])
 }
 
 model DOMAction {
-  id           String   @id @default(uuid()) @db.Uuid
-  executionId  String   @db.Uuid
-  workflowId   String   @db.Uuid
-  stepId       String?
-  actionType   String   // "click", "type", "navigate", "submit"
-  selector     String?
-  value        String?  // the text typed or extracted
-  url          String
-  success      Boolean
-  errorMessage String?
-  createdAt    DateTime @default(now())
+  id                 String   @id @default(uuid()) @db.Uuid
+  executionId        String   @db.Uuid
+  workflowId         String   @db.Uuid
+  stepId             String?  @db.Uuid
+  parentActionId     String?  @db.Uuid
+  actionType         String // "click", "type", "navigate", "submit"
+  selector           String?
+  value              String? // the text typed or extracted
+  url                String
+  success            Boolean
+  errorMessage       String?
+  compressedSnapshot Bytes?
+  timestamp          DateTime @default(now())
+  createdAt          DateTime @default(now())
 
   @@index([executionId])
   @@index([workflowId, createdAt])
@@ -697,11 +760,11 @@ model ExecutionReasoning {
   id           String   @id @default(uuid()) @db.Uuid
   executionId  String   @db.Uuid
   workflowId   String   @db.Uuid
-  decision     String   // What the AI decided to do
-  reasoning    String   // Why it made that decision
+  decision     String // What the AI decided to do
+  reasoning    String // Why it made that decision
   confidence   Float    @default(0.8) // 0.0 to 1.0
-  alternatives Json?    // Other options considered
-  context      Json?    // Page context at decision time
+  alternatives Json? // Other options considered
+  context      Json? // Page context at decision time
   createdAt    DateTime @default(now())
 
   @@index([executionId, createdAt])
@@ -710,10 +773,107 @@ model ExecutionReasoning {
 
 model ExecutionReplay {
   id           String   @id @default(uuid()) @db.Uuid
-  workflowId   String   @db.Uuid @unique
+  workflowId   String   @unique @db.Uuid
   userId       String   @db.Uuid
-  artifactsUrl String   // Location of compressed replay file
+  artifactsUrl String // Location of compressed replay file
   createdAt    DateTime @default(now())
 
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model HiringContact {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String
+  title        String?
+  company      String
+  linkedinUrl  String?   @unique
+  email        String?
+  isActive     Boolean   @default(true)
+  hiringFor    String[]
+  responseRate Float?
+  lastActive   DateTime?
+  metadata     Json?
+  createdAt    DateTime  @default(now())
+
+  jobOpportunities JobOpportunity[] @relation("ContactJobs")
+
+  @@map("hiring_contacts")
+}
+
+model ConnectionPath {
+  id               String @id @default(uuid()) @db.Uuid
+  userId           String @db.Uuid
+  jobOpportunityId String @db.Uuid
+
+  type     String
+  strength Float
+
+  personName    String
+  personTitle   String?
+  personCompany String?
+
+  sharedContext String?
+  linkedinUrl   String?
+
+  confidenceScore Float?
+  confidenceTier  String? // verified | inferred | speculative
+  source          String? // career_memory | resume | ai_inference | manual_import
+
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobOpportunity JobOpportunity @relation(fields: [jobOpportunityId], references: [id], onDelete: Cascade)
+
+  @@index([userId, jobOpportunityId])
+  @@map("connection_paths")
+}
+
+// ──────────────────────────────────────────────
+// POST-APPLICATION RELATIONSHIP ORCHESTRATION
+// ──────────────────────────────────────────────
+
+model EmailCampaign {
+  id               String          @id @default(uuid()) @db.Uuid
+  userId           String          @db.Uuid
+  applicationId    String?         @unique @db.Uuid
+  jobOpportunityId String?         @db.Uuid
+  recruiterEmail   String?
+  recruiterName    String?
+  jobTitle         String
+  companyName      String
+  status           String          @default("active") // active | paused | completed | replied
+  stage            String          @default("follow_up") // follow_up | networking | referral_request
+  lastReplyAt      DateTime?
+  replyDetected    Boolean         @default(false)
+  replyMetadata    Json?
+  unsubscribeToken String?         @unique
+  suppressedAt     DateTime?
+  createdAt        DateTime        @default(now())
+  
+  emails           EmailDraft[]
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application      Application?    @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  jobOpportunity   JobOpportunity? @relation(fields: [jobOpportunityId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([jobOpportunityId])
+}
+
+model EmailDraft {
+  id             String        @id @default(uuid()) @db.Uuid
+  campaignId     String        @db.Uuid
+  sequence       Int           // 1, 2, 3
+  subject        String
+  body           String        @db.Text
+  explainability Json?         // "Why did the AI write this?"
+  scheduledAt    DateTime
+  sentAt         DateTime?
+  status         String        @default("pending_approval") // pending_approval | scheduled | sent | skipped | replied
+  metadata       Json?
+  
+  campaign       EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([status, scheduledAt])
 }

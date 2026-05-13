@@ -1,0 +1,1001 @@
+<USER_REQUEST>
+You are a senior React + Zustand + Next.js real-time systems engineer.
+
+The AI Career OS platform now has:
+- live SSE streaming
+- workflow visualization
+- orchestration runtime
+- Zustand global stores
+- execution event streams
+
+A critical infinite rerender loop now exists.
+
+CURRENT ERRORS:
+
+1.
+"The result of getSnapshot should be cached to avoid an infinite loop"
+
+2.
+"Maximum update depth exceeded"
+
+The stack trace points to:
+- WorkflowVisualizer.tsx
+- useWorkflowStore
+- useSyncExternalStore
+- Zustand selectors
+
+This indicates unstable selector snapshots and reference instability.
+
+YOUR TASK:
+
+1. Audit WorkflowVisualizer.tsx
+2. Audit useWorkflowStore.ts
+3. Audit all Zustand selectors
+4. Find all unstable object/array selectors
+5. Find all inline [] / {} defaults
+6. Find all unstable effect dependencies
+7. Find all repeated setState loops
+8. Fix all selector reference instability
+9. Fix all rerender loops
+10. Harden store update patterns
+
+STRICT REQUIREMENTS:
+
+<truncated 2197 bytes>
+The USER performed the following action:
+Command: cd resume-builder
+CWD: c:\Users\aamir\RESUME BUILDER
+
+				The command completed successfully.
+				No output
+
+<USER_REQUEST>
+You are a senior staff-level Next.js + Auth.js + Prisma architect.
+
+Audit and fix the entire authentication and runtime architecture of this repository professionally and production-safely.
+
+PROJECT CONTEXT:
+
+* Next.js 16.2.4 with App Router
+* Turbopack enabled
+* Auth.js / NextAuth
+* Prisma ORM
+* TypeScript
+* Supabase
+* Queue/workers architecture
+* API routes
+* Edge + Node runtime mix
+* Existing files include:
+
+  * auth.ts
+  * auth.config.ts
+  * app/api/auth/[...nextauth]/route.ts
+  * prisma/
+  * middleware/proxy/auth-related files
+
+CURRENT ERRORS:
+1.
+Console ClientFetchError
+Failed to fetch
+https://errors.authjs.dev#autherror
+
+2.
+
+SessionProvider failing during:
+
+* fetchData
+* getSession
+* _getSession
+
+3.
+
+Previous runtime issue:
+"The edge runtime does not support Node.js 'crypto' module"
+
+GOALS:
+Fix ALL authentication, runtime, Prisma, session, and environment issues comprehensively.
+
+TASKS:
+
+1. AUTH.JS V5 MIGRATION VALIDATION
+
+* Detect whether repo mixes Auth.js v4 and v5 patterns.
+<truncated 3492 bytes>
+The USER performed the following action:
+Command: npm run dev
+CWD: c:\Users\aamir\RESUME BUILDER\resume-builder
+
+				The command failed with exit code: 1
+				Output:
+				c"."AgentStep" WHERE "public"."AgentStep"."agentRunId" IN (
+
+
+
+
+
+
+
+
+
+
+                                                                                                                      parent='00-d4c1821f94e720d5acdf47d9f342ef96-557f8cfcf3e5c6a7-01' */_opportunities"."matchScore" DESC OFFSET $2 /* tracep
+ GET /matches 200 in 222ms (next.js: 70ms, application-code: 153ms)de: 44ms)st"."userId", "public"."ApprovalRequest"."w
+ GET /auto-apply 200 in 111ms (next.js: 47ms, application-code: 64ms)opportunities"."userId", "public"."job_opportuniti
+ GET /api/auth/session 200 in 30ms (next.js: 10ms, application-code: 20ms)s)/resume-builder/.next/dev/static/chunks/_0z
+ GET /builder 200 in 105ms (next.js: 67ms, application-code: 38ms): 18ms)userId", "public"."WorkflowRun"."type", "publi
+
+The USER performed the following action:
+Command: git add .
+git commit -m "added career page UI and backend integration"
+git push origin career-page
+CWD: c:\Users\aamir\RESUME BUILDER\resume-builder
+
+				The command completed successfully.
+				Output:
+				warning: in the working copy of 'components/agents/WorkflowVisualizer.tsx', LF will be replaced by CRLF the next time G
+
+
+
+
+
+
+
+
+
+
+                                                                                                                      eplaced by CRLF the next time Git touches it
+warning: in the working copy of 'workers/browser-worker.ts', LF will be replaced by CRLF the next time Git touches itt 
+[career-page 4b75f74] added career page UI and backend integrationinit_playwright_runtime/migration.sql', LF will be re
+ 11 files changed, 501 insertions(+), 15 deletions(-)ll be replaced by CRLF the next time Git touches it
+ create mode 100644 lib/browser/browser-executor.tsmigration_lock.toml', LF will be replaced by CRLF the next time Git 
+<truncated 688 bytes>
+The USER performed the following action:
+Command: git status
+CWD: c:\Users\aamir\RESUME BUILDER\resume-builder
+
+				The command completed successfully.
+				Output:
+				On branch career-page
+nothing to commit, working tree clean
+
+<USER_REQUEST>
+This is a good stabilization plan overall.
+
+But there are 4 very important architectural corrections you should make before implementing it.
+
+Because right now you are mixing:
+
+* runtime stabilization
+* auth hydration
+* Prisma lifecycle
+* edge/runtime policy
+
+Some parts are correct.
+Some parts will create future problems.
+
+---
+
+# 1. DO NOT FORCE `runtime = "nodejs"` EVERYWHERE
+
+This is the biggest issue in your plan.
+
+This:
+
+```ts id="rt1"
+export const runtime = "nodejs";
+```
+
+is correct ONLY for routes that actually require:
+
+* Prisma
+* bcrypt
+* Node crypto
+* filesystem
+* BullMQ
+* Redis sockets
+* Playwright
+
+But your proposal says:
+
+```txt id="rt2"
+append to all API routes
+```
+
+That is too broad.
+
+---
+
+# WHY THIS IS BAD
+
+You will accidentally:
+
+* disable edge optimizations globally
+* increase latency
+* increase cold starts
+* hurt caching
+* reduce scalability
+
+Especially for:
+
+* simple GET routes
+* SSE fanout routes
+* static intelligence routes
+
+---
+
+# CORRECT STRATEGY
+
+<truncated 5640 bytes>
+<USER_REQUEST>
+# MASTER PERFORMANCE + EXECUTION VISIBILITY FIX PROMPT
+
+You are now acting as:
+- principal Next.js performance engineer
+- real-time systems architect
+- Prisma optimization engineer
+- React visualization systems engineer
+- AI execution runtime architect
+
+The AI Career OS platform is now functionally stable:
+- auth works
+- Prisma works
+- workflows work
+- orchestration works
+- SSE works
+- analytics work
+- live activity streaming works
+
+However, the platform now suffers from:
+1. Dashboard query overfetching
+2. Prisma query spam
+3. Broken chart container sizing
+4. Lack of visible autonomous execution
+
+This phase is NOT infrastructure stabilization anymore.
+
+This phase is:
+PERFORMANCE + EXECUTION VISIBILITY OPTIMIZATION.
+
+====================================================
+PRIMARY OBJECTIVE
+====================================================
+
+Transform the platform from:
+“advanced orchestration dashboard”
+
+into:
+“visible autonomous execution system.”
+
+The UI should no longer feel:
+static.
+
+<truncated 1793 bytes>
+<USER_REQUEST>
+The plan is correct. Execute it.
+
+This is now the right kind of engineering work:
+
+* reducing query fanout
+* improving runtime responsiveness
+* increasing execution visibility
+* making orchestration FEEL alive
+
+That is much higher leverage than adding more features right now.
+
+A few important implementation corrections before you execute:
+
+---
+
+# 1. DO NOT LET `DashboardQueryService` BECOME A GOD OBJECT
+
+This is the biggest architectural risk.
+
+Good:
+
+```txt id="dg1"
+DashboardQueryService
+```
+
+Bad:
+
+```txt id="dg2"
+One 1000-line mega query service
+```
+
+---
+
+# CORRECT STRUCTURE
+
+Use domain aggregation methods.
+
+Example:
+
+```ts id="dg3"
+getCommandCenterView()
+getAgentRunsView()
+getAnalyticsView()
+getWorkflowExecutionView()
+```
+
+NOT:
+
+```ts id="dg4"
+getEverythingForDashboard()
+```
+
+Keep boundaries clean.
+
+---
+
+# 2. DO NOT OVER-AGGREGATE PRISMA QUERIES
+
+A common mistake:
+trying to force ONE gigantic query.
+
+Bad:
+
+```ts id="dg5"
+include: {
+  workflows: {
+    include: {
+      agentRuns: {
+<truncated 4294 bytes>
+<USER_REQUEST>
+Yes. This is now the correct next move.
+
+And importantly:
+
+```txt id="ev1"
+/execution/[workflowId]
+```
+
+is NOT “another page.”
+
+It becomes:
+the core product surface.
+
+The rest of your platform:
+
+* workflows
+* orchestration
+* memory
+* approvals
+* agents
+* queues
+* SSE
+
+all become infrastructure supporting THIS screen.
+
+That is a major architectural shift.
+
+---
+
+# WHY THIS PAGE MATTERS SO MUCH
+
+Right now your platform already:
+
+* thinks
+* plans
+* streams
+* orchestrates
+* visualizes
+
+But users still cannot truly:
+
+```txt id="ev2"
+SEE AI DOING WORK
+```
+
+That is the remaining gap between:
+AI dashboard
+and
+AI worker.
+
+This page closes that gap.
+
+---
+
+# MOST IMPORTANT PRODUCT PRINCIPLE
+
+The Execution Viewer should feel like:
+
+| Inspiration        | Why                      |
+| ------------------ | ------------------------ |
+| GitHub Actions     | execution timeline       |
+| Cursor Agent       | visible AI work          |
+| Datadog Live Tail  | operational streaming    |
+<truncated 5434 bytes>
+<USER_REQUEST>
+Yes. This is now the correct next move.
+
+And importantly:
+
+```txt id="ev1"
+/execution/[workflowId]
+```
+
+is NOT “another page.”
+
+It becomes:
+the core product surface.
+
+The rest of your platform:
+
+* workflows
+* orchestration
+* memory
+* approvals
+* agents
+* queues
+* SSE
+
+all become infrastructure supporting THIS screen.
+
+That is a major architectural shift.
+
+---
+
+# WHY THIS PAGE MATTERS SO MUCH
+
+Right now your platform already:
+
+* thinks
+* plans
+* streams
+* orchestrates
+* visualizes
+
+But users still cannot truly:
+
+```txt id="ev2"
+SEE AI DOING WORK
+```
+
+That is the remaining gap between:
+AI dashboard
+and
+AI worker.
+
+This page closes that gap.
+
+---
+
+# MOST IMPORTANT PRODUCT PRINCIPLE
+
+The Execution Viewer should feel like:
+
+| Inspiration        | Why                      |
+| ------------------ | ------------------------ |
+| GitHub Actions     | execution timeline       |
+| Cursor Agent       | visible AI work          |
+| Datadog Live Tail  | operational streaming    |
+<truncated 5725 bytes>
+<USER_REQUEST>
+Yes. This is now the correct next move.
+
+And importantly:
+
+```txt id="ev1"
+/execution/[workflowId]
+```
+
+is NOT “another page.”
+
+It becomes:
+the core product surface.
+
+The rest of your platform:
+
+* workflows
+* orchestration
+* memory
+* approvals
+* agents
+* queues
+* SSE
+
+all become infrastructure supporting THIS screen.
+
+That is a major architectural shift.
+
+---
+
+# WHY THIS PAGE MATTERS SO MUCH
+
+Right now your platform already:
+
+* thinks
+* plans
+* streams
+* orchestrates
+* visualizes
+
+But users still cannot truly:
+
+```txt id="ev2"
+SEE AI DOING WORK
+```
+
+That is the remaining gap between:
+AI dashboard
+and
+AI worker.
+
+This page closes that gap.
+
+---
+
+# MOST IMPORTANT PRODUCT PRINCIPLE
+
+The Execution Viewer should feel like:
+
+| Inspiration        | Why                      |
+| ------------------ | ------------------------ |
+| GitHub Actions     | execution timeline       |
+| Cursor Agent       | visible AI work          |
+| Datadog Live Tail  | operational streaming    |
+<truncated 5392 bytes>
+<USER_REQUEST>
+You are working inside a Next.js 16.2.4 App Router project.
+
+I am getting this build error:
+
+ERROR:
+"Proxy is missing expected function export name"
+
+Build output:
+./proxy.ts
+Proxy is missing expected function export name
+
+This happens because Next.js 16 renamed middleware.ts → proxy.ts and now requires:
+- export function proxy()
+OR
+- export { something as proxy }
+
+My project uses:
+- Next.js 16 App Router
+- TypeScript
+- NextAuth v5
+- auth.ts at project root
+- dashboard protected routes
+- existing proxy.ts file migrated from middleware.ts
+
+YOUR TASK:
+1. Open proxy.ts
+2. Detect the incorrect export
+3. Refactor it to the correct Next.js 16 proxy format
+4. Preserve all existing auth logic and route protection
+5. Ensure compatibility with NextAuth v5
+6. Ensure matcher config still works
+7. Remove deprecated middleware export patterns
+8. Ensure `npm run build` succeeds
+
+EXPECTED FIX:
+- Replace any:
+  - export { auth as middleware }
+  - export function middleware()
+  - export default middleware
+<truncated 992 bytes>
+The USER performed the following action:
+Command: npm run dev
+CWD: c:\Users\aamir\RESUME BUILDER\resume-builder
+
+				The command failed with exit code: 1
+				Output:
+				
+> resume-builder@0.1.0 dev
+> next dev
+
+⚠ Port 3000 is in use by process 15436, using available port 3001 instead.
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.1.7:3001
+- Environments: .env.local, .env
+✓ Ready in 876ms
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3000
+- PID:          15436
+- Dir:          C:\Users\aamir\RESUME BUILDER\resume-builder
+- Log:          .next\dev\logs\next-development.log
+
+Run taskkill /PID 15436 /F to stop it.
+
+<USER_REQUEST>
+# Career OS — Ultra Pro Max Prompts
+### One prompt per gap/fix/feature · Paste directly into Claude Code or any AI coding agent
+
+---
+
+## HOW TO USE
+- Each prompt is **self-contained** — it includes file paths, schema references, and exact variable names from your codebase
+- Paste into **Claude Code** (`claude` CLI), **Cursor**, or this chat with your files attached
+- Run them in order: P0 first, then P1, then Moat features
+
+---
+
+---
+
+# ═══════════════════════════════════════════
+# BLOCK 1 — P0 CRITICAL FIXES (This Week)
+# ═══════════════════════════════════════════
+
+---
+
+## PROMPT 1 — PDF Resume Upload + Parse Pipeline
+
+```
+You are working inside a Next.js 16 App Router project ("resume-builder") with the following confirmed stack:
+<truncated 84127 bytes>
+<USER_REQUEST>
+continue
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-11T20:25:44+05:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\aamir\RESUME BUILDER\resume-builder\lib\db\prisma.ts (LANGUAGE_TYPESCRIPT)
+Cursor is on line: 10
+Other open documents:
+- c:\Users\aamir\RESUME BUILDER\resume-builder\auth.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\env.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\orchestration\coordinator.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\orchestration\executor.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\orchestration\types.ts (LANGUAGE_TYPESCRIPT)
+No browser pages are currently open.
+Running terminal commands:
+- npm run dev (in c:\Users\aamir\RESUME BUILDER\resume-builder, running for 12m27s)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+<truncated 290 bytes>
+<USER_REQUEST>
+what was made from prompt build nect thing according to prompt
+# Career OS — Ultra Pro Max Prompts
+### One prompt per gap/fix/feature · Paste directly into Claude Code or any AI coding agent
+
+---
+
+## HOW TO USE
+- Each prompt is **self-contained** — it includes file paths, schema references, and exact variable names from your codebase
+- Paste into **Claude Code** (`claude` CLI), **Cursor**, or this chat with your files attached
+- Run them in order: P0 first, then P1, then Moat features
+
+---
+
+---
+
+# ═══════════════════════════════════════════
+# BLOCK 1 — P0 CRITICAL FIXES (This Week)
+# ═══════════════════════════════════════════
+
+---
+
+## PROMPT 1 — PDF Resume Upload + Parse Pipeline
+
+```
+You are working inside a Next.js 16 App Router project ("resume-builder") with the following confirmed stack:
+<truncated 84099 bytes>
+<USER_REQUEST>
+what was made till now according to prompt build next thing according to prompt # Career OS — Ultra Pro Max Prompts
+### One prompt per gap/fix/feature · Paste directly into Claude Code or any AI coding agent
+
+---
+
+## HOW TO USE
+- Each prompt is **self-contained** — it includes file paths, schema references, and exact variable names from your codebase
+- Paste into **Claude Code** (`claude` CLI), **Cursor**, or this chat with your files attached
+- Run them in order: P0 first, then P1, then Moat features
+
+---
+
+---
+
+# ═══════════════════════════════════════════
+# BLOCK 1 — P0 CRITICAL FIXES (This Week)
+# ═══════════════════════════════════════════
+
+---
+
+## PROMPT 1 — PDF Resume Upload + Parse Pipeline
+
+```
+You are working inside a Next.js 16 App Router project ("resume-builder") with the following confirmed stack:
+<truncated 84042 bytes>
+<USER_REQUEST>
+what was made till now accorsing to prompt build next thing according to prompt # Career OS — Ultra Pro Max Prompts
+### One prompt per gap/fix/feature · Paste directly into Claude Code or any AI coding agent
+
+---
+
+## HOW TO USE
+- Each prompt is **self-contained** — it includes file paths, schema references, and exact variable names from your codebase
+- Paste into **Claude Code** (`claude` CLI), **Cursor**, or this chat with your files attached
+- Run them in order: P0 first, then P1, then Moat features
+
+---
+
+---
+
+# ═══════════════════════════════════════════
+# BLOCK 1 — P0 CRITICAL FIXES (This Week)
+# ═══════════════════════════════════════════
+
+---
+
+## PROMPT 1 — PDF Resume Upload + Parse Pipeline
+
+```
+You are working inside a Next.js 16 App Router project ("resume-builder") with the following confirmed stack:
+<truncated 84058 bytes>
+<USER_REQUEST>
+Your Playwright runtime plan is strong and directionally correct.
+It aligns very well with the broader architecture from your Career OS prompt library. 
+
+But there are a few critical architectural corrections you should make BEFORE implementation.
+
+---
+
+# Strategic Verdict
+
+This is NOT:
+
+* “basic Playwright automation”
+
+This IS:
+
+* distributed browser orchestration infrastructure
+
+That means:
+you must design it like a runtime platform, not a utility.
+
+Right now your plan is:
+~78% production-grade.
+
+Below are the critical improvements.
+
+---
+
+# What You Got VERY RIGHT
+
+## 1. Persistent Browser Sessions
+
+Excellent decision.
+
+`BrowserSession`
+is one of the most important models in the entire system.
+
+This enables:
+
+* auth reuse
+* fewer CAPTCHAs
+* faster applications
+* long-running agents
+* trust continuity
+
+Huge architectural win.
+
+---
+
+## 2. DOMAction Recording
+
+Very smart.
+
+Most AI agent products skip replay architecture early.
+
+You are correctly building:
+
+* observability
+* replayability
+<truncated 7190 bytes>
+<USER_REQUEST>
+This revised direction is much better.
+
+Now you are thinking like:
+
+* infrastructure engineer
+* runtime systems architect
+* distributed automation platform builder
+
+instead of:
+
+* “adding Playwright features”
+
+That mindset shift is extremely important.
+
+Your updated Phase 1 priorities are now correct.
+
+---
+
+# Final Verdict on Revised Plan
+
+Your revised architecture is now:
+~90–92% production-grade foundation quality.
+
+That is a massive improvement.
+
+The critical thing:
+you moved reliability BEFORE capability.
+
+That is exactly right for browser agents.
+
+---
+
+# What You Fixed Correctly
+
+## 1. State Machine First
+
+Excellent correction.
+
+This:
+
+```txt id="xg97v7"
+queued → booting → navigating → filling_form → waiting_for_approval → submitting → completed
+```
+
+is infinitely better than:
+
+* random status strings
+* ad hoc transitions
+* uncontrolled mutation
+
+This becomes:
+
+* debugging infrastructure
+* analytics infrastructure
+* recovery infrastructure
+
+Very important improvement.
+
+<truncated 5578 bytes>
+<USER_REQUEST>
+This revised direction is much better.
+
+Now you are thinking like:
+
+* infrastructure engineer
+* runtime systems architect
+* distributed automation platform builder
+
+instead of:
+
+* “adding Playwright features”
+
+That mindset shift is extremely important.
+
+Your updated Phase 1 priorities are now correct.
+
+---
+
+# Final Verdict on Revised Plan
+
+Your revised architecture is now:
+~90–92% production-grade foundation quality.
+
+That is a massive improvement.
+
+The critical thing:
+you moved reliability BEFORE capability.
+
+That is exactly right for browser agents.
+
+---
+
+# What You Fixed Correctly
+
+## 1. State Machine First
+
+Excellent correction.
+
+This:
+
+```txt id="xg97v7"
+queued → booting → navigating → filling_form → waiting_for_approval → submitting → completed
+```
+
+is infinitely better than:
+
+* random status strings
+* ad hoc transitions
+* uncontrolled mutation
+
+This becomes:
+
+* debugging infrastructure
+* analytics infrastructure
+* recovery infrastructure
+
+Very important improvement.
+
+<truncated 5935 bytes>
+<USER_REQUEST>
+# Career OS — Ultra Pro Max Prompts
+### One prompt per gap/fix/feature · Paste directly into Claude Code or any AI coding agent
+
+---
+
+## HOW TO USE
+- Each prompt is **self-contained** — it includes file paths, schema references, and exact variable names from your codebase
+- Paste into **Claude Code** (`claude` CLI), **Cursor**, or this chat with your files attached
+- Run them in order: P0 first, then P1, then Moat features
+
+---
+
+---
+
+# ═══════════════════════════════════════════
+# BLOCK 1 — P0 CRITICAL FIXES (This Week)
+# ═══════════════════════════════════════════
+
+---
+
+## PROMPT 1 — PDF Resume Upload + Parse Pipeline
+
+```
+You are working inside a Next.js 16 App Router project ("resume-builder") with the following confirmed stack:
+<truncated 84078 bytes>
+<USER_REQUEST>
+# Career OS — Ultra Pro Max Prompts
+### One prompt per gap/fix/feature · Paste directly into Claude Code or any AI coding agent
+
+---
+
+## HOW TO USE
+- Each prompt is **self-contained** — it includes file paths, schema references, and exact variable names from your codebase
+- Paste into **Claude Code** (`claude` CLI), **Cursor**, or this chat with your files attached
+- Run them in order: P0 first, then P1, then Moat features
+
+---
+
+---
+
+# ═══════════════════════════════════════════
+# BLOCK 1 — P0 CRITICAL FIXES (This Week)
+# ═══════════════════════════════════════════
+
+---
+
+## PROMPT 1 — PDF Resume Upload + Parse Pipeline
+
+```
+You are working inside a Next.js 16 App Router project ("resume-builder") with the following confirmed stack:
+<truncated 84220 bytes>
+<USER_REQUEST>
+continue
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-11T21:09:45+05:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\aamir\RESUME BUILDER\resume-builder\lib\services\memory.service.ts (LANGUAGE_TYPESCRIPT)
+Cursor is on line: 1
+Other open documents:
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\services\memory.service.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\db\prisma.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\orchestration\events.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\orchestration\types.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\.next\dev\types\validator.ts (LANGUAGE_TYPESCRIPT)
+No browser pages are currently open.
+Running terminal commands:
+- npm run dev (in c:\Users\aamir\RESUME BUILDER\resume-builder, running for 56m28s)
+</ADDITIONAL_METADATA>
+<USER_SETTINGS_CHANGE>
+<truncated 290 bytes>
+<USER_REQUEST>
+do it all prompt work one by one
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-05-11T21:14:10+05:30.
+
+The user's current state is as follows:
+Active Document: c:\Users\aamir\RESUME BUILDER\resume-builder\lib\services\memory.service.ts (LANGUAGE_TYPESCRIPT)
+Cursor is on line: 1
+Other open documents:
+- c:\Users\aamir\RESUME BUILDER\resume-builder\scripts\test-memory-search.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\services\memory.service.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\db\prisma.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\orchestration\events.ts (LANGUAGE_TYPESCRIPT)
+- c:\Users\aamir\RESUME BUILDER\resume-builder\lib\orchestration\types.ts (LANGUAGE_TYPESCRIPT)
+No browser pages are currently open.
+Running terminal commands:
+- npm run dev (in c:\Users\aamir\RESUME BUILDER\resume-builder, running for 1h0m53s)
+</ADDITIONAL_METADATA>

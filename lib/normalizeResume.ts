@@ -28,8 +28,13 @@ export function normalizeResume(raw: unknown): ResumeData {
   const r = asRecord(raw);
   const p = asRecord(r.personal ?? r);
 
+  const firstName = toStr(p.firstName);
+  const lastName = toStr(p.lastName);
+  const inferredName = [firstName, lastName].filter(Boolean).join(" ");
+  const nameSource = p.name ?? p.fullName ?? (inferredName || r.name);
+
   const personal = {
-    name: toStr(p.name ?? p.fullName ?? r.name),
+    name: toStr(nameSource),
     email: toStr(p.email ?? r.email),
     phone: toStr(p.phone ?? r.phone),
     location: toStr(p.location ?? r.location),
@@ -56,7 +61,7 @@ export function normalizeResume(raw: unknown): ResumeData {
       id: toStr(e.id ?? String(index + 1)),
       school: toStr(e.school ?? e.institution),
       degree: toStr(e.degree ?? e.qualification),
-      year: toStr(e.year ?? e.endYear ?? e.graduationYear),
+      year: toStr(e.year ?? e.endDate ?? e.endYear ?? e.graduationYear),
     };
   });
 

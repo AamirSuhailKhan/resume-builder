@@ -1,0 +1,33 @@
+﻿.next/dev/types/validator.ts(549,31): error TS2344: Type 'typeof import("C:/Users/aamir/RESUME BUILDER/resume-builder/app/api/v1/jobs/[id]/connections/[connectionId]/outreach/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/v1/jobs/[id]/connections/[connectionId]/outreach">'.
+  Types of property 'POST' are incompatible.
+    Type '(req: NextRequest, { params }: { params: { id: string; connectionId: string; }; }) => Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<{ message: string; }>>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; connectionId: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; connectionId: string; }>; }' is not assignable to type '{ params: { id: string; connectionId: string; }; }'.
+          Types of property 'params' are incompatible.
+            Type 'Promise<{ id: string; connectionId: string; }>' is missing the following properties from type '{ id: string; connectionId: string; }': id, connectionId
+.next/dev/types/validator.ts(558,31): error TS2344: Type 'typeof import("C:/Users/aamir/RESUME BUILDER/resume-builder/app/api/v1/jobs/[id]/connections/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/v1/jobs/[id]/connections">'.
+  Types of property 'GET' are incompatible.
+    Type '(req: NextRequest, { params }: { params: { id: string; }; }) => Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<{ connections: { type: string; id: string; createdAt: Date; ... 11 more ...; metadata: JsonValue; }[]; hiringContacts: { ...; }[]; }>>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+.next/dev/types/validator.ts(567,31): error TS2344: Type 'typeof import("C:/Users/aamir/RESUME BUILDER/resume-builder/app/api/v1/jobs/[id]/verify/route")' does not satisfy the constraint 'RouteHandlerConfig<"/api/v1/jobs/[id]/verify">'.
+  Types of property 'POST' are incompatible.
+    Type '(req: NextRequest, { params }: { params: { id: string; }; }) => Promise<NextResponse<ApiResponse<null>> | NextResponse<ApiResponse<{ id: string; ghostScore: number; ghostVerdict: "real" | ... 1 more ... | "ghost"; signals: string[]; }>>>' is not assignable to type '(request: NextRequest, context: { params: Promise<{ id: string; }>; }) => void | Response | Promise<void | Response>'.
+      Types of parameters '__1' and 'context' are incompatible.
+        Type '{ params: Promise<{ id: string; }>; }' is not assignable to type '{ params: { id: string; }; }'.
+          Types of property 'params' are incompatible.
+            Property 'id' is missing in type 'Promise<{ id: string; }>' but required in type '{ id: string; }'.
+features/workspace/AgentRuntimePanel.tsx(11,72): error TS2367: This comparison appears to be unintentional because the types '"completed" | "failed" | "queued" | "waiting_for_approval" | "canceled" | "draft" | "planned" | "waiting_for_data" | "blocked" | "retrying"' and '"paused"' have no overlap.
+features/workspace/AgentRuntimePanel.tsx(13,20): error TS2367: This comparison appears to be unintentional because the types 'WorkflowStatus | undefined' and '"paused"' have no overlap.
+features/workspace/DecisionSurface.tsx(5,16): error TS2305: Module '"@/components/ui/tabs"' has no exported member 'TabsContent'.
+features/workspace/DecisionSurface.tsx(5,29): error TS2305: Module '"@/components/ui/tabs"' has no exported member 'TabsList'.
+features/workspace/DecisionSurface.tsx(5,39): error TS2305: Module '"@/components/ui/tabs"' has no exported member 'TabsTrigger'.
+features/workspace/DecisionSurface.tsx(13,68): error TS2367: This comparison appears to be unintentional because the types '"completed" | "failed" | "queued" | "waiting_for_approval" | "canceled" | "draft" | "planned" | "waiting_for_data" | "blocked" | "retrying"' and '"paused"' have no overlap.
+features/workspace/DecisionSurface.tsx(42,10): error TS2322: Type '{ children: Element[]; defaultValue: string; className: string; }' is not assignable to type 'IntrinsicAttributes & TabsProps'.
+  Property 'children' does not exist on type 'IntrinsicAttributes & TabsProps'.
+lib/domain/opportunities/opportunity-graph.service.ts(78,11): error TS18048: 'topConnection' is possibly 'undefined'.
+lib/domain/opportunities/opportunity-graph.service.ts(100,9): error TS2367: This comparison appears to be unintentional because the types '"interview" | "rejected" | "offer"' and '"interviewing"' have no overlap.
+lib/domain/opportunities/opportunity-graph.service.ts(104,107): error TS2367: This comparison appears to be unintentional because the types '"completed" | "failed" | "queued" | "waiting_for_approval" | "canceled" | "draft" | "planned" | "waiting_for_data" | "blocked" | "retrying"' and '"paused"' have no overlap.
+lib/domain/opportunities/opportunity-graph.service.ts(107,11): error TS2367: This comparison appears to be unintentional because the types 'WorkflowStatus' and '"paused"' have no overlap.

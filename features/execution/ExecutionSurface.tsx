@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, Loader2, MonitorPlay, WifiOff } from "lucide-react";
+import { Globe, Loader2, MonitorPlay } from "lucide-react";
 import { useEventSource } from "@/hooks/useEventSource";
+import { ApprovalModal, type ApprovalRecord } from "@/components/approvals/ApprovalModal";
 
 interface ScreenshotFrame {
   id: string;
@@ -35,6 +36,8 @@ export function ExecutionSurface({
   const [currentUrl, setCurrentUrl] = useState<string | null>(initialUrl);
   const [currentTitle, setCurrentTitle] = useState<string | null>(initialTitle);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [pendingApproval, setPendingApproval] = useState<ApprovalRecord | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isActive = executionStatus === "running" || executionStatus === "initializing";
 
@@ -64,17 +67,51 @@ export function ExecutionSurface({
         if (event.type === "tool.called" && payload.action === "navigate") {
           setCurrentUrl(payload.url ?? null);
         }
+
+        // Approval requested — surface the modal inline
+        if (event.type === "approval.requested" && payload.approvalId) {
+          // Fetch the full approval record so we have all fields
+          fetch(`/api/v1/approvals/pending`, { cache: "no-store" })
+            .then((r) => r.json())
+            .then((data: { approvals: ApprovalRecord[] }) => {
+              const match = data.approvals.find((a) => a.id === payload.approvalId);
+              if (match) setPendingApproval(match);
+            })
+            .catch(() => undefined);
+        }
       } catch {
         // silently ignore malformed SSE frames
       }
     },
   });
 
+  const handleApprove = useCallback(async () => {
+    if (!pendingApproval) return;
+    setIsSubmitting(true);
+    try {
+      await fetch(`/api/v1/approvals/${pendingApproval.id}/approve`, { method: "POST" });
+    } finally {
+      setIsSubmitting(false);
+      setPendingApproval(null);
+    }
+  }, [pendingApproval]);
+
+  const handleReject = useCallback(async () => {
+    if (!pendingApproval) return;
+    setIsSubmitting(true);
+    try {
+      await fetch(`/api/v1/approvals/${pendingApproval.id}/reject`, { method: "POST" });
+    } finally {
+      setIsSubmitting(false);
+      setPendingApproval(null);
+    }
+  }, [pendingApproval]);
+
   const idle = !screenshot && !isActive;
   const hostname = currentUrl ? (() => { try { return new URL(currentUrl).hostname; } catch { return currentUrl; } })() : null;
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-border bg-[#0a0a0a] overflow-hidden shadow-2xl">
+    <div className="relative flex h-full flex-col rounded-xl border border-border bg-[#0a0a0a] overflow-hidden shadow-2xl">
       {/* Browser chrome bar */}
       <div className="flex items-center gap-3 border-b border-border/60 bg-[#111] px-4 py-2.5">
         {/* Traffic lights */}
@@ -175,6 +212,19 @@ export function ExecutionSurface({
           )}
         </AnimatePresence>
       </div>
+
+      {/* Inline approval modal — rendered over execution surface */}
+      {pendingApproval && (
+        <div className="absolute inset-0 z-20">
+          <ApprovalModal
+            approval={pendingApproval}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            onClose={() => setPendingApproval(null)}
+            isLoading={isSubmitting}
+          />
+        </div>
+      )}
     </div>
   );
 }
