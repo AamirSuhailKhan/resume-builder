@@ -1,4 +1,5 @@
 import { AnalyticsDashboard } from "@/features/analytics/AnalyticsDashboard";
+import { ApplicationHealthDashboard } from "@/components/analytics/ApplicationHealthDashboard";
 import { AnalyticsService } from "@/lib/services/analytics.service";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
@@ -34,5 +35,10 @@ export default async function AnalyticsPage() {
     interviewPace: totalInterviews.toString(),
   };
 
-  return <AnalyticsDashboard trendData={trendData} metrics={dashboardMetrics} />;
+  return (
+    <div className="space-y-8 px-6">
+      <ApplicationHealthDashboard />
+      <AnalyticsDashboard trendData={trendData} metrics={dashboardMetrics} />
+    </div>
+  );
 }

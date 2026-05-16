@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { OpportunityGraph } from "@/lib/domain/opportunities/opportunity-graph.service";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";

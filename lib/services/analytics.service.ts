@@ -5,6 +5,7 @@
  * All methods return typed degraded state on P2021 (missing table) — never throw.
  * SSR-safe: guaranteed to return a value, never crash the render tree.
  */
+import type { AnonymousBenchmark, ApplicationAnalytics } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -182,5 +183,122 @@ export class AnalyticsService {
       console.error("[AnalyticsService] getWeeklyTrends unexpected error:", err);
       return EMPTY_TRENDS;
     }
+  }
+
+  static async computeUserAnalytics(userId: string): Promise<ApplicationAnalytics> {
+    const applications = await prisma.application.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      include: { jobOpportunity: true },
+    });
+
+    const totalApplied = applications.length;
+    const totalResponses = applications.filter((application) => application.status !== "applied").length;
+    const totalInterviews = applications.filter((application) => application.status === "interview").length;
+    const totalOffers = applications.filter((application) => application.status === "offer").length;
+
+    const responseRate = totalApplied > 0 ? totalResponses / totalApplied : 0;
+    const interviewRate = totalApplied > 0 ? totalInterviews / totalApplied : 0;
+    const offerRate = totalApplied > 0 ? totalOffers / totalApplied : 0;
+
+    const responded = applications.filter((application) => application.status !== "applied");
+    const avgDaysToResponse = responded.length > 0
+      ? responded.reduce((sum, application) => {
+          const diff = application.updatedAt.getTime() - application.createdAt.getTime();
+          return sum + Math.max(0, diff / 86_400_000);
+        }, 0) / responded.length
+      : null;
+
+    const dayBuckets = new Map<string, { total: number; responses: number }>();
+    const formatter = new Intl.DateTimeFormat("en-US", { weekday: "long" });
+    for (const application of applications) {
+      const day = formatter.format(application.createdAt);
+      const bucket = dayBuckets.get(day) ?? { total: 0, responses: 0 };
+      bucket.total += 1;
+      if (application.status !== "applied") bucket.responses += 1;
+      dayBuckets.set(day, bucket);
+    }
+
+    const bestDayOfWeek = [...dayBuckets.entries()]
+      .sort((a, b) => (b[1].responses / Math.max(1, b[1].total)) - (a[1].responses / Math.max(1, a[1].total)))[0]?.[0] ?? null;
+
+    const platformBuckets = new Map<string, { total: number; responses: number }>();
+    for (const application of applications) {
+      const parsed = application.jobOpportunity?.parsed;
+      const parsedRecord = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+      let sourceHost = "Manual";
+      if (application.jobOpportunity?.sourceUrl) {
+        try {
+          sourceHost = new URL(application.jobOpportunity.sourceUrl).hostname.replace(/^www\./, "");
+        } catch {
+          sourceHost = "Job board";
+        }
+      }
+      const platform = typeof parsedRecord.source === "string"
+        ? parsedRecord.source
+        : application.jobOpportunity?.sourceUrl
+          ? sourceHost
+          : "Manual";
+      const bucket = platformBuckets.get(platform) ?? { total: 0, responses: 0 };
+      bucket.total += 1;
+      if (application.status !== "applied") bucket.responses += 1;
+      platformBuckets.set(platform, bucket);
+    }
+
+    const bestPlatform = [...platformBuckets.entries()]
+      .sort((a, b) => (b[1].responses / Math.max(1, b[1].total)) - (a[1].responses / Math.max(1, a[1].total)))[0]?.[0] ?? null;
+
+    return prisma.applicationAnalytics.upsert({
+      where: { userId },
+      create: {
+        userId,
+        totalApplied,
+        totalResponses,
+        totalInterviews,
+        totalOffers,
+        responseRate,
+        interviewRate,
+        offerRate,
+        avgDaysToResponse,
+        bestDayOfWeek,
+        bestPlatform,
+        weakestSection: null,
+        lastComputedAt: new Date(),
+      },
+      update: {
+        totalApplied,
+        totalResponses,
+        totalInterviews,
+        totalOffers,
+        responseRate,
+        interviewRate,
+        offerRate,
+        avgDaysToResponse,
+        bestDayOfWeek,
+        bestPlatform,
+        lastComputedAt: new Date(),
+      },
+    });
+  }
+
+  static async getBenchmark(roleLevel: string, industry: string, location: string): Promise<AnonymousBenchmark | null> {
+    const normalizedRole = roleLevel.toLowerCase() || "mid";
+    const normalizedIndustry = industry.toLowerCase() || "tech";
+    const normalizedLocation = location.toLowerCase() || "india";
+
+    const exact = await prisma.anonymousBenchmark.findUnique({
+      where: {
+        roleLevel_industry_location: {
+          roleLevel: normalizedRole,
+          industry: normalizedIndustry,
+          location: normalizedLocation,
+        },
+      },
+    });
+
+    return exact ?? prisma.anonymousBenchmark.findFirst({
+      where: { roleLevel: normalizedRole },
+      orderBy: { sampleSize: "desc" },
+    });
   }
 }

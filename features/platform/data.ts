@@ -8,6 +8,15 @@ export type JobMatch = {
   stage: "hot" | "warm" | "watch";
   skills: string[];
   missing: string[];
+  sourceUrl?: string | null;
+  description?: string;
+  healthScore?: number | null;
+  timingAdvice?: {
+    recommendation: "apply_now" | "apply_soon" | "wait";
+    urgency: string;
+    reasoning: string;
+    fillSpeedDays: number | null;
+  };
 };
 
 export type ApplicationStage = "Applied" | "Interview" | "Rejected" | "Offer";

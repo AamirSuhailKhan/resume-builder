@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CommandCenter } from "@/features/analytics/CommandCenter";
+import { WellbeingWidget } from "@/components/wellbeing/WellbeingWidget";
 import { prisma } from "@/lib/db/prisma";
 
 function onboardingComplete(value: unknown): boolean {
@@ -36,5 +37,10 @@ export default async function DashboardPage() {
     }
   }
 
-  return <CommandCenter />;
+  return (
+    <>
+      <CommandCenter />
+      <WellbeingWidget />
+    </>
+  );
 }

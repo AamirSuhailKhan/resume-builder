@@ -1,0 +1,12 @@
+{
+  "software engineer": { "INR": { "min": 900000, "median": 1800000, "max": 3800000 }, "USD": { "min": 90000, "median": 140000, "max": 220000 } },
+  "senior software engineer": { "INR": { "min": 1800000, "median": 3200000, "max": 6500000 }, "USD": { "min": 135000, "median": 185000, "max": 280000 } },
+  "frontend engineer": { "INR": { "min": 900000, "median": 1900000, "max": 4200000 }, "USD": { "min": 95000, "median": 145000, "max": 230000 } },
+  "backend engineer": { "INR": { "min": 1000000, "median": 2200000, "max": 4800000 }, "USD": { "min": 105000, "median": 155000, "max": 240000 } },
+  "full stack engineer": { "INR": { "min": 900000, "median": 2000000, "max": 4500000 }, "USD": { "min": 100000, "median": 150000, "max": 230000 } },
+  "data scientist": { "INR": { "min": 1000000, "median": 2200000, "max": 5000000 }, "USD": { "min": 110000, "median": 160000, "max": 250000 } },
+  "machine learning engineer": { "INR": { "min": 1400000, "median": 3000000, "max": 7000000 }, "USD": { "min": 130000, "median": 185000, "max": 290000 } },
+  "product manager": { "INR": { "min": 1600000, "median": 3200000, "max": 7000000 }, "USD": { "min": 125000, "median": 175000, "max": 260000 } },
+  "engineering manager": { "INR": { "min": 3000000, "median": 5500000, "max": 11000000 }, "USD": { "min": 160000, "median": 230000, "max": 350000 } },
+  "devops engineer": { "INR": { "min": 1200000, "median": 2600000, "max": 5500000 }, "USD": { "min": 115000, "median": 165000, "max": 250000 } }
+}

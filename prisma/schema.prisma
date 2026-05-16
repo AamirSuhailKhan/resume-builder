@@ -25,6 +25,7 @@ enum QueueJobType {
   ai_auto_apply
   ai_portfolio
   email_drip
+  compute_analytics
 }
 
 enum QueueJobStatus {
@@ -128,6 +129,11 @@ model User {
   applicationArtifacts ApplicationArtifact[]
   workflowEvents       WorkflowEvent[]
   emailCampaigns       EmailCampaign[]
+  negotiationSessions  NegotiationSession[]
+  applicationAnalytics ApplicationAnalytics?
+  wellbeingCheckIns    WellbeingCheckIn[]
+  searchMilestones     SearchMilestone[]
+  offerComparisons     OfferComparison[]
 
   @@index([email])
 }
@@ -474,6 +480,171 @@ model Application {
   @@index([userId, status])
   @@index([resumeId, createdAt])
   @@index([jobOpportunityId])
+}
+
+model NegotiationSession {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  jobTitle       String
+  companyName    String
+  offerBase      Float
+  offerEquity    String?
+  offerBonus     Float?
+  offerBenefits  Json?
+  location       String?
+  currency       String   @default("INR")
+  marketMin      Float?
+  marketMax      Float?
+  marketMedian   Float?
+  counterScript  Json?
+  negotiationLog Json[]   @default([])
+  finalOffer     Float?
+  outcome        String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model CompanyIntelligence {
+  id               String   @id @default(uuid()) @db.Uuid
+  companyName      String
+  companyDomain    String?
+  healthScore      Float
+  hiringVelocity   String
+  fundingStage     String?
+  employeeCount    String?
+  glassdoorRating  Float?
+  recentNews       Json[]   @default([])
+  interviewProcess Json?
+  cultureSignals   Json?
+  layoffRisk       String
+  scamRisk         String   @default("unknown")
+  scamSignals      Json?
+  lastRefreshedAt  DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  @@unique([companyName])
+  @@index([companyName])
+  @@index([healthScore])
+}
+
+model ApplicationAnalytics {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @db.Uuid
+  totalApplied      Int      @default(0)
+  totalResponses    Int      @default(0)
+  totalInterviews   Int      @default(0)
+  totalOffers       Int      @default(0)
+  responseRate      Float    @default(0)
+  interviewRate     Float    @default(0)
+  offerRate         Float    @default(0)
+  avgDaysToResponse Float?
+  bestDayOfWeek     String?
+  bestPlatform      String?
+  weakestSection    String?
+  lastComputedAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AnonymousBenchmark {
+  id             String   @id @default(uuid()) @db.Uuid
+  roleLevel      String
+  industry       String
+  location       String
+  responseRate   Float
+  interviewRate  Float
+  offerRate      Float
+  avgDaysToOffer Float
+  sampleSize     Int
+  updatedAt      DateTime @updatedAt
+
+  @@unique([roleLevel, industry, location])
+}
+
+model CompanyInterviewBrief {
+  id                String   @id @default(uuid()) @db.Uuid
+  companyName       String   @unique
+  rounds            Int?
+  roundDescriptions Json[]   @default([])
+  questionThemes    String[]
+  knownQuestions    String[]
+  difficulty        String?
+  avgTimelineDays   Int?
+  offerAcceptRate   Float?
+  interviewTips     String[]
+  lastUpdated       DateTime @default(now())
+
+  @@index([companyName])
+}
+
+model HiringPattern {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyName     String?
+  companyType     String
+  industry        String
+  bestMonths      Int[]
+  worstMonths     Int[]
+  avgDaysToFill   Int?
+  hiringCyclePeak String?
+  notes           String?
+  confidence      Float    @default(0.7)
+  dataSource      String   @default("ai_inferred")
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@index([companyType, industry])
+  @@index([companyName])
+}
+
+model WellbeingCheckIn {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  mood       Int
+  moodLabel  String
+  note       String?
+  aiResponse String?
+  week       Int
+  year       Int
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, week, year])
+  @@index([userId, createdAt])
+}
+
+model SearchMilestone {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  type       String
+  achievedAt DateTime @default(now())
+  celebrated Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+}
+
+model OfferComparison {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  title     String   @default("My offer comparison")
+  offers    Json[]
+  analysis  Json?
+  winner    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model InterviewSession {

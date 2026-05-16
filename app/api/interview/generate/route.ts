@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { CompanyInterviewService } from "@/lib/services/company-interview.service";
 import { callClaudeJson, getString } from "../_lib/claude";
 
 export const runtime = "nodejs";
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
     }
 
     const company = getString(body.company);
+    const companyName = getString(body.companyName) || company;
     const role = getString(body.role);
     const jobDescription = getString(body.jobDescription);
     const difficulty = getString(body.difficulty) || "mid-level";
@@ -89,16 +91,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Role is required." }, { status: 400 });
     }
 
+    const companyBrief = companyName
+      ? await CompanyInterviewService.getOrGenerateBrief(companyName).catch(() => null)
+      : null;
+
     const { data } = await callClaudeJson<GenerateResponse | InterviewQuestion[]>({
       system: SYSTEM_PROMPT,
       user: JSON.stringify({
         role,
-        company: company || "Target company",
+        company: companyName || "Target company",
         jobDescription,
         difficulty,
         focusAreas,
         questionCount,
-        instruction: "Make questions specific to the role and job context. Mix behavioral and role-relevant technical depth.",
+        companySpecificContext: companyBrief,
+        instruction: companyBrief
+          ? `Generate questions that match this company's known interview style. Include ${JSON.stringify(companyBrief.roundDescriptions[0] ?? "first-round screen")} style questions where relevant. Always phrase known questions as candidate-reported themes.`
+          : "Make questions specific to the role and job context. Mix behavioral and role-relevant technical depth.",
       }),
       maxTokens: 2200,
     });
@@ -111,7 +120,7 @@ export async function POST(request: Request) {
     const interviewSession = await prisma.interviewSession.create({
       data: {
         userId,
-        company: company || null,
+        company: companyName || null,
         role,
         questions: questions as unknown as Prisma.InputJsonValue,
         answers: [],
@@ -121,6 +130,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       sessionId: interviewSession.id,
       questions,
+      companyBrief,
     });
   } catch (error) {
     console.error("[InterviewGenerate]", error);

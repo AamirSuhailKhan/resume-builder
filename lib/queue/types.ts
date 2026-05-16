@@ -80,6 +80,11 @@ export const emailDripPayloadSchema = z.object({
   campaignId: z.string().uuid(),
 });
 
+export const computeAnalyticsPayloadSchema = z.object({
+  jobRecordId: z.string().uuid(),
+  userId: z.string().uuid(),
+});
+
 export const jobPayloadSchemas = {
   autosave: autosavePayloadSchema,
   ats_analysis: atsAnalysisPayloadSchema,
@@ -89,6 +94,7 @@ export const jobPayloadSchemas = {
   ai_auto_apply: aiAutoApplyPayloadSchema,
   ai_portfolio: aiPortfolioPayloadSchema,
   email_drip: emailDripPayloadSchema,
+  compute_analytics: computeAnalyticsPayloadSchema,
 } as const;
 
 export type ResumeAiJobName = keyof typeof jobPayloadSchemas;
@@ -100,6 +106,7 @@ export type AiJobIntelligencePayload = z.infer<typeof aiJobIntelligencePayloadSc
 export type AiAutoApplyPayload = z.infer<typeof aiAutoApplyPayloadSchema>;
 export type AiPortfolioPayload = z.infer<typeof aiPortfolioPayloadSchema>;
 export type EmailDripPayload = z.infer<typeof emailDripPayloadSchema>;
+export type ComputeAnalyticsPayload = z.infer<typeof computeAnalyticsPayloadSchema>;
 
 export type ResumeAiJobPayloadMap = {
   autosave: AutosavePayload;
@@ -110,6 +117,7 @@ export type ResumeAiJobPayloadMap = {
   ai_auto_apply: AiAutoApplyPayload;
   ai_portfolio: AiPortfolioPayload;
   email_drip: EmailDripPayload;
+  compute_analytics: ComputeAnalyticsPayload;
 };
 
 export type ResumeAiJobPayload = ResumeAiJobPayloadMap[ResumeAiJobName];

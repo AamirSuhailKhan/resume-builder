@@ -46,6 +46,38 @@ async function main() {
     },
   });
 
+  await prisma.anonymousBenchmark.createMany({
+    skipDuplicates: true,
+    data: [
+      { roleLevel: 'entry', industry: 'tech', location: 'india', responseRate: 0.18, interviewRate: 0.08, offerRate: 0.03, avgDaysToOffer: 45, sampleSize: 1200 },
+      { roleLevel: 'mid', industry: 'tech', location: 'india', responseRate: 0.26, interviewRate: 0.12, offerRate: 0.05, avgDaysToOffer: 39, sampleSize: 1800 },
+      { roleLevel: 'senior', industry: 'tech', location: 'india', responseRate: 0.32, interviewRate: 0.16, offerRate: 0.07, avgDaysToOffer: 42, sampleSize: 1400 },
+      { roleLevel: 'lead', industry: 'tech', location: 'india', responseRate: 0.30, interviewRate: 0.15, offerRate: 0.06, avgDaysToOffer: 50, sampleSize: 700 },
+      { roleLevel: 'entry', industry: 'tech', location: 'remote', responseRate: 0.14, interviewRate: 0.06, offerRate: 0.02, avgDaysToOffer: 52, sampleSize: 900 },
+      { roleLevel: 'mid', industry: 'tech', location: 'remote', responseRate: 0.21, interviewRate: 0.10, offerRate: 0.04, avgDaysToOffer: 48, sampleSize: 1300 },
+      { roleLevel: 'senior', industry: 'tech', location: 'remote', responseRate: 0.27, interviewRate: 0.14, offerRate: 0.06, avgDaysToOffer: 50, sampleSize: 950 },
+      { roleLevel: 'entry', industry: 'finance', location: 'india', responseRate: 0.16, interviewRate: 0.07, offerRate: 0.025, avgDaysToOffer: 44, sampleSize: 500 },
+      { roleLevel: 'mid', industry: 'finance', location: 'india', responseRate: 0.23, interviewRate: 0.11, offerRate: 0.045, avgDaysToOffer: 41, sampleSize: 650 },
+      { roleLevel: 'senior', industry: 'finance', location: 'india', responseRate: 0.28, interviewRate: 0.14, offerRate: 0.055, avgDaysToOffer: 47, sampleSize: 420 },
+      { roleLevel: 'entry', industry: 'healthcare', location: 'india', responseRate: 0.15, interviewRate: 0.065, offerRate: 0.025, avgDaysToOffer: 46, sampleSize: 350 },
+      { roleLevel: 'mid', industry: 'healthcare', location: 'india', responseRate: 0.22, interviewRate: 0.10, offerRate: 0.04, avgDaysToOffer: 43, sampleSize: 440 },
+      { roleLevel: 'senior', industry: 'healthcare', location: 'india', responseRate: 0.26, interviewRate: 0.13, offerRate: 0.05, avgDaysToOffer: 49, sampleSize: 300 },
+      { roleLevel: 'mid', industry: 'tech', location: 'us', responseRate: 0.20, interviewRate: 0.09, offerRate: 0.035, avgDaysToOffer: 44, sampleSize: 1600 },
+      { roleLevel: 'senior', industry: 'tech', location: 'us', responseRate: 0.25, interviewRate: 0.12, offerRate: 0.05, avgDaysToOffer: 47, sampleSize: 1250 },
+    ],
+  });
+
+  await prisma.hiringPattern.createMany({
+    skipDuplicates: true,
+    data: [
+      { companyType: 'faang', industry: 'tech', bestMonths: [1, 2, 3, 9, 10], worstMonths: [11, 12, 7, 8], hiringCyclePeak: 'Q1', avgDaysToFill: 35, notes: 'New headcount budget opens Jan-Mar. Post-performance review hiring in Sep-Oct.' },
+      { companyType: 'startup_seed', industry: 'tech', bestMonths: [2, 3, 4, 5, 8, 9], worstMonths: [12, 1], hiringCyclePeak: 'Q2', avgDaysToFill: 18, notes: 'Hire post-funding rounds. Avoid December.' },
+      { companyType: 'startup_growth', industry: 'tech', bestMonths: [1, 2, 3, 7, 8, 9], worstMonths: [6, 11, 12], hiringCyclePeak: 'Q1', avgDaysToFill: 24, notes: 'Sales-driven headcount often follows revenue calendar.' },
+      { companyType: 'enterprise', industry: 'tech', bestMonths: [1, 2, 3, 4, 10, 11], worstMonths: [7, 8, 12], hiringCyclePeak: 'Q1', avgDaysToFill: 45, notes: 'Budget year resets in Jan. Oct-Nov for next year planning.' },
+      { companyType: 'public_company', industry: 'tech', bestMonths: [2, 3, 8, 9], worstMonths: [6, 7, 12, 1], hiringCyclePeak: 'Q1', avgDaysToFill: 40, notes: 'Tied to earnings calendar. Avoid quarter-end months.' },
+    ],
+  });
+
   // ── 3. Career Memories ────────────────────────────────────────────────────
   await prisma.careerMemory.createMany({
     skipDuplicates: true,

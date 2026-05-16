@@ -29,7 +29,7 @@ interface PooledContext {
 }
 
 const USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 // ---------------------------------------------------------------------------
 // BrowserContextPool
@@ -59,6 +59,7 @@ export class BrowserContextPool {
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-blink-features=AutomationControlled",
+        "--disable-features=IsolateOrigins,site-per-process",
         "--disable-dev-shm-usage",
         "--disable-gpu",
         `--user-agent=${USER_AGENT}`,
@@ -102,7 +103,7 @@ export class BrowserContextPool {
       locale: "en-IN",
       timezoneId: "Asia/Kolkata",
       userAgent: USER_AGENT,
-      extraHTTPHeaders: { "Accept-Language": "en-IN,en;q=0.9" },
+      extraHTTPHeaders: { "Accept-Language": "en-IN,en;q=0.9,hi;q=0.8" },
       geolocation: { latitude: 28.6139, longitude: 77.209 },
       permissions: ["geolocation"],
     });

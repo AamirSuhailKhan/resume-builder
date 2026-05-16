@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import { DndContext, DragEndEvent, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { motion } from "framer-motion";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
 import { ApplicationRecord, ApplicationStage } from "@/features/platform/data";
@@ -15,6 +16,8 @@ const stages: ApplicationStage[] = ["Applied", "Interview", "Rejected", "Offer"]
 export function ApplicationTracker({ initialApplications }: { initialApplications: ApplicationRecord[] }) {
   const [items, setItems] = useState(initialApplications);
   const [active, setActive] = useState<ApplicationRecord | null>(null);
+  const [reframeTarget, setReframeTarget] = useState<ApplicationRecord | null>(null);
+  const [reframe, setReframe] = useState<{ reframe: string; statContext: string; nextStep: string } | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const grouped = useMemo(() => {
@@ -50,6 +53,10 @@ export function ApplicationTracker({ initialApplications }: { initialApplication
         });
         
         if (!res.ok) throw new Error("Failed to persist stage change");
+        if (overStage === "Rejected") {
+          setReframeTarget(activeItem);
+          setReframe(null);
+        }
       } catch (err) {
         console.error("Drag and drop persistence failed:", err);
         // Rollback
@@ -80,6 +87,44 @@ export function ApplicationTracker({ initialApplications }: { initialApplication
         </div>
         <DragOverlay>{active ? <ApplicationCard item={active} dragOverlay /> : null}</DragOverlay>
       </DndContext>
+
+      {reframeTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-lg border border-border bg-surface-elevated p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <Heart className="mt-1 h-5 w-5 text-warning" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-foreground">Want a rejection reframe?</h3>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {reframeTarget.company} did not move forward for {reframeTarget.role}. That can sting; this can help turn it into one next step.
+                </p>
+              </div>
+            </div>
+            {reframe && (
+              <div className="mt-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm leading-6 text-muted-foreground">
+                <p>{reframe.reframe}</p>
+                <p className="mt-2">{reframe.statContext}</p>
+                <p className="mt-2 font-medium text-foreground">{reframe.nextStep}</p>
+              </div>
+            )}
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={() => setReframeTarget(null)}>Close</Button>
+              <Button
+                onClick={async () => {
+                  const response = await fetch("/api/v1/wellbeing/rejection-reframe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ companyName: reframeTarget.company, jobTitle: reframeTarget.role, rejectionType: "no_response" }),
+                  });
+                  setReframe(await response.json());
+                }}
+              >
+                Yes, help me process this
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </SectionShell>
   );
 }

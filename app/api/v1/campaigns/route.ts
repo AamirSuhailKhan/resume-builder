@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth/auth.options";
+import { auth } from "@/auth";
 import { EmailCampaignService } from "@/lib/services/email-campaign.service";
 import { prisma } from "@/lib/db/prisma";
 
@@ -8,7 +7,7 @@ const campaignService = new EmailCampaignService();
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
 
     const { jobOpportunityId } = await req.json();
@@ -16,14 +15,14 @@ export async function POST(req: NextRequest) {
 
     const campaign = await campaignService.createCampaign(session.user.id, jobOpportunityId);
     return NextResponse.json(campaign);
-  } catch (error: any) {
-    return new NextResponse(error.message, { status: 500 });
+  } catch (error) {
+    return new NextResponse(error instanceof Error ? error.message : "Internal server error", { status: 500 });
   }
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
 
     const campaigns = await prisma.emailCampaign.findMany({
@@ -36,7 +35,7 @@ export async function GET(req: NextRequest) {
     });
 
     return NextResponse.json(campaigns);
-  } catch (error: any) {
-    return new NextResponse(error.message, { status: 500 });
+  } catch (error) {
+    return new NextResponse(error instanceof Error ? error.message : "Internal server error", { status: 500 });
   }
 }

@@ -6,6 +6,7 @@ import { apiError, apiOk, errorToResponse } from "@/lib/api/response";
 import { CacheService } from "@/lib/cache/cache.service";
 import { JobsSearchService } from "@/lib/search/jobs.search";
 import { JOBS_INDEX, meilisearch } from "@/lib/search/meilisearch";
+import { TimingIntelligenceService, type TimingAdvice } from "@/lib/services/timing-intelligence.service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +64,8 @@ type MatchResult = {
   postedAt: string | null;
   ghostScore?: number | undefined;
   ghostVerdict?: string | undefined;
+  healthScore?: number | null;
+  timingAdvice?: TimingAdvice;
 };
 
 function asRecord(value: unknown): JsonRecord {
@@ -328,7 +331,26 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    const jobs = computed.sort((a, b) => b.match - a.match).slice(0, limit);
+    const companyIntel = await prisma.companyIntelligence.findMany({
+      where: { companyName: { in: unique(computed.map((job) => job.company)) } },
+      select: { companyName: true, healthScore: true },
+    }).catch(() => []);
+    const healthByCompany = new Map(companyIntel.map((item) => [item.companyName.toLowerCase(), item.healthScore]));
+
+    const jobs = await Promise.all(computed.sort((a, b) => b.match - a.match).slice(0, limit).map(async (job) => {
+      const postedAt = job.postedAt ? new Date(job.postedAt) : new Date();
+      const timingAdvice = await TimingIntelligenceService.getTimingAdvice({
+        company: job.company,
+        industry: "tech",
+        postedAt: Number.isNaN(postedAt.getTime()) ? new Date() : postedAt,
+      });
+
+      return {
+        ...job,
+        healthScore: healthByCompany.get(job.company.toLowerCase()) ?? null,
+        timingAdvice,
+      };
+    }));
     await CacheService.set(`jobs:matches:${userId}`, { count: jobs.length, generatedAt: new Date().toISOString() }, 120);
 
     return apiOk({ jobs, generatedAt: new Date().toISOString(), query });

@@ -53,30 +53,51 @@ export async function safeFetch<T = unknown>(
   let lastError = "Network error";
 
   while (attempt <= retries) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 8000);
+
     try {
       const response = await fetch(url, {
         ...fetchOptions,
+        signal: controller.signal,
         headers: {
           Accept: "application/json",
           ...(fetchOptions.body ? { "Content-Type": "application/json" } : {}),
           ...fetchOptions.headers,
         },
       });
+      clearTimeout(timeout);
 
-      const contentType = response.headers.get("content-type") ?? "";
-      const payload = contentType.includes("application/json")
-        ? await response.json().catch(() => null)
-        : null;
+      const contentType = response.headers.get("content-type");
+      let payload: any = null;
+
+      if (response.status !== 204) {
+        if (contentType?.includes("application/json")) {
+          payload = await response.json().catch(() => null);
+        } else {
+          payload = await response.text().catch(() => null);
+        }
+      }
 
       if (!response.ok) {
-        const message = getMessage(payload?.error, `Request failed with status ${response.status}`);
-        console.error("[FETCH ERROR]", { url, status: response.status, message });
+        const message = getMessage(payload?.error || payload, `Request failed with status ${response.status}`);
+        console.error("[FETCH ERROR]", {
+          url,
+          method: fetchOptions.method || "GET",
+          message,
+        });
         return { data: null, error: message, status: response.status };
       }
 
       if (payload?.error) {
         const message = getMessage(payload.error, "Request failed");
-        console.error("[FETCH ERROR]", { url, status: response.status, message });
+        console.error("[FETCH ERROR]", {
+          url,
+          method: fetchOptions.method || "GET",
+          message,
+        });
         return { data: payload.data ?? null, error: message, status: response.status };
       }
 
@@ -86,7 +107,14 @@ export async function safeFetch<T = unknown>(
         status: response.status,
       };
     } catch (error) {
+      clearTimeout(timeout);
       lastError = getMessage(error, "Network error");
+      console.error("[FETCH ERROR]", {
+        url,
+        method: fetchOptions.method || "GET",
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       if (attempt >= retries) break;
       await sleep(retryDelayMs * 2 ** attempt);
     }
@@ -94,6 +122,5 @@ export async function safeFetch<T = unknown>(
     attempt += 1;
   }
 
-  console.error("[FETCH ERROR]", { url, status: 0, message: lastError });
   return { data: null, error: lastError, status: 0 };
 }

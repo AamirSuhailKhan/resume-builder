@@ -1,5 +1,5 @@
-import { Anthropic } from "@anthropic-ai/sdk";
-import { CareerMemory, JobOpportunity, HiringContact } from "@prisma/client";
+import { JobOpportunity, HiringContact } from "@prisma/client";
+import { callClaudeJson } from "@/app/api/interview/_lib/claude";
 import { prisma } from "@/lib/db/prisma";
 
 export interface GeneratedEmailDraft {
@@ -14,10 +14,6 @@ export interface GeneratedEmailDraft {
 }
 
 export class CampaignIntelligenceService {
-  private anthropic = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
-
   async generateSequence(
     userId: string,
     job: JobOpportunity,
@@ -67,22 +63,16 @@ export class CampaignIntelligenceService {
     }
     `;
 
-    const response = await this.anthropic.messages.create({
-      model: "claude-3-5-sonnet-20240620",
-      max_tokens: 2000,
+    const { data } = await callClaudeJson<{ emails: GeneratedEmailDraft[] }>({
       system: "You are a senior executive recruiter. Output ONLY valid JSON, nothing else.",
-      messages: [{ role: "user", content: prompt }],
+      user: prompt,
+      maxTokens: 2000,
     });
 
-    const content = response.content[0].type === "text" ? response.content[0].text : "";
-    const cleaned = content.substring(content.indexOf("{"), content.lastIndexOf("}") + 1);
-    
-    try {
-      const parsed = JSON.parse(cleaned);
-      return parsed.emails;
-    } catch (e) {
-      console.error("Failed to parse Claude output", e);
+    if (!Array.isArray(data.emails) || data.emails.length === 0) {
       throw new Error("Failed to generate intelligent email sequence.");
     }
+
+    return data.emails;
   }
 }

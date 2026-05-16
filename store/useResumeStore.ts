@@ -118,42 +118,58 @@ export const useResumeStore = create<ResumeStore>()(
         if (get().isHydrated || get().loading) return;
         set({ loading: true, error: null });
 
-        const result = await safeFetch<ResumeApiRecord[]>("/api/v1/resumes?limit=20", { retries: 1 });
-        if (result.error) {
-          set({ loading: false, error: result.error, isHydrated: true });
-          return;
-        }
+        try {
+          const result = await safeFetch<ResumeApiRecord[]>("/api/v1/resumes?limit=20", { retries: 1 });
 
-        const serverResumes = result.data ?? [];
-        set((state) => {
-          const resumesById = { ...state.resumesById };
-          const ids = new Set(state.resumeIds.filter(isValidResumeId));
-
-          for (const record of serverResumes) {
-            const resume = mergeResumeRecord(record);
-            if (!resume) continue;
-            const local = resumesById[resume.id];
-            const localTs = local?.updatedAt ? Date.parse(local.updatedAt) : 0;
-            const serverTs = resume.updatedAt ? Date.parse(resume.updatedAt) : 0;
-            if (!local || serverTs >= localTs || !state.dirtyResumeIds[resume.id]) {
-              resumesById[resume.id] = resume;
-            }
-            ids.add(resume.id);
+          if (!result) {
+            set({ loading: false, isHydrated: true });
+            return;
           }
 
-          const activeResumeId = isValidResumeId(state.activeResumeId)
-            ? state.activeResumeId
-            : ids.values().next().value ?? null;
+          if (result.error) {
+            set({ loading: false, error: result.error, isHydrated: true });
+            return;
+          }
 
-          return {
-            resumesById,
-            resumeIds: Array.from(ids),
-            activeResumeId,
-            loading: false,
-            isHydrated: true,
-            error: null,
-          };
-        });
+          const serverResumes = result.data ?? [];
+          set((state) => {
+            const resumesById = { ...state.resumesById };
+            const ids = new Set(state.resumeIds.filter(isValidResumeId));
+
+            for (const record of serverResumes) {
+              const resume = mergeResumeRecord(record);
+              if (!resume) continue;
+              const local = resumesById[resume.id];
+              const localTs = local?.updatedAt ? Date.parse(local.updatedAt) : 0;
+              const serverTs = resume.updatedAt ? Date.parse(resume.updatedAt) : 0;
+              if (!local || serverTs >= localTs || !state.dirtyResumeIds[resume.id]) {
+                resumesById[resume.id] = resume;
+              }
+              ids.add(resume.id);
+            }
+
+            const activeResumeId = isValidResumeId(state.activeResumeId)
+              ? state.activeResumeId
+              : ids.values().next().value ?? null;
+
+            return {
+              resumesById,
+              resumeIds: Array.from(ids),
+              activeResumeId,
+              loading: false,
+              isHydrated: true,
+              error: null,
+            };
+          });
+        } catch (error) {
+          console.error("[HYDRATE ERROR]", {
+            message:
+              error instanceof Error
+                ? error.message
+                : String(error),
+          });
+          set({ loading: false, isHydrated: true });
+        }
       },
 
       setActiveResumeId: (id) => {

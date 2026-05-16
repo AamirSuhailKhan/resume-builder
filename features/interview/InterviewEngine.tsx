@@ -28,6 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
+import { CompanyInterviewBriefCard } from "@/components/interview/CompanyInterviewBriefCard";
 import { cn } from "@/lib/utils";
 
 type Phase = "setup" | "interview" | "results";
@@ -57,6 +58,17 @@ type EvaluationResult = {
   nextDrill: string;
   rubric: RubricPoint[];
   radar: Array<{ metric: string; score: number }>;
+};
+
+type CompanyBrief = {
+  companyName: string;
+  rounds?: number | null;
+  roundDescriptions: Array<{ round?: number; type?: string; duration?: string; notes?: string }>;
+  questionThemes: string[];
+  knownQuestions: string[];
+  difficulty?: string | null;
+  avgTimelineDays?: number | null;
+  interviewTips: string[];
 };
 
 type SpeechRecognitionResultLike = {
@@ -93,6 +105,8 @@ const difficultyOptions = ["Entry", "Mid-level", "Senior", "Staff"];
 export function InterviewEngine() {
   const [phase, setPhase] = useState<Phase>("setup");
   const [company, setCompany] = useState("");
+  const [companyBrief, setCompanyBrief] = useState<CompanyBrief | null>(null);
+  const [isBriefLoading, setIsBriefLoading] = useState(false);
   const [role, setRole] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [difficulty, setDifficulty] = useState("Mid-level");
@@ -127,6 +141,25 @@ export function InterviewEngine() {
     };
   }, []);
 
+  useEffect(() => {
+    const name = company.trim();
+    if (name.length < 2) {
+      setCompanyBrief(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setIsBriefLoading(true);
+      fetch(`/api/v1/interview/company-brief?companyName=${encodeURIComponent(name)}`)
+        .then((response) => response.json())
+        .then((payload) => setCompanyBrief(payload.brief ?? null))
+        .catch(() => setCompanyBrief(null))
+        .finally(() => setIsBriefLoading(false));
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [company]);
+
   async function generateQuestions() {
     setError(null);
     setIsGenerating(true);
@@ -137,6 +170,7 @@ export function InterviewEngine() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           company,
+          companyName: company,
           role,
           jobDescription,
           difficulty,
@@ -148,6 +182,7 @@ export function InterviewEngine() {
       const payload = (await response.json().catch(() => ({}))) as {
         sessionId?: string;
         questions?: InterviewQuestion[];
+        companyBrief?: CompanyBrief | null;
         error?: string;
       };
 
@@ -160,6 +195,7 @@ export function InterviewEngine() {
       }
 
       setSessionId(payload.sessionId);
+      setCompanyBrief(payload.companyBrief ?? companyBrief);
       setQuestions(payload.questions);
       setAnswers({});
       setActiveIndex(0);
@@ -185,6 +221,7 @@ export function InterviewEngine() {
         body: JSON.stringify({
           sessionId,
           company,
+          companyName: company,
           role,
           jobDescription,
           answers: questions.map((question) => ({
@@ -333,6 +370,14 @@ export function InterviewEngine() {
                   <Input value={company} onChange={(event) => setCompany(event.target.value)} placeholder="Acme AI" />
                 </Field>
               </div>
+
+              {isBriefLoading && <div className="h-28 animate-pulse rounded-lg bg-surface-muted" />}
+              {companyBrief && (
+                <CompanyInterviewBriefCard
+                  brief={companyBrief}
+                  onPracticeQuestion={(question) => setJobDescription((current) => `${current ? `${current}\n\n` : ""}Practice focus: ${question}`)}
+                />
+              )}
 
               <Field label="Job description">
                 <Textarea

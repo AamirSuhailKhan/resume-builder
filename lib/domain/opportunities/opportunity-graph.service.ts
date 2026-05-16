@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { JobOpportunity, ConnectionPath, Application, WorkflowRun, HiringContact } from "@prisma/client";
+import { JobOpportunity, ConnectionPath, Application, WorkflowRun, HiringContact, EmailCampaign, EmailDraft } from "@prisma/client";
 
 export interface OpportunityConfidence {
   score: number; // 0-100
@@ -9,7 +9,7 @@ export interface OpportunityConfidence {
 
 export interface OpportunityGraph {
   job: JobOpportunity;
-  application: Application | null;
+  application: (Application & { emailCampaign?: (EmailCampaign & { emails: EmailDraft[] }) | null }) | null;
   connections: ConnectionPath[];
   hiringContacts: HiringContact[];
   workflows: WorkflowRun[];
@@ -30,7 +30,10 @@ export class OpportunityGraphService {
     const [connections, hiringContacts, application, workflowsRaw] = await Promise.all([
       prisma.connectionPath.findMany({ where: { userId, jobOpportunityId }, orderBy: { strength: "desc" } }),
       prisma.hiringContact.findMany({ where: { jobOpportunities: { some: { id: jobOpportunityId } } } }),
-      prisma.application.findFirst({ where: { userId, jobOpportunityId } }),
+      prisma.application.findFirst({
+        where: { userId, jobOpportunityId },
+        include: { emailCampaign: { include: { emails: { orderBy: { sequence: "asc" } } } } },
+      }),
       prisma.workflowRun.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
     ]);
 

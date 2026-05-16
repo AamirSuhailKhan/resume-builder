@@ -26,6 +26,8 @@ export default async function MatchesPage() {
       stage: job.matchScore >= 90 ? "hot" : job.matchScore >= 70 ? "warm" : "watch",
       skills: Array.isArray(parsed.skills) ? parsed.skills.map(String) : [],
       missing: Array.isArray(parsed.missing) ? parsed.missing.map(String) : [],
+      sourceUrl: job.sourceUrl,
+      description: job.description,
     };
   });
 

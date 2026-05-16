@@ -2,6 +2,7 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { NextRequest, NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
+import { getRedisClient } from "@/lib/redis";
 
 // Upstash Redis client (serverless-safe)
 const redis = new Redis({
@@ -67,4 +68,21 @@ export async function applyRateLimit(
   }
 
   return null;
+}
+
+export async function checkDailyRateLimit(identifier: string, limit: number, prefix: string) {
+  const client = getRedisClient();
+  if (!client) return { allowed: true, remaining: limit };
+
+  const today = new Date().toISOString().slice(0, 10);
+  const key = `ratelimit:${prefix}:${identifier}:${today}`;
+  const current = await client.incr(key);
+  if (current === 1) {
+    await client.expire(key, 36 * 60 * 60);
+  }
+
+  return {
+    allowed: current <= limit,
+    remaining: Math.max(0, limit - current),
+  };
 }

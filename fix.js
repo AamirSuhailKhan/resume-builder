@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fs = require('fs');
 let content = fs.readFileSync('features/jobs/JobMatchDashboard.tsx', 'utf8');
 content = content.replace(/\\`/g, '`');

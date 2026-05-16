@@ -1,0 +1,7 @@
+{
+  "faang": { "bestMonths": [1, 2, 3, 9, 10], "worstMonths": [11, 12, 7, 8], "hiringCyclePeak": "Q1", "avgDaysToFill": 35, "notes": "New headcount budget opens Jan-Mar. Post-performance review hiring in Sep-Oct." },
+  "startup_seed": { "bestMonths": [2, 3, 4, 5, 8, 9], "worstMonths": [12, 1], "hiringCyclePeak": "Q2", "avgDaysToFill": 18, "notes": "Hire post-funding rounds. Avoid December." },
+  "startup_growth": { "bestMonths": [1, 2, 3, 7, 8, 9], "worstMonths": [6, 11, 12], "hiringCyclePeak": "Q1", "avgDaysToFill": 24, "notes": "Sales-driven headcount often follows revenue calendar." },
+  "enterprise": { "bestMonths": [1, 2, 3, 4, 10, 11], "worstMonths": [7, 8, 12], "hiringCyclePeak": "Q1", "avgDaysToFill": 45, "notes": "Budget year resets in Jan. Oct-Nov is often next-year planning." },
+  "public_company": { "bestMonths": [2, 3, 8, 9], "worstMonths": [6, 7, 12, 1], "hiringCyclePeak": "Q1", "avgDaysToFill": 40, "notes": "Hiring tends to be tied to earnings calendar. Avoid quarter-end months." }
+}

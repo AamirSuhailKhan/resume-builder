@@ -66,11 +66,11 @@ export const browserWorker = new Worker(
             await executor.navigate(step.url);
             break;
           case "browser.click":
-            await executor.click(step.selector);
+            await executor.clickHuman(step.selector);
             browserContextPool.recordAction(cid, true);
             break;
           case "browser.type":
-            await executor.type(step.selector, step.value);
+            await executor.typeHuman(step.selector, step.value);
             browserContextPool.recordAction(cid, true);
             break;
           case "browser.screenshot":

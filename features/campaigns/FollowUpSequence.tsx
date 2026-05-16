@@ -1,14 +1,16 @@
+"use client";
+
 import React, { useState } from "react";
 import { format } from "date-fns";
 import { CheckCircle2, Circle, Clock, Mail, MessageSquare, PauseCircle, PlayCircle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
 
 export function FollowUpSequence({ campaign }: { campaign: any }) {
   const [isApproving, setIsApproving] = useState(false);
   const [localCampaign, setLocalCampaign] = useState(campaign);
+  const [notice, setNotice] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   if (!localCampaign) return null;
 
@@ -21,9 +23,9 @@ export function FollowUpSequence({ campaign }: { campaign: any }) {
       if (!res.ok) throw new Error("Failed to approve sequence");
       const updated = await res.json();
       setLocalCampaign(updated);
-      toast.success("Follow-up sequence approved and scheduled.");
+      setNotice({ type: "success", message: "Follow-up sequence approved and scheduled." });
     } catch (e: any) {
-      toast.error(e.message);
+      setNotice({ type: "error", message: e.message });
     } finally {
       setIsApproving(false);
     }
@@ -35,9 +37,9 @@ export function FollowUpSequence({ campaign }: { campaign: any }) {
       if (!res.ok) throw new Error("Failed to pause sequence");
       const updated = await res.json();
       setLocalCampaign(updated);
-      toast.success("Sequence paused.");
+      setNotice({ type: "success", message: "Sequence paused." });
     } catch (e: any) {
-      toast.error(e.message);
+      setNotice({ type: "error", message: e.message });
     }
   };
 
@@ -47,9 +49,9 @@ export function FollowUpSequence({ campaign }: { campaign: any }) {
       if (!res.ok) throw new Error("Failed to mark as replied");
       const updated = await res.json();
       setLocalCampaign(updated);
-      toast.success("Marked as replied. Future follow-ups canceled.");
+      setNotice({ type: "success", message: "Marked as replied. Future follow-ups canceled." });
     } catch (e: any) {
-      toast.error(e.message);
+      setNotice({ type: "error", message: e.message });
     }
   };
 
@@ -85,6 +87,12 @@ export function FollowUpSequence({ campaign }: { campaign: any }) {
       </CardHeader>
       
       <CardContent className="pt-6">
+        {notice && (
+          <div className={`mb-4 rounded-lg border p-3 text-sm ${notice.type === "success" ? "border-success/30 bg-success/10 text-success" : "border-danger/30 bg-danger/10 text-danger"}`}>
+            {notice.message}
+          </div>
+        )}
+
         {hasPendingApproval && (
           <div className="mb-6 rounded-lg border border-warning/50 bg-warning/10 p-4">
             <div className="flex items-start gap-3">

@@ -27,6 +27,8 @@ function getQueueForJob(name: ResumeAiJobName): Queue {
     ai_job_intelligence: queueNames.atsAnalysis,
     ai_auto_apply: queueNames.atsAnalysis,
     ai_portfolio: queueNames.atsAnalysis,
+    email_drip: queueNames.email,
+    compute_analytics: queueNames.analytics,
   };
 
   const targetQueueName = jobToQueueMap[name];
@@ -139,5 +141,12 @@ export async function enqueuePortfolio(payload: ResumeAiJobPayloadMap["ai_portfo
   return enqueueJob("ai_portfolio", payload, {
     attempts: 2,
     backoff: { type: "exponential", delay: 5000 },
+  });
+}
+
+export async function enqueueAnalyticsCompute(payload: ResumeAiJobPayloadMap["compute_analytics"]) {
+  return enqueueJob("compute_analytics", payload, {
+    attempts: 2,
+    backoff: { type: "exponential", delay: 2000 },
   });
 }

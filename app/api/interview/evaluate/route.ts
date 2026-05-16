@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { CompanyInterviewService } from "@/lib/services/company-interview.service";
 import { callClaudeJson, getNumber, getString } from "../_lib/claude";
 
 export const runtime = "nodejs";
@@ -140,17 +141,24 @@ export async function POST(request: Request) {
 
     const sessionId = getString(body.sessionId);
     const company = getString(body.company);
+    const companyName = getString(body.companyName) || company;
     const role = getString(body.role);
     const jobDescription = getString(body.jobDescription);
+    const companyBrief = companyName
+      ? await CompanyInterviewService.getOrGenerateBrief(companyName).catch(() => null)
+      : null;
 
     const { data } = await callClaudeJson<EvaluationResponse>({
       system: SYSTEM_PROMPT,
       user: JSON.stringify({
-        company,
+        company: companyName,
         role,
         jobDescription,
+        companySpecificContext: companyBrief,
         answers,
-        instruction: "Be direct and evidence-based. Reward concise, specific answers with measurable outcomes.",
+        instruction: companyBrief
+          ? `This was a ${companyName} interview. Their difficulty level is ${companyBrief.difficulty ?? "unknown"}. Calibrate the score relative to what this specific company expects.`
+          : "Be direct and evidence-based. Reward concise, specific answers with measurable outcomes.",
       }),
       maxTokens: 2500,
     });
@@ -177,7 +185,7 @@ export async function POST(request: Request) {
       const created = await prisma.interviewSession.create({
         data: {
           userId,
-          company: company || null,
+          company: companyName || null,
           role: role || null,
           questions: answers.map((answer) => ({
             id: answer.questionId,

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { enqueueJob } from "@/lib/queue/enqueue";
+import { enqueueJob } from "@/lib/queue/producer";
 import { CampaignIntelligenceService } from "./campaign-intelligence.service";
 import crypto from "crypto";
 
