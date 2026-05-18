@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { invalidateCoachPrompt } from "@/lib/coach/cache";
 import { normalizeResume } from "@/lib/normalizeResume";
 import { ResumeData } from "@/lib/storage";
 
@@ -70,6 +71,8 @@ export async function createUserResume(userId: string, data: ResumeData) {
     where: { id: userId },
     data: { activeResumeId: resume.id },
   }).catch(() => undefined);
+
+  await invalidateCoachPrompt(userId).catch(() => undefined);
 
   return serializeResume(resume);
 }

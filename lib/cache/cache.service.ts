@@ -73,4 +73,5 @@ export const CacheKeys = {
   jobSearch: (query: string) => `search:jobs:${encodeURIComponent(query)}`,
   providerHealth: (provider: string) => `provider:health:${provider}`,
   featureFlag: (key: string) => `flag:${key}`,
+  coachPrompt: (userId: string) => `coach:prompt:${userId}`,
 };

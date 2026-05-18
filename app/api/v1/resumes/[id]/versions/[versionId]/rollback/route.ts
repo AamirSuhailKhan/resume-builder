@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { apiError, apiOk, errorToResponse } from "@/lib/api/response";
+import { invalidateCoachPrompt } from "@/lib/coach/cache";
 import { serializeResume } from "@/lib/resumes/repository";
 
 export const runtime = "nodejs";
@@ -51,6 +52,8 @@ export async function POST(_req: NextRequest, ctx: Context) {
         data: resume.data as Prisma.InputJsonValue,
       },
     });
+
+    await invalidateCoachPrompt(user.id).catch(() => undefined);
 
     return apiOk(serializeResume(resume));
   } catch (error) {

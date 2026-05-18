@@ -6,6 +6,7 @@ import {
   BarChart3,
   Bot,
   BriefcaseBusiness,
+  Calculator,
   CalendarClock,
   CircleDollarSign,
   FileText,
@@ -19,6 +20,7 @@ import {
   Settings,
   Sparkles,
   UserRoundSearch,
+  CloudLightning,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore, selectSignOut, useSessionUser } from "@/store/useAuthStore";
@@ -33,9 +35,12 @@ const sidebarNavItems = [
   { title: "Auto Apply", href: "/auto-apply", icon: MailCheck },
   { title: "Applications", href: "/applications", icon: KanbanSquare },
   { title: "Negotiate Offer", href: "/negotiation", icon: CircleDollarSign },
+  { title: "CTC Decoder", href: "/ctc-decoder", icon: Calculator },
   { title: "Compare Offers", href: "/compare-offers", icon: Scale },
   { title: "Hiring Timing", href: "/timing", icon: CalendarClock },
   { title: "Interview Engine", href: "/interview", icon: UserRoundSearch },
+  { title: "Career Coach", href: "/coach", icon: Sparkles },
+  { title: "Market Weather", href: "/market-weather", icon: CloudLightning },
   { title: "Analytics", href: "/analytics", icon: BarChart3 },
   { title: "Portfolio", href: "/portfolio", icon: RadioTower },
   { title: "Settings", href: "/settings", icon: Settings },

@@ -16,3 +16,8 @@ export const prisma =
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
+
+console.log(
+  "[PRISMA CHECK]",
+  Object.keys(prisma)
+);

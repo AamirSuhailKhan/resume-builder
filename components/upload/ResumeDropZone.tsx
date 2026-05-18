@@ -14,7 +14,7 @@ function validatePdf(file: File): string | null {
   return null;
 }
 
-export default function ResumeDropZone() {
+export default function ResumeDropZone({ onSuccess }: { onSuccess?: (result: any) => void }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [state, setState] = useState<DropZoneState>("idle");
   const [isDragging, setIsDragging] = useState(false);
@@ -32,8 +32,9 @@ export default function ResumeDropZone() {
     try {
       setInlineError(null);
       setState("uploading");
-      await upload(file);
+      const result = await upload(file);
       setState("success");
+      if (onSuccess) onSuccess(result);
     } catch {
       setState("idle");
     }

@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Save, Download, Sparkles, History, X, AlertTriangle, Loader2 } from "lucide-react";
+import { Save, Download, Sparkles, History, X, AlertTriangle, Loader2, Award } from "lucide-react";
 import { ResumePreview } from "@/components/builder/ResumePreview";
+import { CollegeEqualizerPanel } from "@/components/equalizer/CollegeEqualizerPanel";
 import { usePDF } from "react-to-pdf";
 import { detectProfile } from "@/lib/detectProfile";
 import {
@@ -107,6 +108,7 @@ function BuilderContent() {
   const [versions, setVersions] = useState<any[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [rollingBack, setRollingBack] = useState<string | null>(null);
+  const [isEqualizerOpen, setIsEqualizerOpen] = useState(searchParams.get("optimize") === "true");
 
   const autosave = useResumeAutosave(activeResumeId, {
     enabled: initState === "ready" && isHydrated && isValidResumeId(activeResumeId),
@@ -212,7 +214,20 @@ function BuilderContent() {
     if (isHistoryOpen && resumeData?.id) {
       setLoadingVersions(true);
       fetch(`/api/v1/resumes/${resumeData.id}/versions`)
-        .then(res => res.json())
+        .then(async (res) => {
+          console.error("[RAW RESPONSE]", {
+            status: res.status,
+            contentType: res.headers.get("content-type"),
+          });
+          if (!res.ok) throw new Error(`API error ${res.status}`);
+          const text = await res.text();
+          try {
+            return text ? JSON.parse(text) : {};
+          } catch (err) {
+            console.error("Failed to parse JSON:", text.substring(0, 50));
+            throw new Error("Invalid JSON response");
+          }
+        })
         .then(data => setVersions(data.data || []))
         .catch(console.error)
         .finally(() => setLoadingVersions(false));
@@ -304,6 +319,19 @@ function BuilderContent() {
           </div>
         )}
 
+        {/* Equalizer Panel Overlay */}
+        {isEqualizerOpen && resumeData?.id && (
+          <CollegeEqualizerPanel
+            resumeId={resumeData.id}
+            resumeData={resumeData}
+            onClose={() => setIsEqualizerOpen(false)}
+            onApplied={() => {
+              // Reload the resume data if needed, or window.location.reload()
+              window.location.reload();
+            }}
+          />
+        )}
+
         {/* Toolbar */}
         <div className="h-20 border-b border-gray-200/60 bg-white/80 backdrop-blur-md px-8 flex items-center justify-between z-30">
           <div className="flex items-center gap-3">
@@ -322,6 +350,10 @@ function BuilderContent() {
           <div className="flex items-center gap-3">
             <Button onClick={() => setIsHistoryOpen(true)} variant="outline" className="font-bold border-gray-200 h-10 px-4 rounded-xl">
               <History className="mr-2 h-4 w-4 text-gray-400" /> History
+            </Button>
+
+            <Button onClick={() => setIsEqualizerOpen(true)} variant="outline" className="font-bold border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 h-10 px-4 rounded-xl">
+              <Award className="mr-2 h-4 w-4 text-indigo-600" /> Skill-first Optimize
             </Button>
 
             <Button

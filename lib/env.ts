@@ -22,6 +22,8 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
+  COACH_NAME: z.string().optional(),
+  TAVILY_API_KEY: z.string().optional(),
 
   // ── Search ────────────────────────────────────
   MEILISEARCH_HOST: z.string().url().optional(),

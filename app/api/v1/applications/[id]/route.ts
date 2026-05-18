@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
+import { invalidateCoachPrompt } from "@/lib/coach/cache";
+import { refreshRejectionInsight } from "@/lib/coach-context";
 import { enqueueAnalyticsCompute } from "@/lib/queue/producer";
 import { MilestoneService } from "@/lib/services/milestone.service";
 
@@ -46,6 +48,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     },
   });
   await enqueueAnalyticsCompute({ jobRecordId: job.id, userId }).catch(() => undefined);
+
+  if (status === "rejected") {
+    await invalidateCoachPrompt(userId).catch(() => undefined);
+    await refreshRejectionInsight(userId).catch(() => undefined);
+  }
 
   const milestones = await MilestoneService.checkAndAwardMilestones(userId);
   return NextResponse.json({ ok: true, milestones });

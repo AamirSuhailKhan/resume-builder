@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { CommandCenter } from "@/features/analytics/CommandCenter";
 import { WellbeingWidget } from "@/components/wellbeing/WellbeingWidget";
 import { prisma } from "@/lib/db/prisma";
+import { MarketWeatherWidget } from "@/components/dashboard/MarketWeatherWidget";
 
 function onboardingComplete(value: unknown): boolean {
   return Boolean(
@@ -39,8 +40,15 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <CommandCenter />
-      <WellbeingWidget />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="lg:col-span-2">
+          <CommandCenter />
+        </div>
+        <div className="flex flex-col gap-6">
+          <MarketWeatherWidget />
+          <WellbeingWidget />
+        </div>
+      </div>
     </>
   );
 }

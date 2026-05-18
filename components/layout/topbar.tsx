@@ -17,6 +17,7 @@ const titles: Record<string, string> = {
   "/auto-apply": "Auto Apply",
   "/applications": "Applications",
   "/interview": "Interview Engine",
+  "/coach": "Career Coach",
   "/analytics": "Analytics",
   "/portfolio": "Portfolio",
   "/settings": "Settings",

@@ -31,7 +31,20 @@ export function useEventSource(url: string | null, options: EventSourceOptions =
       };
 
       es.onerror = (error) => {
-        console.error("[SSE Error]", error);
+        if (error instanceof Event) {
+          console.error("[SSE ERROR EVENT]", {
+            type: error?.type,
+            target: (error?.target as any)?.url,
+          });
+        } else {
+          console.error("[SSE ERROR]", {
+            readyState: es?.readyState,
+            url,
+            event: error instanceof Error
+              ? error.message
+              : String(error),
+          });
+        }
         setStatus("disconnected");
         es.close();
 

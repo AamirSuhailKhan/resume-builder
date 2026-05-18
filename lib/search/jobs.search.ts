@@ -6,6 +6,7 @@ export interface JobSearchParams {
   query: string;
   location?: string;
   remote?: boolean;
+  india?: boolean;
   skills?: string[];
   limit?: number;
 }
@@ -63,10 +64,11 @@ export class JobsSearchService {
    * Fast, user-facing fuzzy search using Meilisearch.
    */
   static async searchFast(params: JobSearchParams): Promise<RankedJobResult[]> {
-    const { query, location, remote, limit = 20 } = params;
+    const { query, location, remote, india, limit = 20 } = params;
     
     const filter: string[] = [];
     if (remote) filter.push("remote = true");
+    if (india) filter.push("isIndia = true");
     if (location) filter.push(`location = '${location}'`);
 
     const result = await meilisearch.index<MeiliJobHit>(JOBS_INDEX).search(query, {

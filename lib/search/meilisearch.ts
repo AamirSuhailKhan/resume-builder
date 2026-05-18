@@ -1,4 +1,5 @@
 import { Meilisearch } from "meilisearch";
+import { logger } from "@/lib/logger";
 
 const globalForMeili = globalThis as unknown as {
   meilisearch: Meilisearch | undefined;
@@ -24,7 +25,7 @@ export async function initializeMeilisearch() {
     const jobsIndex = meilisearch.index(JOBS_INDEX);
     await jobsIndex.updateSettings({
       searchableAttributes: ["title", "company", "description", "skills", "location"],
-      filterableAttributes: ["remote", "salaryMin", "skills", "experienceLevel"],
+      filterableAttributes: ["remote", "salaryMin", "skills", "experienceLevel", "source", "isIndia", "locationTags", "postedAt"],
       sortableAttributes: ["postedAt", "salaryMax"],
       rankingRules: [
         "words",
@@ -38,6 +39,6 @@ export async function initializeMeilisearch() {
     
     // Similarly for resumes
   } catch (error) {
-    console.error("[Meilisearch] Failed to initialize indexes", error);
+    logger.error({ error }, "[Meilisearch] Failed to initialize indexes");
   }
 }

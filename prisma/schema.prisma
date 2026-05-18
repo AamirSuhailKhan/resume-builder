@@ -42,6 +42,12 @@ enum ApplicationStatus {
   offer
 }
 
+enum SubscriptionPlan {
+  free
+  pro
+  enterprise
+}
+
 enum DataSourceType {
   verified
   estimated
@@ -98,15 +104,16 @@ enum BrowserExecutionStatus {
 }
 
 model User {
-  id             String    @id @default(uuid()) @db.Uuid
+  id             String           @id @default(uuid()) @db.Uuid
   name           String?
-  email          String    @unique
+  email          String           @unique
   emailVerified  DateTime?
   image          String?
   passwordHash   String?
-  activeResumeId String?   @db.Uuid
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  activeResumeId String?          @db.Uuid
+  plan           SubscriptionPlan @default(free)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   accounts             Account[]
   sessions             Session[]
@@ -130,10 +137,18 @@ model User {
   workflowEvents       WorkflowEvent[]
   emailCampaigns       EmailCampaign[]
   negotiationSessions  NegotiationSession[]
+  ctcDecodings         CtcDecoding[]
   applicationAnalytics ApplicationAnalytics?
   wellbeingCheckIns    WellbeingCheckIn[]
   searchMilestones     SearchMilestone[]
   offerComparisons     OfferComparison[]
+  coachSessions        CoachSession[]
+  coachNotes           CoachNote[]
+  coachUsage           CoachUsage?
+  coachInsight         CoachInsight?
+  skillGaps            SkillGapAnalysis[]
+  equalizerSuggestions ResumeEqualizerSuggestion[]
+  careerSimulations    CareerPathSimulation[]
 
   @@index([email])
 }
@@ -366,6 +381,7 @@ model Resume {
   jobs                 Job[]
   applications         Application[]
   applicationArtifacts ApplicationArtifact[]
+  equalizerSuggestions ResumeEqualizerSuggestion[]
 
   @@index([userId, updatedAt])
   @@index([userId, id])
@@ -410,9 +426,39 @@ model Job {
   @@index([type, status])
 }
 
+model CanonicalJob {
+  id                 String   @id @default(uuid()) @db.Uuid
+  canonicalHash      String   @unique
+
+  normalizedTitle    String
+  normalizedCompany  String
+  normalizedLocation String?
+
+  primarySource      String
+  sourceCount        Int      @default(1)
+
+  confidenceScore    Float?
+  mergeConfidence    Float?
+  mergeStrategy      String?
+  mergeMetadata      Json?
+  
+  // freshness intelligence
+  firstSeenAt        DateTime @default(now())
+  lastSeenAt         DateTime @default(now())
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  providerJobs       JobOpportunity[]
+
+  @@index([normalizedCompany])
+  @@index([canonicalHash])
+}
+
 model JobOpportunity {
   id             String         @id @default(uuid()) @db.Uuid
   userId         String         @db.Uuid
+  canonicalJobId String?        @db.Uuid
   company        String
   role           String
   location       String?
@@ -424,11 +470,16 @@ model JobOpportunity {
   sourceType     DataSourceType @default(verified)
   ghostScore     Float          @default(0)
   ghostSignals   Json?
+  scamScore      Float?
+  scamVerdict    String         @default("unknown")
+  scamSignals    Json?
+  scamReports    Int            @default(0)
   lastVerifiedAt DateTime?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  canonicalJob    CanonicalJob?    @relation(fields: [canonicalJobId], references: [id], onDelete: SetNull)
   applications    Application[]
   hiringContacts  HiringContact[]  @relation("ContactJobs")
   connectionPaths ConnectionPath[]
@@ -502,6 +553,36 @@ model NegotiationSession {
   outcome        String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model CtcDecoding {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @db.Uuid
+  rawInput          String?  @db.Text
+  company           String?
+  quotedCtc         Float
+  fixedComponent    Float
+  variableComponent Float    @default(0)
+  variablePct       Float    @default(0)
+  basicSalary       Float
+  hra               Float    @default(0)
+  specialAllowance  Float    @default(0)
+  pfEmployee        Float
+  pfEmployer        Float
+  gratuityAnnual    Float
+  bonus             Float    @default(0)
+  esop              Float    @default(0)
+  otherAllowances   Json     @default("[]")
+  grossMonthly      Float
+  netMonthly        Float
+  taxAnnual         Float
+  taxRegime         String   @default("new")
+  effectiveCtc      Float
+  createdAt         DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -795,6 +876,57 @@ model AnalyticsSnapshot {
 }
 
 // ──────────────────────────────────────────────
+// AI CAREER COACH
+// ──────────────────────────────────────────────
+
+model CoachSession {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  title     String   @default("New conversation")
+  messages  Json     @default("[]")
+  mode      String   @default("chat")
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes CoachNote[]
+
+  @@index([userId, updatedAt])
+}
+
+model CoachNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  sessionId String?  @db.Uuid
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session CoachSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+}
+
+model CoachUsage {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @db.Uuid
+  messagesUsedToday Int      @default(0)
+  lastResetAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CoachInsight {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  rejection Json
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ──────────────────────────────────────────────
 // FEATURE FLAGS
 // ──────────────────────────────────────────────
 
@@ -1047,4 +1179,137 @@ model EmailDraft {
 
   @@index([campaignId])
   @@index([status, scheduledAt])
+}
+
+// ──────────────────────────────────────────────
+// MARKET WEATHER REPORTING
+// ──────────────────────────────────────────────
+
+model MarketWeatherReport {
+  id              String   @id @default(uuid()) @db.Uuid
+  week            Int
+  year            Int
+  role            String
+  industry        String
+  location        String
+  
+  hiringTrend     String
+  trendPct        Float
+  hotSkills       String[]
+  fastFillRoles   String[]
+  avgDaysToFill   Float
+  salaryTrend     String
+  topHiringCompanies String[]
+  
+  headline        String
+  detailedSummary String   @db.Text
+  
+  confidenceScore Float?
+  signalStrength  String?
+  signalMetadata  Json?
+  
+  generatedAt     DateTime @default(now())
+
+  @@unique([week, year, role, industry, location])
+  @@index([role, industry, generatedAt])
+}
+
+model SkillGapAnalysis {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  targetRole      String
+  targetCompany   String?
+  
+  // Stored as JSON to support confidence levels ("strong", "working", "basic", "missing")
+  // and marketDemandScore (1-10)
+  currentSkills   Json[]   
+  requiredSkills  Json[]
+  gapSkills       Json[]
+  
+  learningPath    Json[]
+  estimatedWeeks  Int
+  progressPct     Float    @default(0)
+  completedSkills String[] @default([])
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, targetRole])
+  @@index([userId])
+}
+
+model IndiaCompanyTrack {
+  id                      String   @id @default(uuid()) @db.Uuid
+  companyName             String   @unique
+  companySlug             String   @unique
+  tier                    String
+  logoEmoji               String   @default("🏢")
+  linkedinUrl             String?
+  glassdoorUrl            String?
+  hiringProcess           Json
+  dsaRequired             Boolean  @default(true)
+  dsaDifficulty           String   @default("medium")
+  systemDesignRequired    Boolean  @default(true)
+  machineRoundRequired    Boolean  @default(false)
+  behavioralFormat        String   @default("STAR")
+  knownQuestions          Json[]   @default([])
+  salaryRanges            Json?
+  avgTimelineDays         Int      @default(30)
+  hiringStatus            String   @default("normal")
+  interviewTips           String[]
+  prepResources           Json[]   @default([])
+  communityNotes          String?
+  lastUpdated             DateTime @default(now())
+
+  @@index([tier])
+  @@index([hiringStatus])
+}
+
+model ResumeEqualizerSuggestion {
+  id                  String   @id @default(uuid()) @db.Uuid
+  resumeId            String   @db.Uuid
+  userId              String   @db.Uuid
+  collegeName         String
+  collegeTier         String   // 'tier1' | 'tier2' | 'tier3'
+  suggestedFormat     String
+  summaryRewrite      String?  @db.Text
+  skillsSectionBoost  String?  @db.Text
+  educationDeEmphasis String?  @db.Text
+  projectHighlights   Json[]
+  rationale           String
+  signalDensity       String?  @db.Text
+  attentionGain       Int?
+  appliedAt           DateTime?
+  createdAt           DateTime @default(now())
+  
+  resume Resume @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, resumeId])
+}
+
+model CareerPathSimulation {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
+  jobOpportunityId String?  @db.Uuid
+  targetCompany    String
+  targetRole       String
+  currentRole      String
+  goalIn5Years     String
+  trajectoryPaths  Json[]
+  careerAlignScore Float
+  alignRationale   String
+  riskFactors      String[]
+  opportunities    String[]
+  skillsGained     String[]
+  skillsMissing    String[]
+  verdict          String
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, targetCompany, targetRole])
 }

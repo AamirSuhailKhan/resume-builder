@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 type UploadResponse = {
   resumeId: string;
+  previewData?: any;
 };
 
 export function useResumeUpload() {
@@ -41,9 +42,11 @@ export function useResumeUpload() {
         }
 
         if (xhr.status >= 200 && xhr.status < 300 && response.resumeId) {
-          const result = { resumeId: response.resumeId };
+          const result = { 
+            resumeId: response.resumeId, 
+            previewData: (response as any).previewData 
+          };
           setProgress(100);
-          router.push(`/builder?id=${result.resumeId}`);
           resolve(result);
           return;
         }

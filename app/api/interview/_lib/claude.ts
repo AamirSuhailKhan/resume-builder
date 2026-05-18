@@ -97,9 +97,17 @@ export async function callClaudeJson<T>({
   system: string;
   user: string;
   maxTokens?: number;
+  model?: string;
 }): Promise<{ data: T; usage: AnthropicMessageResponse["usage"] }> {
   if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not configured.");
+    console.warn("[CLAUDE DISABLED] ANTHROPIC_API_KEY missing");
+    return {
+      data: null as unknown as T,
+      usage: {
+        input_tokens: 0,
+        output_tokens: 0,
+      },
+    };
   }
 
   const response = await fetch(ANTHROPIC_MESSAGES_URL, {
@@ -110,7 +118,7 @@ export async function callClaudeJson<T>({
       "x-api-key": process.env.ANTHROPIC_API_KEY,
     },
     body: JSON.stringify({
-      model: INTERVIEW_MODEL,
+      model: model || INTERVIEW_MODEL,
       max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content: user }],

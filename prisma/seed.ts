@@ -3,6 +3,7 @@
  * Generates realistic orchestration telemetry that makes the UI feel alive.
  */
 import { PrismaClient } from "@prisma/client";
+import { INDIA_COMPANIES_DATA } from "../lib/data/india-companies-seed";
 const prisma = new PrismaClient();
 
 const ago = (ms: number) => new Date(Date.now() - ms);
@@ -274,6 +275,16 @@ async function main() {
   console.log('  ✓ 5 workflow runs with agent telemetry');
   console.log('  ✓ Approval request pending');
   console.log('  ✓ Workflow event stream seeded');
+  // ── 14. India Company Track ────────────────────────────────────────────────
+  for (const company of INDIA_COMPANIES_DATA) {
+    await prisma.indiaCompanyTrack.upsert({
+      where: { companySlug: company.companySlug },
+      update: company,
+      create: company,
+    });
+  }
+  console.log(`  ✓ ${INDIA_COMPANIES_DATA.length} India company tracks`);
+
   console.log('\n🎉 Database looks alive! Dashboard is ready.');
 }
 

@@ -2,9 +2,9 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { apiError, apiOk, errorToResponse } from "@/lib/api/response";
 import { CacheService } from "@/lib/cache/cache.service";
-import { JobIngestionService } from "@/lib/domain/jobs/ingestion.service";
+import { DEFAULT_JOB_PROVIDERS, JobIngestionService } from "@/lib/domain/jobs/ingestion.service";
 import { NormalizedProviderJob, ProviderResponse } from "@/lib/domain/jobs/provider.types";
-import { ArbeitnowProvider, RemoteOKProvider, RemotiveProvider } from "@/lib/domain/jobs/providers";
+import { indiaLocationTags, isIndiaLocation } from "@/lib/domain/jobs/providers/india";
 import { initializeMeilisearch, JOBS_INDEX, meilisearch } from "@/lib/search/meilisearch";
 
 export const runtime = "nodejs";
@@ -14,6 +14,8 @@ type JobDocument = Omit<NormalizedProviderJob, "postedAt"> & {
   id: string;
   title: string;
   postedAt: string;
+  isIndia: boolean;
+  locationTags: string[];
 };
 
 function isAuthorized(req: NextRequest) {
@@ -27,13 +29,16 @@ function documentId(job: NormalizedProviderJob) {
 }
 
 async function indexJobs(jobs: NormalizedProviderJob[]) {
-  if (jobs.length === 0) return;
   await initializeMeilisearch();
+  if (jobs.length === 0) return;
   const docs: JobDocument[] = jobs.map((job) => ({
     ...job,
     id: documentId(job),
     title: job.title,
     postedAt: job.postedAt.toISOString(),
+    source: job.source,
+    isIndia: isIndiaLocation(job.location),
+    locationTags: indiaLocationTags(job.location),
   }));
   const task = await meilisearch.index<JobDocument>(JOBS_INDEX).addDocuments(docs, { primaryKey: "id" });
   await meilisearch.tasks.waitForTask(task.taskUid);
@@ -68,12 +73,12 @@ export async function GET(req: NextRequest) {
       .split(",")
       .map((query) => query.trim())
       .filter(Boolean);
-    const providers = [new RemotiveProvider(), new RemoteOKProvider(), new ArbeitnowProvider()];
+    const providers = DEFAULT_JOB_PROVIDERS;
 
     const responses: ProviderResponse<NormalizedProviderJob>[] = [];
     for (const query of queries) {
       for (const provider of providers) {
-        responses.push(await provider.fetchJobs(query, undefined, Number.isFinite(limit) ? limit : 12));
+        responses.push(await JobIngestionService.fetchProviderJobs(provider, query, undefined, Number.isFinite(limit) ? limit : 12));
       }
     }
 

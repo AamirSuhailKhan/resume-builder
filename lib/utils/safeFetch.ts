@@ -20,6 +20,15 @@ function sleep(ms: number) {
 function getMessage(value: unknown, fallback: string) {
   if (value instanceof Error) return value.message;
   if (typeof value === "string" && value.trim()) return value;
+  if (typeof value === "object" && value !== null) {
+    try {
+      if ('message' in value && typeof (value as any).message === 'string') return (value as any).message;
+      if ('error' in value && typeof (value as any).error === 'string') return (value as any).error;
+      return JSON.stringify(value);
+    } catch {
+      return fallback;
+    }
+  }
   return fallback;
 }
 
@@ -72,12 +81,19 @@ export async function safeFetch<T = unknown>(
 
       const contentType = response.headers.get("content-type");
       let payload: any = null;
+      let rawText = "";
 
       if (response.status !== 204) {
-        if (contentType?.includes("application/json")) {
-          payload = await response.json().catch(() => null);
+        rawText = await response.text().catch(() => "");
+        if (contentType?.includes("application/json") && rawText) {
+          try {
+            payload = JSON.parse(rawText);
+          } catch (err) {
+            console.error("[FETCH JSON PARSE ERROR]", { url, text: rawText.substring(0, 500) });
+            payload = { error: "Invalid JSON response from server" };
+          }
         } else {
-          payload = await response.text().catch(() => null);
+          payload = rawText;
         }
       }
 
@@ -86,17 +102,20 @@ export async function safeFetch<T = unknown>(
         console.error("[FETCH ERROR]", {
           url,
           method: fetchOptions.method || "GET",
+          status: response.status,
           message,
+          rawPayload: rawText.substring(0, 1000)
         });
         return { data: null, error: message, status: response.status };
       }
 
-      if (payload?.error) {
+      if (payload && typeof payload === 'object' && payload.error) {
         const message = getMessage(payload.error, "Request failed");
-        console.error("[FETCH ERROR]", {
+        console.error("[FETCH ERROR (200 OK with error field)]", {
           url,
           method: fetchOptions.method || "GET",
           message,
+          rawPayload: rawText.substring(0, 1000)
         });
         return { data: payload.data ?? null, error: message, status: response.status };
       }

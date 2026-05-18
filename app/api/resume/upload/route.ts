@@ -174,6 +174,7 @@ export async function POST(request: Request) {
       : {};
     const firstName = getString(rawPersonal.firstName) || parsedData.personal.name.split(" ")[0] || "Imported";
 
+    const { invalidateCoachPrompt } = await import("@/lib/coach/cache");
     const resume = await prisma.resume.create({
       data: {
         id: resumeId,
@@ -183,6 +184,8 @@ export async function POST(request: Request) {
         status: "completed",
       },
     });
+
+    await invalidateCoachPrompt(userId).catch(() => undefined);
 
     return NextResponse.json({
       resumeId: resume.id,

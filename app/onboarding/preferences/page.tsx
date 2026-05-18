@@ -24,9 +24,11 @@ export default async function OnboardingPreferencesPage() {
 
   const profile = await prisma.careerProfile.findUnique({
     where: { userId },
-    select: { preferences: true },
+    select: { preferences: true, goals: true },
   });
   const preferences = jsonObject(profile?.preferences);
+  const goals = jsonObject(profile?.goals);
+  const initialGoalIn5Years = typeof goals.targetIn5Years === "string" ? goals.targetIn5Years : "";
 
   return (
     <div className="mx-auto grid max-w-6xl gap-6">
@@ -45,6 +47,7 @@ export default async function OnboardingPreferencesPage() {
       <PreferencesForm
         initialRoles={stringArray(preferences.roles)}
         initialLocations={stringArray(preferences.locations)}
+        initialGoalIn5Years={initialGoalIn5Years}
       />
     </div>
   );

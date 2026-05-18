@@ -8,6 +8,9 @@ export type JobMatch = {
   stage: "hot" | "warm" | "watch";
   skills: string[];
   missing: string[];
+  isIndia?: boolean;
+  source?: string;
+  indiaTrackSlug?: string | null;
   sourceUrl?: string | null;
   description?: string;
   healthScore?: number | null;

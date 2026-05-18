@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 type PreferencesFormProps = {
   initialRoles?: string[];
   initialLocations?: string[];
+  initialGoalIn5Years?: string;
 };
 
 const jobTypes = ["full-time", "contract", "internship", "part-time"] as const;
@@ -28,7 +29,7 @@ function uniqueValues(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
 
-export function PreferencesForm({ initialRoles = [], initialLocations = [] }: PreferencesFormProps) {
+export function PreferencesForm({ initialRoles = [], initialLocations = [], initialGoalIn5Years = "" }: PreferencesFormProps) {
   const router = useRouter();
   const [roleInput, setRoleInput] = useState("");
   const [locationInput, setLocationInput] = useState("");
@@ -39,6 +40,7 @@ export function PreferencesForm({ initialRoles = [], initialLocations = [] }: Pr
   const [minSalary, setMinSalary] = useState("");
   const [notes, setNotes] = useState("");
   const [autonomyMode, setAutonomyMode] = useState<AutonomyMode>("manual");
+  const [goalIn5Years, setGoalIn5Years] = useState(initialGoalIn5Years);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -84,6 +86,15 @@ export function PreferencesForm({ initialRoles = [], initialLocations = [] }: Pr
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null;
         throw new Error(payload?.error ?? "Unable to save preferences.");
+      }
+
+      // Separately save 5-year goal to career profile if provided
+      if (goalIn5Years.trim()) {
+        await fetch("/api/v1/career-profile", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ goals: { targetIn5Years: goalIn5Years.trim() } }),
+        }).catch(() => {}); // non-blocking — do not fail onboarding for this
       }
 
       router.push("/onboarding/matches");
@@ -197,6 +208,17 @@ export function PreferencesForm({ initialRoles = [], initialLocations = [] }: Pr
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               placeholder="Industries, company size, visa needs, dealbreakers..."
+            />
+          </label>
+
+          <label className="space-y-2 text-sm font-medium">
+            Where do you see yourself in 5 years? <span className="text-muted-foreground font-normal">(optional)</span>
+            <input
+              type="text"
+              value={goalIn5Years}
+              onChange={(event) => setGoalIn5Years(event.target.value)}
+              placeholder="e.g., Senior Engineering Manager at a startup, or Staff Engineer at a FAANG"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             />
           </label>
         </CardContent>

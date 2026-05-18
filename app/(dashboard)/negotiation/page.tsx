@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { Copy, MessageSquare, Send, Sparkles } from "lucide-react";
+import { Calculator, Copy, MessageSquare, Send, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,9 +57,18 @@ export default function NegotiationPage() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 px-6">
-      <div>
-        <p className="text-sm font-medium text-accent">Salary Negotiation Co-Pilot</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-normal text-foreground">Negotiate the offer, not your confidence.</h1>
+      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+        <div>
+          <p className="text-sm font-medium text-accent">Salary Negotiation Co-Pilot</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-normal text-foreground">Negotiate the offer, not your confidence.</h1>
+        </div>
+        <Link
+          href="/ctc-decoder"
+          className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-lg border border-border-strong bg-surface/70 px-4 text-sm font-medium text-foreground shadow-sm transition hover:bg-surface-elevated lg:self-auto"
+        >
+          <Calculator className="h-4 w-4" />
+          Decode your CTC first
+        </Link>
       </div>
 
       {!analysis && (
@@ -143,7 +153,7 @@ export default function NegotiationPage() {
                 <div className="flex gap-2">
                   <input value={draft} onChange={(event) => setDraft(event.target.value)} className="h-10 flex-1 rounded-lg border border-border bg-surface px-3 text-sm" placeholder="Type your negotiation response..." />
                   <Button onClick={sendMessage}><Send className="h-4 w-4" /> Send</Button>
-                  <Button variant="outline" onClick={() => setScore({ assertiveness: 7, professionalism: 8, outcome: 7 })}>How'd I do?</Button>
+                  <Button variant="outline" onClick={() => setScore({ assertiveness: 7, professionalism: 8, outcome: 7 })}>How did I do?</Button>
                 </div>
                 {score && <div className="grid gap-3 md:grid-cols-3">{Object.entries(score).map(([key, value]) => <Badge key={key}>{key}: {value}/10</Badge>)}</div>}
               </CardContent>

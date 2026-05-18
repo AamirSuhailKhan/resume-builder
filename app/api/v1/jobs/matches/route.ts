@@ -6,6 +6,8 @@ import { apiError, apiOk, errorToResponse } from "@/lib/api/response";
 import { CacheService } from "@/lib/cache/cache.service";
 import { JobsSearchService } from "@/lib/search/jobs.search";
 import { JOBS_INDEX, meilisearch } from "@/lib/search/meilisearch";
+import { logger } from "@/lib/logger";
+import { isIndiaLocation } from "@/lib/domain/jobs/providers/india";
 import { TimingIntelligenceService, type TimingAdvice } from "@/lib/services/timing-intelligence.service";
 
 export const runtime = "nodejs";
@@ -28,6 +30,8 @@ type JobFeedHit = {
   experienceLevel?: string | null;
   skills?: string[];
   source?: string;
+  isIndia?: boolean;
+  locationTags?: string[];
   sourceUrl?: string | null;
   postedAt?: string;
   description?: string;
@@ -42,6 +46,8 @@ type NormalizedJob = {
   description: string;
   skills: string[];
   source: string;
+  isIndia: boolean;
+  locationTags: string[];
   sourceUrl: string | null;
   postedAt: string | null;
   remote: boolean;
@@ -66,6 +72,8 @@ type MatchResult = {
   ghostVerdict?: string | undefined;
   healthScore?: number | null;
   timingAdvice?: TimingAdvice;
+  isIndia?: boolean;
+  source?: string;
 };
 
 function asRecord(value: unknown): JsonRecord {
@@ -119,6 +127,8 @@ function normalizeHit(hit: JobFeedHit): NormalizedJob {
     description,
     skills: unique(stringList(hit.skills)),
     source: hit.source ?? "Meilisearch",
+    isIndia: Boolean(hit.isIndia) || isIndiaLocation(location),
+    locationTags: unique(stringList(hit.locationTags)),
     sourceUrl: hit.sourceUrl ?? null,
     postedAt: hit.postedAt ?? null,
     remote: Boolean(hit.remote) || (location?.toLowerCase().includes("remote") ?? false),
@@ -180,16 +190,17 @@ function computeMatch(job: NormalizedJob, context: { skills: string[]; terms: st
   };
 }
 
-async function searchFeed(userId: string, query: string, limit: number): Promise<JobFeedHit[]> {
+async function searchFeed(userId: string, query: string, limit: number, indiaOnly: boolean): Promise<JobFeedHit[]> {
   try {
+    const filter = indiaOnly ? "isIndia = true" : undefined;
     const [result, ranked] = await Promise.all([
-      meilisearch.index<JobFeedHit>(JOBS_INDEX).search(query, { limit }),
-      JobsSearchService.searchFast({ query, limit }).catch(() => []),
+      meilisearch.index<JobFeedHit>(JOBS_INDEX).search(query, { ...(filter ? { filter } : {}), limit }),
+      JobsSearchService.searchFast({ query, limit, india: indiaOnly }).catch(() => []),
     ]);
     const rank = new Map(ranked.map((job, index) => [job.id, index]));
     return result.hits.sort((a, b) => (rank.get(a.id) ?? limit) - (rank.get(b.id) ?? limit));
   } catch (error) {
-    console.warn("[jobs.matches] Meilisearch unavailable, falling back to stored opportunities", error);
+    logger.warn({ error }, "[jobs.matches] Meilisearch unavailable, falling back to stored opportunities");
     const tokens = unique(query.split(/\s+/).filter((token) => token.length > 2)).slice(0, 5);
     const filters: Prisma.JobOpportunityWhereInput[] = tokens.flatMap((token) => [
       { role: { contains: token, mode: "insensitive" } },
@@ -202,7 +213,7 @@ async function searchFeed(userId: string, query: string, limit: number): Promise
       take: limit,
     });
 
-    return fallback.map((job) => {
+    const hits = fallback.map((job) => {
       const parsed = asRecord(job.parsed);
       return {
         id: job.id,
@@ -212,9 +223,12 @@ async function searchFeed(userId: string, query: string, limit: number): Promise
         description: job.description,
         skills: stringList(parsed.skills),
         sourceUrl: job.sourceUrl,
-        source: "database",
+        source: typeof parsed.source === "string" ? parsed.source : "database",
+        isIndia: Boolean(parsed.isIndia) || isIndiaLocation(job.location),
+        locationTags: stringList(parsed.locationTags),
       };
     });
+    return indiaOnly ? hits.filter((job) => job.isIndia) : hits;
   }
 }
 
@@ -226,6 +240,8 @@ async function upsertOpportunity(userId: string, job: NormalizedJob, matchScore:
   const parsed = {
     externalId: job.externalId,
     source: job.source,
+    isIndia: job.isIndia,
+    locationTags: job.locationTags,
     skills: job.skills,
     missing,
     remote: job.remote,
@@ -282,6 +298,8 @@ function toMatchResult(job: Awaited<ReturnType<typeof upsertOpportunity>>): Matc
     sourceUrl: job.sourceUrl,
     description: job.description,
     postedAt: typeof parsed.postedAt === "string" ? parsed.postedAt : null,
+    isIndia: Boolean(parsed.isIndia) || isIndiaLocation(job.location),
+    ...(typeof parsed.source === "string" ? { source: parsed.source } : {}),
     ...(job.ghostScore !== null && job.ghostScore !== undefined ? { ghostScore: job.ghostScore } : {}),
     ...(asRecord(job.ghostSignals)?.verdict ? { ghostVerdict: asRecord(job.ghostSignals)?.verdict as string } : {}),
   };
@@ -319,9 +337,10 @@ export async function GET(req: NextRequest) {
     const skills = resumeSkills(resume?.data);
     const terms = profileSearchTerms(profile);
     const location = req.nextUrl.searchParams.get("location")?.trim() || resumeLocation(resume?.data);
+    const indiaOnly = req.nextUrl.searchParams.get("india") === "true";
     const query = req.nextUrl.searchParams.get("q")?.trim() || unique([...terms, ...skills.slice(0, 6)]).join(" ") || "software engineer";
 
-    const hits = await searchFeed(userId, query, limit);
+    const hits = await searchFeed(userId, query, limit, indiaOnly);
     const computed = await Promise.all(
       hits.map(async (hit) => {
         const normalized = normalizeHit(hit);
@@ -337,6 +356,10 @@ export async function GET(req: NextRequest) {
     }).catch(() => []);
     const healthByCompany = new Map(companyIntel.map((item) => [item.companyName.toLowerCase(), item.healthScore]));
 
+    const goalIn5Years = typeof (asRecord(profile?.goals).targetIn5Years) === "string"
+      ? (asRecord(profile?.goals).targetIn5Years as string).toLowerCase()
+      : null;
+
     const jobs = await Promise.all(computed.sort((a, b) => b.match - a.match).slice(0, limit).map(async (job) => {
       const postedAt = job.postedAt ? new Date(job.postedAt) : new Date();
       const timingAdvice = await TimingIntelligenceService.getTimingAdvice({
@@ -345,10 +368,19 @@ export async function GET(req: NextRequest) {
         postedAt: Number.isNaN(postedAt.getTime()) ? new Date() : postedAt,
       });
 
+      let careerAlignment: number | null = null;
+      if (goalIn5Years) {
+        const goalWords = goalIn5Years.split(" ").filter((w) => w.length > 4);
+        const titleWords = `${job.role} ${job.description}`.toLowerCase().split(/\s+/);
+        const overlap = goalWords.filter((w) => titleWords.includes(w)).length;
+        careerAlignment = Math.min(100, Math.round((overlap / Math.max(1, goalWords.length)) * 100 + 30));
+      }
+
       return {
         ...job,
         healthScore: healthByCompany.get(job.company.toLowerCase()) ?? null,
         timingAdvice,
+        careerAlignment,
       };
     }));
     await CacheService.set(`jobs:matches:${userId}`, { count: jobs.length, generatedAt: new Date().toISOString() }, 120);
