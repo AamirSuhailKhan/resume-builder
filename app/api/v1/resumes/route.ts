@@ -13,11 +13,23 @@ const createResumeSchema = z.object({
   data: z.record(z.string(), z.unknown()).optional(),
 }).passthrough();
 
+const querySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 export async function GET(req: NextRequest) {
   try {
     const user = await requireUser();
-    const limit = Number(req.nextUrl.searchParams.get("limit") ?? 20);
-    const resumes = await listUserResumes(user.id, Number.isFinite(limit) ? limit : 20);
+    
+    const parsedQuery = querySchema.safeParse({
+      limit: req.nextUrl.searchParams.get("limit") ?? undefined,
+    });
+    
+    if (!parsedQuery.success) {
+      return apiError("Invalid query parameters.", 400, "VALIDATION_ERROR", parsedQuery.error.flatten());
+    }
+    
+    const resumes = await listUserResumes(user.id, parsedQuery.data.limit);
     return apiOk(resumes);
   } catch (error) {
     return errorToResponse(error);

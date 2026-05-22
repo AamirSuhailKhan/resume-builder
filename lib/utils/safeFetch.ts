@@ -53,8 +53,10 @@ export async function safeFetch<T = unknown>(
     ...fetchOptions
   } = options;
 
+  const method = fetchOptions.method || "GET";
+
   if (skip || !url || INVALID_ID_SEGMENT.test(url)) {
-    console.warn("[FETCH BLOCKED]", { url, reason: invalidMessage });
+    console.warn(`[FETCH BLOCKED] URL: ${url} | Reason: ${invalidMessage}`);
     return { data: null, error: invalidMessage, status: 0 };
   }
 
@@ -79,61 +81,51 @@ export async function safeFetch<T = unknown>(
       });
       clearTimeout(timeout);
 
-      const contentType = response.headers.get("content-type");
+      const contentType = response.headers.get("content-type") || "";
       let payload: any = null;
       let rawText = "";
 
       if (response.status !== 204) {
         rawText = await response.text().catch(() => "");
-        if (contentType?.includes("application/json") && rawText) {
-          try {
-            payload = JSON.parse(rawText);
-          } catch (err) {
-            console.error("[FETCH JSON PARSE ERROR]", { url, text: rawText.substring(0, 500) });
-            payload = { error: "Invalid JSON response from server" };
-          }
-        } else {
-          payload = rawText;
+        
+        if (!contentType.includes("application/json")) {
+          console.error(`[FETCH HTML/NON-JSON ERROR] URL: ${url} | Method: ${method} | Status: ${response.status} | Raw: ${rawText.substring(0, 300)}`);
+          throw new Error(`Server returned non-JSON response (Status: ${response.status})`);
+        }
+
+        try {
+          payload = JSON.parse(rawText);
+        } catch (err) {
+          console.error(`[FETCH JSON PARSE ERROR] URL: ${url} | Method: ${method} | Raw: ${rawText.substring(0, 300)}`);
+          throw new Error("Invalid JSON response from server");
         }
       }
 
       if (!response.ok) {
         const message = getMessage(payload?.error || payload, `Request failed with status ${response.status}`);
-        console.error("[FETCH ERROR]", {
-          url,
-          method: fetchOptions.method || "GET",
-          status: response.status,
-          message,
-          rawPayload: rawText.substring(0, 1000)
-        });
+        console.error(`[FETCH ERROR] URL: ${url} | Method: ${method} | Status: ${response.status} | Message: ${message} | Raw: ${rawText.substring(0, 300)}`);
         return { data: null, error: message, status: response.status };
       }
 
       if (payload && typeof payload === 'object' && payload.error) {
         const message = getMessage(payload.error, "Request failed");
-        console.error("[FETCH ERROR (200 OK with error field)]", {
-          url,
-          method: fetchOptions.method || "GET",
-          message,
-          rawPayload: rawText.substring(0, 1000)
-        });
+        console.error(`[FETCH ERROR (200 OK)] URL: ${url} | Method: ${method} | Message: ${message} | Raw: ${rawText.substring(0, 300)}`);
         return { data: payload.data ?? null, error: message, status: response.status };
       }
 
       return {
-        data: (payload?.data ?? payload ?? null) as T | null,
+        data: (payload?.data !== undefined ? payload.data : (payload ?? null)) as T | null,
         error: null,
         status: response.status,
       };
-    } catch (error) {
+    } catch (error: any) {
       clearTimeout(timeout);
       lastError = getMessage(error, "Network error");
-      console.error("[FETCH ERROR]", {
-        url,
-        method: fetchOptions.method || "GET",
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-      });
+      
+      if (error.name !== "AbortError" || attempt >= retries) {
+        console.error(`[FETCH EXCEPTION] URL: ${url} | Method: ${method} | Attempt: ${attempt + 1}/${retries + 1} | Error: ${lastError}`);
+      }
+      
       if (attempt >= retries) break;
       await sleep(retryDelayMs * 2 ** attempt);
     }

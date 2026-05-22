@@ -237,9 +237,9 @@ export default function LandingPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
               <FileText className="h-4 w-4" />
             </div>
-            <span className="font-black text-gray-900 text-xl tracking-tight">ResumeAI</span>
+            <span className="font-black text-gray-900 text-xl tracking-tight">CareerOS</span>
           </div>
-          <p className="text-sm font-medium">© {new Date().getFullYear()} ResumeAI. All rights reserved.</p>
+          <p className="text-sm font-medium">© {new Date().getFullYear()} CareerOS. All rights reserved.</p>
         </div>
       </footer>
     </div>

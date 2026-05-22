@@ -1,5 +1,5 @@
 {
-  "name": "resume-builder",
+  "name": "careeros",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -15,8 +15,10 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "test": "vitest run --globals",
+    "test:ci": "vitest run --reporter=verbose",
     "typecheck": "tsc --noEmit",
     "quality": "node scripts/quality-gates.mjs",
+    "build:extension": "cd extension && npm install && npm run build",
     "ci": "npm run quality && npm run lint && npm test && npm run typecheck && npm run build"
   },
   "dependencies": {
@@ -33,7 +35,6 @@
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/auto-instrumentations-node": "^0.75.0",
     "@opentelemetry/sdk-node": "^0.217.0",
-    "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^6.15.0",
     "@sentry/nextjs": "^10.51.0",
     "@supabase/ssr": "^0.10.2",

@@ -46,7 +46,7 @@ function LoginForm() {
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
               <FileText className="h-6 w-6" />
             </div>
-            <span className="text-2xl font-black text-gray-900 tracking-tight">ResumeAI</span>
+            <span className="text-2xl font-black text-gray-900 tracking-tight">CareerOS</span>
           </div>
         </div>
 

@@ -18,6 +18,7 @@ if (process.env.NODE_ENV !== "production") {
 
 export const JOBS_INDEX = "jobs";
 export const RESUMES_INDEX = "resumes";
+export const INTERVIEW_QUESTIONS_INDEX = "interview_questions";
 
 // Initialize indexes with correct settings
 export async function initializeMeilisearch() {
@@ -35,6 +36,14 @@ export async function initializeMeilisearch() {
         "sort",
         "exactness"
       ]
+    });
+
+    const interviewIndex = meilisearch.index(INTERVIEW_QUESTIONS_INDEX);
+    await interviewIndex.updateSettings({
+      searchableAttributes: ["title", "prompt", "topic", "companyNames", "roleTitles", "tags"],
+      filterableAttributes: ["kind", "difficulty", "companyNames", "roleTitles", "topic", "indiaMarket"],
+      sortableAttributes: ["popularityScore", "freshnessScore", "frequencyScore", "lastSeenAt"],
+      rankingRules: ["words", "typo", "proximity", "attribute", "sort", "exactness"],
     });
     
     // Similarly for resumes

@@ -29,6 +29,11 @@ function getQueueForJob(name: ResumeAiJobName): Queue {
     ai_portfolio: queueNames.atsAnalysis,
     email_drip: queueNames.email,
     compute_analytics: queueNames.analytics,
+    interview_ingest: queueNames.interviewIntel,
+    interview_normalize: queueNames.interviewIntel,
+    interview_embed: queueNames.interviewIntel,
+    interview_solution: queueNames.interviewIntel,
+    interview_moderate: queueNames.interviewIntel,
   };
 
   const targetQueueName = jobToQueueMap[name];
@@ -148,5 +153,26 @@ export async function enqueueAnalyticsCompute(payload: ResumeAiJobPayloadMap["co
   return enqueueJob("compute_analytics", payload, {
     attempts: 2,
     backoff: { type: "exponential", delay: 2000 },
+  });
+}
+
+export async function enqueueInterviewIngest(payload: ResumeAiJobPayloadMap["interview_ingest"]) {
+  return enqueueJob("interview_ingest", payload, {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 5000 },
+  });
+}
+
+export async function enqueueInterviewEmbed(payload: ResumeAiJobPayloadMap["interview_embed"]) {
+  return enqueueJob("interview_embed", payload, {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 3000 },
+  });
+}
+
+export async function enqueueInterviewSolution(payload: ResumeAiJobPayloadMap["interview_solution"]) {
+  return enqueueJob("interview_solution", payload, {
+    attempts: 2,
+    backoff: { type: "exponential", delay: 8000 },
   });
 }

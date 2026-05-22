@@ -44,7 +44,7 @@ abstract class BaseJobProvider implements JobProviderContract {
     try {
       const res = await fetch(url, {
         signal: controller.signal,
-        headers: { "User-Agent": "ResumeAI-JobBot/1.0" },
+        headers: { "User-Agent": "CareerOS-JobBot/1.0" },
       });
       return res;
     } finally {

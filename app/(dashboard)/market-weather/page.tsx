@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { MarketWeatherForm } from "./_components/MarketWeatherForm";
 
 export const metadata = {
-  title: "Market Weather | ResumeAI",
+  title: "Market Weather | CareerOS",
 };
 
 function getTrendConfig(trend: string) {

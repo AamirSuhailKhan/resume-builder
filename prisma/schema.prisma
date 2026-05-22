@@ -6,7 +6,6 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 enum ResumeStatus {
@@ -26,6 +25,11 @@ enum QueueJobType {
   ai_portfolio
   email_drip
   compute_analytics
+  interview_ingest
+  interview_normalize
+  interview_embed
+  interview_solution
+  interview_moderate
 }
 
 enum QueueJobStatus {
@@ -103,6 +107,166 @@ enum BrowserExecutionStatus {
   timed_out
 }
 
+enum TwinAutonomyMode {
+  manual
+  assisted
+  autonomous
+}
+
+enum TwinStatus {
+  onboarding
+  learning
+  active
+  paused
+  archived
+}
+
+enum TwinMemoryType {
+  resume
+  project
+  interview_answer
+  recruiter_conversation
+  application
+  salary_negotiation
+  skill
+  feedback
+  strength
+  weakness
+  learning_goal
+  rejection_pattern
+  emotional_state
+  work_preference
+  company_preference
+  behavior_signal
+  market_signal
+}
+
+enum TwinInsightCategory {
+  identity
+  behavior
+  communication
+  market
+  interview
+  negotiation
+  wellbeing
+  learning
+  recruiter
+  india_market
+  safety
+}
+
+enum PredictionType {
+  callback_probability
+  interview_probability
+  offer_probability
+  salary_probability
+  recruiter_response_probability
+  ghosting_risk
+  scam_risk
+  burnout_risk
+  skill_stagnation_risk
+  career_ceiling_risk
+}
+
+enum TwinEventType {
+  created
+  evolved
+  memory_added
+  insight_created
+  prediction_created
+  simulation_created
+  approval_requested
+  action_executed
+  privacy_changed
+  export_requested
+  delete_requested
+}
+
+enum InterviewQuestionKind {
+  dsa
+  system_design
+  lld
+  hld
+  oop
+  dbms
+  sql
+  os
+  networking
+  devops
+  ml_ai
+  cloud
+  security
+  behavioral
+  oa_coding
+  oa_mcq
+  puzzle
+  aptitude
+}
+
+enum InterviewDifficulty {
+  easy
+  medium
+  hard
+  expert
+  unknown
+}
+
+enum InterviewSourceType {
+  leetcode
+  geeksforgeeks
+  reddit
+  glassdoor
+  blind
+  github
+  hackerrank
+  interviewbit
+  user_submission
+  company_seed
+  ai_inferred
+}
+
+enum InterviewModerationStatus {
+  pending
+  approved
+  rejected
+  needs_review
+  quarantined
+}
+
+enum InterviewRoundType {
+  recruiter_screen
+  online_assessment
+  technical
+  dsa
+  machine_coding
+  system_design
+  lld
+  hld
+  behavioral
+  hiring_manager
+  hr
+  aptitude
+  case_study
+}
+
+enum InterviewIngestionStatus {
+  queued
+  crawling
+  normalizing
+  enriching
+  indexed
+  failed
+  skipped
+}
+
+enum InterviewContributionType {
+  question
+  experience
+  recruiter_pattern
+  salary
+  correction
+}
+
 model User {
   id             String           @id @default(uuid()) @db.Uuid
   name           String?
@@ -149,6 +313,24 @@ model User {
   skillGaps            SkillGapAnalysis[]
   equalizerSuggestions ResumeEqualizerSuggestion[]
   careerSimulations    CareerPathSimulation[]
+  careerTwin           CareerTwin?
+  twinMemories         TwinMemory[]
+  twinInsights         TwinInsight[]
+  behavioralProfile    BehavioralProfile?
+  communicationProfile CommunicationProfile?
+  careerTrajectories   CareerTrajectory[]
+  outcomePredictions   OutcomePrediction[]
+  emotionalStates      EmotionalState[]
+  negotiationPatterns  NegotiationPattern[]
+  learningVelocities   LearningVelocity[]
+  recruiterInteractions RecruiterInteraction[]
+  twinSkillGaps        SkillGap[]
+  twinSimulations      CareerSimulation[]
+  twinEvents           TwinEvent[]
+  submittedInterviewExperiences InterviewExperience[]
+  interviewContributions InterviewContribution[]
+  interviewMockSessions InterviewMockSession[]
+  interviewSearchEvents InterviewSearchEvent[]
 
   @@index([email])
 }
@@ -169,6 +351,345 @@ model CareerProfile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// AI CAREER TWIN
+// ---------------------------------------------------------------------------
+
+model CareerTwin {
+  id                  String           @id @default(uuid()) @db.Uuid
+  userId              String           @unique @db.Uuid
+  displayName         String           @default("AI Career Twin")
+  status              TwinStatus       @default(onboarding)
+  autonomyMode        TwinAutonomyMode @default(manual)
+  professionalIdentity Json            @default("{}")
+  cognitiveProfile    Json             @default("{}")
+  scores              Json             @default("{}")
+  confidence          Float            @default(0.45)
+  strengths           String[]         @default([])
+  weaknesses          String[]         @default([])
+  bestFitRoles        Json             @default("[]")
+  hiddenOpportunities Json             @default("[]")
+  salaryProjection    Json             @default("{}")
+  activePlan          Json             @default("{}")
+  privacyControls     Json             @default("{}")
+  lastEvolvedAt       DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memories             TwinMemory[]
+  insights             TwinInsight[]
+  behavioralProfile    BehavioralProfile?
+  communicationProfile CommunicationProfile?
+  trajectories         CareerTrajectory[]
+  predictions          OutcomePrediction[]
+  emotionalStates      EmotionalState[]
+  negotiationPatterns  NegotiationPattern[]
+  learningVelocities   LearningVelocity[]
+  recruiterInteractions RecruiterInteraction[]
+  skillGaps            SkillGap[]
+  simulations          CareerSimulation[]
+  events               TwinEvent[]
+
+  @@index([userId, status])
+  @@index([lastEvolvedAt])
+}
+
+model TwinMemory {
+  id                 String         @id @default(uuid()) @db.Uuid
+  twinId             String         @db.Uuid
+  userId             String         @db.Uuid
+  type               TwinMemoryType
+  title              String
+  content            String         @db.Text
+  summary            String?        @db.Text
+  source             String         @default("agent")
+  evidenceRefs       String[]       @default([])
+  semanticLinks      Json           @default("[]")
+  importance         Float          @default(0.5)
+  confidence         Float          @default(0.7)
+  recencyWeight      Float          @default(1)
+  reinforcementCount Int            @default(0)
+  accessScope        String         @default("private")
+  metadata           Json           @default("{}")
+  decayAt            DateTime?
+  expiresAt          DateTime?
+  /// pgvector 1536-dim embedding. Written/read through raw SQL.
+  embedding          Unsupported("vector(1536)")?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type, createdAt])
+  @@index([twinId, importance])
+  @@index([decayAt])
+}
+
+model TwinInsight {
+  id          String              @id @default(uuid()) @db.Uuid
+  twinId      String              @db.Uuid
+  userId      String              @db.Uuid
+  category    TwinInsightCategory
+  title       String
+  insight     String              @db.Text
+  evidence    Json                @default("[]")
+  actions     Json                @default("[]")
+  confidence  Float               @default(0.65)
+  impactScore Float               @default(0.5)
+  status      String              @default("active")
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, category, createdAt])
+  @@index([twinId, status, impactScore])
+}
+
+model BehavioralProfile {
+  id                       String   @id @default(uuid()) @db.Uuid
+  twinId                   String   @unique @db.Uuid
+  userId                   String   @unique @db.Uuid
+  introversionScore        Float    @default(0.5)
+  communicationConfidence  Float    @default(0.5)
+  negotiationAggressiveness Float   @default(0.5)
+  applicationConsistency   Float    @default(0.5)
+  procrastinationRisk      Float    @default(0.3)
+  burnoutRisk              Float    @default(0.25)
+  interviewAnxiety         Float    @default(0.4)
+  learningDiscipline       Float    @default(0.5)
+  evidence                 Json     @default("[]")
+  confidence               Float    @default(0.55)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CommunicationProfile {
+  id             String   @id @default(uuid()) @db.Uuid
+  twinId         String   @unique @db.Uuid
+  userId         String   @unique @db.Uuid
+  tone           String   @default("clear")
+  clarityScore   Float    @default(0.6)
+  warmthScore    Float    @default(0.55)
+  brevityScore   Float    @default(0.55)
+  confidenceScore Float   @default(0.5)
+  recruiterFit   Json     @default("{}")
+  writingPatterns Json    @default("[]")
+  dos            String[] @default([])
+  donts          String[] @default([])
+  confidence     Float    @default(0.55)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CareerTrajectory {
+  id               String   @id @default(uuid()) @db.Uuid
+  twinId           String   @db.Uuid
+  userId           String   @db.Uuid
+  currentRole      String?
+  targetRole       String?
+  seniority        String?
+  industry         String?
+  trajectory       Json     @default("[]")
+  salaryTrajectory Json     @default("[]")
+  risks            Json     @default("[]")
+  opportunities    Json     @default("[]")
+  confidence       Float    @default(0.55)
+  validFrom        DateTime @default(now())
+  validTo          DateTime?
+  createdAt        DateTime @default(now())
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([twinId, validFrom])
+}
+
+model OutcomePrediction {
+  id             String         @id @default(uuid()) @db.Uuid
+  twinId         String         @db.Uuid
+  userId         String         @db.Uuid
+  predictionType PredictionType
+  subjectType    String
+  subjectId      String?
+  score          Float
+  confidence     Float          @default(0.6)
+  explanation    String         @db.Text
+  evidence       Json           @default("[]")
+  actions        Json           @default("[]")
+  modelVersion   String         @default("heuristic-v1")
+  expiresAt      DateTime?
+  createdAt      DateTime       @default(now())
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, predictionType, createdAt])
+  @@index([subjectType, subjectId])
+}
+
+model EmotionalState {
+  id          String   @id @default(uuid()) @db.Uuid
+  twinId      String   @db.Uuid
+  userId      String   @db.Uuid
+  confidence  Float    @default(0.5)
+  momentum    Float    @default(0.5)
+  anxiety     Float    @default(0.35)
+  burnout     Float    @default(0.25)
+  motivation  Float    @default(0.55)
+  rejectionFatigue Float @default(0.2)
+  note        String?  @db.Text
+  intervention Json    @default("{}")
+  observedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, observedAt])
+  @@index([twinId, observedAt])
+}
+
+model NegotiationPattern {
+  id              String   @id @default(uuid()) @db.Uuid
+  twinId          String   @db.Uuid
+  userId          String   @db.Uuid
+  role            String?
+  company         String?
+  currency        String   @default("INR")
+  anchorAmount    Float?
+  finalAmount     Float?
+  aggressiveness  Float    @default(0.5)
+  successScore    Float    @default(0.5)
+  tactics         Json     @default("[]")
+  lessons         Json     @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model LearningVelocity {
+  id                 String   @id @default(uuid()) @db.Uuid
+  twinId             String   @db.Uuid
+  userId             String   @db.Uuid
+  skill              String
+  currentLevel       Float    @default(0.2)
+  targetLevel        Float    @default(0.8)
+  weeklyProgress     Float    @default(0)
+  estimatedWeeks     Int      @default(8)
+  learningStyle      String   @default("mixed")
+  evidence           Json     @default("[]")
+  lastMeasuredAt     DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skill])
+  @@index([twinId, skill])
+}
+
+model RecruiterInteraction {
+  id              String   @id @default(uuid()) @db.Uuid
+  twinId          String   @db.Uuid
+  userId          String   @db.Uuid
+  recruiterName   String?
+  company         String
+  channel         String   @default("unknown")
+  role            String?
+  responseLatency Int?
+  sentiment       String   @default("unknown")
+  responseQuality Float    @default(0.5)
+  ghostingRisk    Float    @default(0.3)
+  trustScore      Float    @default(0.5)
+  compensationSignals Json  @default("{}")
+  notes           String?  @db.Text
+  occurredAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, company, occurredAt])
+  @@index([trustScore])
+}
+
+model SkillGap {
+  id              String   @id @default(uuid()) @db.Uuid
+  twinId          String   @db.Uuid
+  userId          String   @db.Uuid
+  targetRole      String
+  skill           String
+  currentLevel    Float    @default(0.2)
+  requiredLevel   Float    @default(0.8)
+  marketDemand    Float    @default(0.5)
+  priority        Float    @default(0.5)
+  learningPlan    Json     @default("[]")
+  status          String   @default("open")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetRole, skill])
+  @@index([twinId, status, priority])
+}
+
+model CareerSimulation {
+  id                  String   @id @default(uuid()) @db.Uuid
+  twinId              String   @db.Uuid
+  userId              String   @db.Uuid
+  question            String   @db.Text
+  scenario            Json     @default("{}")
+  baseline            Json     @default("{}")
+  projection          Json     @default("{}")
+  confidenceIntervals Json     @default("{}")
+  uncertainty         Json     @default("[]")
+  recommendation      String   @db.Text
+  confidence          Float    @default(0.55)
+  createdAt           DateTime @default(now())
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model TwinEvent {
+  id          String        @id @default(uuid()) @db.Uuid
+  twinId      String        @db.Uuid
+  userId      String        @db.Uuid
+  type        TwinEventType
+  source      String        @default("system")
+  summary     String
+  payload     Json          @default("{}")
+  traceId     String        @default(uuid())
+  createdAt   DateTime      @default(now())
+
+  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([twinId, type, createdAt])
+  @@index([traceId])
 }
 
 model CareerMemory {
@@ -743,6 +1264,559 @@ model InterviewSession {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// INTERVIEW INTELLIGENCE OS
+// ---------------------------------------------------------------------------
+
+model Company {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String
+  normalizedName     String   @unique
+  slug               String   @unique
+  domain             String?
+  logoUrl            String?
+  country            String   @default("IN")
+  companyType        String   @default("unknown")
+  industry           String?
+  tier               String?
+  aliases            String[] @default([])
+  remoteFriendliness Float    @default(0.5)
+  fresherFriendliness Float   @default(0.5)
+  referralDominance  Float    @default(0.5)
+  collegeTierBias    Float    @default(0.5)
+  hiringSeasonality  Json     @default("{}")
+  intelligence       Json     @default("{}")
+  trustScore         Float    @default(0.5)
+  lastIngestedAt     DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  roles              CompanyRole[]
+  questionFrequencies QuestionFrequency[]
+  experiences        InterviewExperience[]
+  recruiterPatterns  RecruiterPattern[]
+  salaryInsights     SalaryInsight[]
+  selectionPatterns  SelectionPattern[]
+  difficultyTrends   DifficultyTrend[]
+
+  @@index([normalizedName])
+  @@index([companyType, industry])
+  @@index([tier])
+}
+
+model CompanyRole {
+  id               String   @id @default(uuid()) @db.Uuid
+  companyId        String   @db.Uuid
+  title            String
+  normalizedTitle  String
+  level            String?
+  family           String   @default("engineering")
+  location         String?
+  indiaMarket      Boolean  @default(true)
+  questionMix      Json     @default("{}")
+  preparationWeeks Int      @default(4)
+  selectionRate    Float?
+  confidence       Float    @default(0.55)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  company            Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  questionFrequencies QuestionFrequency[]
+  experiences        InterviewExperience[]
+  selectionPatterns  SelectionPattern[]
+  difficultyTrends   DifficultyTrend[]
+
+  @@unique([companyId, normalizedTitle, level, location])
+  @@index([normalizedTitle, level])
+  @@index([companyId, family])
+}
+
+model InterviewQuestion {
+  id              String                    @id @default(uuid()) @db.Uuid
+  canonicalHash   String                    @unique
+  title           String
+  prompt          String                    @db.Text
+  normalizedPrompt String                   @db.Text
+  kind            InterviewQuestionKind
+  difficulty      InterviewDifficulty       @default(unknown)
+  topic           String?
+  subtopic        String?
+  constraints     Json                      @default("{}")
+  examples        Json                      @default("[]")
+  sourceType      InterviewSourceType
+  sourceUrl       String?
+  sourceTitle     String?
+  sourceAttribution Json                    @default("{}")
+  moderationStatus InterviewModerationStatus @default(pending)
+  qualityScore    Float                     @default(0.5)
+  originalityScore Float                    @default(0.5)
+  popularityScore Float                     @default(0)
+  freshnessScore  Float                     @default(1)
+  lastSeenAt      DateTime                  @default(now())
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  solution         QuestionSolution?
+  embedding        QuestionEmbedding?
+  cluster          QuestionCluster?         @relation(fields: [clusterId], references: [id], onDelete: SetNull)
+  clusterId        String?                  @db.Uuid
+  frequencies      QuestionFrequency[]
+  tags             QuestionTag[]
+  behavioral       BehavioralQuestion?
+  systemDesign     SystemDesignQuestion?
+  rounds           InterviewRound[]
+  contributions    InterviewContribution[]
+
+  @@index([kind, difficulty])
+  @@index([moderationStatus, qualityScore])
+  @@index([popularityScore, freshnessScore])
+  @@index([lastSeenAt])
+}
+
+model QuestionSolution {
+  id                     String   @id @default(uuid()) @db.Uuid
+  questionId             String   @unique @db.Uuid
+  bruteForce             Json     @default("{}")
+  optimized              Json     @default("{}")
+  explanations           Json     @default("{}")
+  dryRun                 Json     @default("[]")
+  edgeCases              String[] @default([])
+  interviewerExpectations String[] @default([])
+  followUps              String[] @default([])
+  languages              Json     @default("{}")
+  timeComplexity         String?
+  spaceComplexity        String?
+  generatedBy            String   @default("gemini")
+  originalityDisclaimer  String   @default("Generated original explanation; not copied from source material.")
+  confidence             Float    @default(0.62)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  question InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model InterviewExperience {
+  id               String                    @id @default(uuid()) @db.Uuid
+  userId           String?                   @db.Uuid
+  companyId        String                    @db.Uuid
+  companyRoleId    String?                   @db.Uuid
+  title            String
+  roleTitle        String?
+  level            String?
+  location         String?
+  outcome          String                    @default("unknown")
+  verdict          String?
+  overallDifficulty InterviewDifficulty      @default(unknown)
+  roundsCount      Int?
+  timelineDays     Int?
+  rawText          String                    @db.Text
+  summary          String                    @db.Text
+  sourceType       InterviewSourceType
+  sourceUrl        String?
+  sourceAttribution Json                     @default("{}")
+  moderationStatus InterviewModerationStatus @default(pending)
+  trustScore       Float                     @default(0.5)
+  recencyScore     Float                     @default(1)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  occurredAt       DateTime?
+
+  user             User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  company          Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyRole      CompanyRole? @relation(fields: [companyRoleId], references: [id], onDelete: SetNull)
+  rounds           InterviewRound[]
+  contributions    InterviewContribution[]
+
+  @@index([companyId, createdAt])
+  @@index([companyRoleId, createdAt])
+  @@index([moderationStatus, trustScore])
+  @@index([sourceType, occurredAt])
+}
+
+model InterviewRound {
+  id             String             @id @default(uuid()) @db.Uuid
+  experienceId   String             @db.Uuid
+  roundNumber    Int
+  type           InterviewRoundType
+  title          String
+  durationMinutes Int?
+  difficulty     InterviewDifficulty @default(unknown)
+  notes          String?            @db.Text
+  askedQuestions InterviewQuestion[]
+  signals        Json               @default("[]")
+  createdAt      DateTime           @default(now())
+
+  experience InterviewExperience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+
+  @@index([experienceId, roundNumber])
+  @@index([type, difficulty])
+}
+
+model QuestionFrequency {
+  id             String   @id @default(uuid()) @db.Uuid
+  questionId     String   @db.Uuid
+  companyId      String   @db.Uuid
+  companyRoleId  String?  @db.Uuid
+  roundType      InterviewRoundType?
+  askCount       Int      @default(1)
+  recentAskCount Int      @default(0)
+  frequencyScore Float    @default(0.1)
+  trendScore     Float    @default(0)
+  lastAskedAt    DateTime?
+  evidence       Json     @default("[]")
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+
+  question    InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyRole CompanyRole?      @relation(fields: [companyRoleId], references: [id], onDelete: SetNull)
+
+  @@unique([questionId, companyId, companyRoleId, roundType])
+  @@index([companyId, frequencyScore])
+  @@index([companyRoleId, frequencyScore])
+}
+
+model BehavioralQuestion {
+  id          String   @id @default(uuid()) @db.Uuid
+  questionId  String   @unique @db.Uuid
+  theme       String
+  competency  String
+  starSignals String[] @default([])
+  redFlags    String[] @default([])
+  sampleFramework Json @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  question InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([theme, competency])
+}
+
+model SystemDesignQuestion {
+  id             String   @id @default(uuid()) @db.Uuid
+  questionId     String   @unique @db.Uuid
+  designType     String   @default("hld")
+  scaleSignals   Json     @default("{}")
+  expectedComponents String[] @default([])
+  tradeoffs      String[] @default([])
+  evaluationRubric Json   @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  question InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([designType])
+}
+
+model RecruiterPattern {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyId       String   @db.Uuid
+  recruiterName   String?
+  roleFamily      String?
+  responseRate    Float    @default(0.5)
+  ghostingRate    Float    @default(0.3)
+  avgResponseDays Float?
+  friendliness    Float    @default(0.5)
+  transparency    Float    @default(0.5)
+  negotiationStyle String  @default("unknown")
+  evidence        Json     @default("[]")
+  trustScore      Float    @default(0.5)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, trustScore])
+  @@index([ghostingRate])
+}
+
+model SalaryInsight {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyId       String   @db.Uuid
+  roleTitle       String
+  level           String?
+  location        String   @default("India")
+  currency        String   @default("INR")
+  baseMin         Float?
+  baseMedian      Float?
+  baseMax         Float?
+  totalMin        Float?
+  totalMedian     Float?
+  totalMax        Float?
+  sampleSize      Int      @default(1)
+  sourceType      InterviewSourceType @default(user_submission)
+  confidence      Float    @default(0.5)
+  lastObservedAt  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, roleTitle, level])
+  @@index([location, totalMedian])
+}
+
+model SelectionPattern {
+  id                String   @id @default(uuid()) @db.Uuid
+  companyId         String   @db.Uuid
+  companyRoleId     String?  @db.Uuid
+  selectionRate     Float?
+  oaPassRate        Float?
+  onsitePassRate    Float?
+  rejectionReasons  Json     @default("[]")
+  successSignals    Json     @default("[]")
+  collegeTierImpact Float    @default(0.5)
+  referralImpact    Float    @default(0.5)
+  confidence        Float    @default(0.5)
+  validFrom         DateTime @default(now())
+  validTo           DateTime?
+  createdAt         DateTime @default(now())
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyRole CompanyRole? @relation(fields: [companyRoleId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, validFrom])
+  @@index([companyRoleId, validFrom])
+}
+
+model DifficultyTrend {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyId       String   @db.Uuid
+  companyRoleId   String?  @db.Uuid
+  topic           String
+  difficulty      InterviewDifficulty
+  score           Float
+  periodStart     DateTime @db.Date
+  periodEnd       DateTime @db.Date
+  evidenceCount   Int      @default(0)
+  confidence      Float    @default(0.5)
+  createdAt       DateTime @default(now())
+
+  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyRole CompanyRole? @relation(fields: [companyRoleId], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, companyRoleId, topic, periodStart])
+  @@index([topic, periodEnd])
+}
+
+model QuestionTag {
+  id          String   @id @default(uuid()) @db.Uuid
+  slug        String   @unique
+  label       String
+  category    String   @default("topic")
+  description String?
+  questions   InterviewQuestion[]
+  createdAt   DateTime @default(now())
+
+  @@index([category])
+}
+
+model QuestionCluster {
+  id              String   @id @default(uuid()) @db.Uuid
+  canonicalTitle  String
+  centroidSummary String   @db.Text
+  kind            InterviewQuestionKind
+  difficulty      InterviewDifficulty @default(unknown)
+  centroidHash    String?  @unique
+  size            Int      @default(0)
+  tags            String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  questions InterviewQuestion[]
+
+  @@index([kind, difficulty])
+  @@index([size])
+}
+
+model QuestionEmbedding {
+  id          String   @id @default(uuid()) @db.Uuid
+  questionId  String   @unique @db.Uuid
+  model       String   @default("text-embedding-3-small")
+  dimensions  Int      @default(1536)
+  /// pgvector 1536-dim embedding.
+  embedding   Unsupported("vector(1536)")?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  question InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model InterviewIngestionSource {
+  id              String   @id @default(uuid()) @db.Uuid
+  sourceType      InterviewSourceType
+  name            String
+  baseUrl         String
+  robotsPolicy    Json     @default("{}")
+  rateLimitPerHour Int     @default(60)
+  enabled         Boolean  @default(true)
+  lastCrawledAt   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  runs InterviewIngestionRun[]
+
+  @@unique([sourceType, baseUrl])
+  @@index([enabled, lastCrawledAt])
+}
+
+model InterviewIngestionRun {
+  id          String   @id @default(uuid()) @db.Uuid
+  sourceId    String?  @db.Uuid
+  status      InterviewIngestionStatus @default(queued)
+  query       String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  rawCount     Int      @default(0)
+  insertedCount Int     @default(0)
+  skippedCount Int      @default(0)
+  error       String?
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  source InterviewIngestionSource? @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  artifacts RawInterviewArtifact[]
+
+  @@index([status, createdAt])
+  @@index([sourceId, createdAt])
+}
+
+model RawInterviewArtifact {
+  id          String   @id @default(uuid()) @db.Uuid
+  runId       String?  @db.Uuid
+  sourceType  InterviewSourceType
+  sourceUrl   String?
+  sourceTitle String?
+  rawText     String   @db.Text
+  rawHtmlHash String?
+  extracted   Json     @default("{}")
+  status      InterviewIngestionStatus @default(queued)
+  dedupeHash  String   @unique
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ingestionRun InterviewIngestionRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([sourceType, status])
+  @@index([createdAt])
+}
+
+model InterviewContribution {
+  id          String                    @id @default(uuid()) @db.Uuid
+  userId      String                    @db.Uuid
+  type        InterviewContributionType
+  status      InterviewModerationStatus @default(pending)
+  companyName String
+  roleTitle   String?
+  payload     Json
+  questionId  String?                   @db.Uuid
+  experienceId String?                  @db.Uuid
+  trustDelta  Float                     @default(0)
+  moderatorNote String?
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   InterviewQuestion?   @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  experience InterviewExperience? @relation(fields: [experienceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([companyName])
+}
+
+model ContributorReputation {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @unique @db.Uuid
+  trustScore        Float   @default(0.4)
+  acceptedCount     Int     @default(0)
+  rejectedCount     Int     @default(0)
+  verificationBadges String[] @default([])
+  lastContributionAt DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([trustScore])
+}
+
+model InterviewModerationEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  contributionId String?  @db.Uuid
+  entityType     String
+  entityId       String?
+  decision       InterviewModerationStatus
+  reasons        String[] @default([])
+  modelSignals   Json     @default("{}")
+  reviewerId     String?  @db.Uuid
+  createdAt      DateTime @default(now())
+
+  @@index([decision, createdAt])
+  @@index([entityType, entityId])
+}
+
+model InterviewPrediction {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String?  @db.Uuid
+  companyId      String?  @db.Uuid
+  companyRoleId  String?  @db.Uuid
+  query          String
+  predictedQuestions Json @default("[]")
+  weakAreas      Json     @default("[]")
+  behavioralThemes Json   @default("[]")
+  systemDesignTopics Json @default("[]")
+  selectionProbability Float @default(0.5)
+  oaDifficulty   Float   @default(0.5)
+  interviewDifficulty Float @default(0.5)
+  confidence     Float   @default(0.55)
+  reasoning      String  @db.Text
+  evidence       Json    @default("[]")
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime?
+
+  @@index([userId, createdAt])
+  @@index([companyId, companyRoleId, createdAt])
+}
+
+model InterviewMockSession {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  companyId      String?  @db.Uuid
+  roleTitle      String
+  mode           String   @default("mixed")
+  status         String   @default("active")
+  transcript     Json     @default("[]")
+  scores         Json     @default("{}")
+  feedback       Json     @default("{}")
+  replayUrl      String?
+  startedAt      DateTime @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([companyId, roleTitle])
+}
+
+model InterviewSearchEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  query     String
+  filters   Json     @default("{}")
+  resultCount Int    @default(0)
+  latencyMs Int?
+  clickedEntityType String?
+  clickedEntityId String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([query])
 }
 
 // ──────────────────────────────────────────────

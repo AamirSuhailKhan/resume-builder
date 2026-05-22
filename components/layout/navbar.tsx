@@ -18,7 +18,7 @@ export function Navbar() {
               <FileText className="h-5 w-5" />
             </div>
             <span className="hidden font-bold sm:inline-block text-gray-900 tracking-tight">
-              ResumeAI
+              CareerOS
             </span>
           </Link>
         </div>

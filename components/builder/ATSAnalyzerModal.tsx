@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Target, AlertTriangle, CheckCircle2, TrendingUp, Search } from "lucide-react";
-import { ResumeAI } from "@/lib/api";
+import { CareerOS } from "@/lib/api";
 import { ResumeData } from "@/types/resume";
 
 interface ATSAnalyzerModalProps {
@@ -23,7 +23,7 @@ export function ATSAnalyzerModal({ isOpen, onClose, resumeData }: ATSAnalyzerMod
       
       const analyze = async () => {
         try {
-          const res = await ResumeAI.analyzeATS(resumeData);
+          const res = await CareerOS.analyzeATS(resumeData);
           setResult(res);
         } catch (error) {
           console.error("ATS Analysis failed", error);

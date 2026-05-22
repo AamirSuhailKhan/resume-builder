@@ -3,7 +3,7 @@ import { ResumeData } from "@/lib/storage";
 // Simulated AI API delay
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export const ResumeAI = {
+export const CareerOS = {
   /**
    * Improves a professional summary using simulated AI.
    * Can be replaced with actual fetch to /api/openai/summary

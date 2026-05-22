@@ -15,6 +15,13 @@ import { handleExportPdf } from "@/workers/handlers/exportPdf";
 import { handleAutoApply, handleJobIntelligence, handlePortfolio } from "@/workers/handlers/aiPlatform";
 import { handleEmailDrip } from "@/workers/handlers/emailDrip";
 import { handleComputeAnalytics } from "@/workers/handlers/computeAnalytics";
+import {
+  handleInterviewEmbed,
+  handleInterviewIngest,
+  handleInterviewModerate,
+  handleInterviewNormalize,
+  handleInterviewSolution,
+} from "@/workers/handlers/interviewIntelligence";
 
 const handlers = {
   autosave: handleAutosave,
@@ -26,6 +33,11 @@ const handlers = {
   ai_portfolio: handlePortfolio,
   email_drip: handleEmailDrip,
   compute_analytics: handleComputeAnalytics,
+  interview_ingest: handleInterviewIngest,
+  interview_normalize: handleInterviewNormalize,
+  interview_embed: handleInterviewEmbed,
+  interview_solution: handleInterviewSolution,
+  interview_moderate: handleInterviewModerate,
 } satisfies Record<ResumeAiJobName, (payload: never) => Promise<unknown>>;
 
 async function processJob(job: Job<ResumeAiJobPayload, unknown, ResumeAiJobName>) {
@@ -64,6 +76,11 @@ try {
     ai_portfolio: queueNames.atsAnalysis,
     email_drip: queueNames.email,
     compute_analytics: queueNames.analytics,
+    interview_ingest: queueNames.interviewIntel,
+    interview_normalize: queueNames.interviewIntel,
+    interview_embed: queueNames.interviewIntel,
+    interview_solution: queueNames.interviewIntel,
+    interview_moderate: queueNames.interviewIntel,
   };
 
   const uniqueQueues = Array.from(new Set(Object.values(jobToQueueMap)));

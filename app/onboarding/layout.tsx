@@ -18,7 +18,7 @@ export default async function OnboardingLayout({ children }: { children: React.R
               <FileText className="h-4 w-4" aria-hidden="true" />
             </div>
             <div>
-              <p className="text-sm font-semibold leading-none text-foreground">ResumeAI</p>
+              <p className="text-sm font-semibold leading-none text-foreground">CareerOS</p>
               <p className="mt-1 text-xs text-muted-foreground">Career setup</p>
             </div>
           </div>

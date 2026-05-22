@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Sparkles, ArrowRight, CheckCircle2 } from "lucide-react";
-import { ResumeAI } from "@/lib/api";
+import { CareerOS } from "@/lib/api";
 
 interface AIAssistantModalProps {
   isOpen: boolean;
@@ -34,8 +34,8 @@ export function AIAssistantModal({
       const fetchImprovement = async () => {
         try {
           const result = mode === "summary" 
-            ? await ResumeAI.enhanceSummary(originalText)
-            : await ResumeAI.enhanceExperience(originalText);
+            ? await CareerOS.enhanceSummary(originalText)
+            : await CareerOS.enhanceExperience(originalText);
           setImprovedText(result);
         } catch (error) {
           console.error("Failed to enhance text", error);

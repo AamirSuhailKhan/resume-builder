@@ -5,8 +5,16 @@ import { Providers } from "@/components/auth/Providers";
 import { ThemeProvider } from "@/components/layout/theme-provider";
 
 export const metadata: Metadata = {
-  title: "ResumeAI - AI Job Platform",
-  description: "AI-powered resumes, job matching, applications, interviews, and portfolio publishing.",
+  title: {
+    default: "CareerOS — Your career, automated",
+    template: "%s | CareerOS",
+  },
+  description: "CareerOS is the AI career operating system for Indian professionals. Apply smarter, negotiate better, grow faster.",
+  openGraph: {
+    title: "CareerOS — Your career, automated",
+    description: "CareerOS is the AI career operating system for Indian professionals.",
+    siteName: "CareerOS",
+  },
 };
 
 export default async function RootLayout({

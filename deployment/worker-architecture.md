@@ -1,6 +1,6 @@
 # Worker Architecture
 
-This document describes the background worker architecture for the ResumeAI SaaS.
+This document describes the background worker architecture for the CareerOS SaaS.
 
 ## Separation of Concerns
 
@@ -37,6 +37,6 @@ npm run worker
 
 Build and run the worker image:
 \`\`\`bash
-docker build -t resumeai-worker -f docker/worker.Dockerfile .
-docker run --env-file .env resumeai-worker
+docker build -t careeros-worker -f docker/worker.Dockerfile .
+docker run --env-file .env careeros-worker
 \`\`\`

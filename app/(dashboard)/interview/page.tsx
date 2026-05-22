@@ -1,3 +1,3 @@
-import { InterviewEngine } from "@/features/interview/InterviewEngine";
+import { InterviewIntelligenceTerminal } from "@/features/interview/InterviewIntelligenceTerminal";
 
-export default InterviewEngine;
+export default InterviewIntelligenceTerminal;

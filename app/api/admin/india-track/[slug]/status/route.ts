@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
-export async function POST(req: Request, { params }: { params: { slug: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
+    const { slug } = await params;
     const adminSecret = req.headers.get("x-admin-secret");
     if (!process.env.ADMIN_SECRET || adminSecret !== process.env.ADMIN_SECRET) {
       return new NextResponse("Unauthorized", { status: 401 });
@@ -14,7 +15,7 @@ export async function POST(req: Request, { params }: { params: { slug: string } 
     }
 
     const updated = await prisma.indiaCompanyTrack.update({
-      where: { companySlug: params.slug },
+      where: { companySlug: slug },
       data: { hiringStatus, lastUpdated: new Date() },
     });
 

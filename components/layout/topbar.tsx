@@ -9,6 +9,7 @@ import { ApprovalBell } from "@/components/approvals/ApprovalBell";
 
 const titles: Record<string, string> = {
   "/dashboard": "Command Center",
+  "/twin": "AI Career Twin",
   "/builder": "Resume Builder",
   "/ats": "ATS Score",
   "/job-optimizer": "Job Optimizer",
@@ -22,6 +23,15 @@ const titles: Record<string, string> = {
   "/portfolio": "Portfolio",
   "/settings": "Settings",
 };
+
+const journeyNav = [
+  { label: "Home", href: "/dashboard" },
+  { label: "Find", href: "/matches" },
+  { label: "Apply", href: "/auto-apply" },
+  { label: "Prepare", href: "/interview" },
+  { label: "Negotiate", href: "/negotiation" },
+  { label: "Twin", href: "/twin" },
+];
 
 export function Topbar() {
   const pathname = usePathname();
@@ -40,7 +50,26 @@ export function Topbar() {
           </div>
         </div>
 
-        <div className="hidden h-9 w-full max-w-md items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted-foreground md:flex">
+        <div className="hidden items-center gap-1 rounded-lg border border-border bg-surface p-1 xl:flex">
+          {journeyNav.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  active
+                    ? "bg-surface-muted text-foreground"
+                    : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="hidden h-9 w-full max-w-sm items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted-foreground md:flex xl:hidden">
           <Search className="h-4 w-4" />
           <span className="flex-1">Search resumes, jobs, applications</span>
           <span className="flex items-center gap-1 rounded border border-border bg-surface-muted px-1.5 py-0.5 text-[11px]">
@@ -62,4 +91,3 @@ export function Topbar() {
     </header>
   );
 }
-
