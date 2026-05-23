@@ -73,7 +73,7 @@ async function runWorker() {
           externalId,
           description: opp.description,
           postedAt,
-        });
+        } as any);
 
         await prisma.jobOpportunity.update({
           where: { id: opp.id },

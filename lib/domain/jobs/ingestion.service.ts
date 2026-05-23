@@ -93,9 +93,9 @@ export class JobIngestionService {
         const canonical = await JobDeduplicator.processJob({
           title: job.title,
           company: job.company,
-          location: job.location,
+          location: job.location || null,
           remote: job.remote,
-          employmentType: job.employmentType,
+          employmentType: job.employmentType || null,
           source: job.source,
           sourceUrl: job.sourceUrl,
           externalId: job.externalId,

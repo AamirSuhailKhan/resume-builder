@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    const { id: analysisId } = await params;
     const { skillName } = await req.json();
     if (!skillName) {
       return new NextResponse("skillName is required", { status: 400 });
@@ -16,7 +17,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     // Load analysis
     const analysis = await prisma.skillGapAnalysis.findUnique({
-      where: { id: params.id },
+      where: { id: analysisId },
     });
 
     if (!analysis) {

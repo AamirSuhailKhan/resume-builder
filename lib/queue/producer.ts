@@ -18,25 +18,7 @@ function getQueueForJob(name: ResumeAiJobName): Queue {
     globalForQueues.queues = new Map();
   }
 
-  // Mapping jobs to their specific queue
-  const jobToQueueMap: Record<ResumeAiJobName, string> = {
-    autosave: queueNames.default,
-    ats_analysis: queueNames.atsAnalysis,
-    ai_rewrite: queueNames.atsAnalysis,
-    export_pdf: queueNames.default,
-    ai_job_intelligence: queueNames.atsAnalysis,
-    ai_auto_apply: queueNames.atsAnalysis,
-    ai_portfolio: queueNames.atsAnalysis,
-    email_drip: queueNames.email,
-    compute_analytics: queueNames.analytics,
-    interview_ingest: queueNames.interviewIntel,
-    interview_normalize: queueNames.interviewIntel,
-    interview_embed: queueNames.interviewIntel,
-    interview_solution: queueNames.interviewIntel,
-    interview_moderate: queueNames.interviewIntel,
-  };
-
-  const targetQueueName = jobToQueueMap[name];
+  const targetQueueName = queueNames.default;
 
   if (!globalForQueues.queues.has(targetQueueName)) {
     const queue = new Queue(targetQueueName, {

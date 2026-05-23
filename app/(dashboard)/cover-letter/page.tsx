@@ -28,13 +28,15 @@ export default function CoverLetterPage() {
     [resumeIds, resumesById]
   );
 
+  const [mounted, setMounted] = useState(false);
   const hydrated = useRef(false);
   useEffect(() => {
+    setMounted(true);
     if (!hydrated.current) {
       hydrate();
       hydrated.current = true;
     }
-  }, []);
+  }, [hydrate]);
 
   const [selectedId, setSelectedId] = useState("");
   const [job, setJob] = useState("");
@@ -75,6 +77,15 @@ export default function CoverLetterPage() {
     setCopiedSection(section);
     setTimeout(() => setCopiedSection(null), 2000);
   };
+
+  if (!mounted) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+        <div className="text-sm font-medium text-gray-400">Loading Cover Letter Generator...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-4xl mx-auto space-y-8 pb-24">

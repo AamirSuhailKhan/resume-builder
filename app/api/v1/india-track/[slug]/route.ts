@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
-export async function GET(req: Request, { params }: { params: { slug: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
+    const { slug } = await params;
     const company = await prisma.indiaCompanyTrack.findUnique({
-      where: { companySlug: params.slug },
+      where: { companySlug: slug },
     });
 
     if (!company) {

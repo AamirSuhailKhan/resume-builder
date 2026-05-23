@@ -44,7 +44,7 @@ export function errorToResponse(error: unknown) {
         details: error.details,
       },
     };
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== "production" && error.stack) {
       payload.error.stack = error.stack;
     }
     return NextResponse.json(payload, { status: error.statusCode });
@@ -75,7 +75,7 @@ export function errorToResponse(error: unknown) {
       },
     };
     if (process.env.NODE_ENV !== "production") {
-      payload.error.stack = error.stack;
+      if (error.stack) payload.error.stack = error.stack;
       payload.error.details = error.message;
     }
     return NextResponse.json(payload, { status: 500 });
@@ -92,7 +92,7 @@ export function errorToResponse(error: unknown) {
   
   if (error instanceof Error && process.env.NODE_ENV !== "production") {
     payload.error.details = error.message;
-    payload.error.stack = error.stack;
+    if (error.stack) payload.error.stack = error.stack;
   }
 
   return NextResponse.json(payload, { status: 500 });

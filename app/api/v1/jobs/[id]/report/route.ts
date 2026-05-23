@@ -8,11 +8,11 @@ export const runtime = "nodejs";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireUser();
-    const jobId = params.id;
+    const { id: jobId } = await params;
 
     if (!jobId) {
       return NextResponse.json({ error: "Missing job ID" }, { status: 400 });

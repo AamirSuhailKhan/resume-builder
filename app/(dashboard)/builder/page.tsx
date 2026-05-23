@@ -104,11 +104,16 @@ function BuilderContent() {
   const setIsHistoryOpen   = useUIStore(selectSetIsHistoryOpen);
   const setIsGeneratingPDF = useUIStore(selectSetIsGeneratingPDF);
 
+  const [mounted, setMounted] = useState(false);
   const [initState, setInitState] = useState<"loading" | "ready">("loading");
   const [versions, setVersions] = useState<any[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [rollingBack, setRollingBack] = useState<string | null>(null);
   const [isEqualizerOpen, setIsEqualizerOpen] = useState(searchParams.get("optimize") === "true");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const autosave = useResumeAutosave(activeResumeId, {
     enabled: initState === "ready" && isHydrated && isValidResumeId(activeResumeId),
@@ -251,7 +256,7 @@ function BuilderContent() {
 
   // ── 🔥 FIX 4/7/9: RENDERING GUARDS ────────────────────────────────────────
 
-  if (authLoading || !hasRehydrated || !isHydrated || initState === "loading") {
+  if (!mounted || authLoading || !hasRehydrated || !isHydrated || initState === "loading") {
     return <LoadingScreen message="Initializing Editor..." />;
   }
 

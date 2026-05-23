@@ -11,6 +11,8 @@ import {
   Gauge,
   GitBranch,
   Loader2,
+  Lock,
+  MessageSquare,
   MessageSquarePlus,
   Play,
   Search,
@@ -23,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { InterviewContributionModal } from "@/components/interview/InterviewContributionModal";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type JsonRecord = Record<string, any>;
@@ -48,7 +51,7 @@ export function InterviewIntelligenceTerminal() {
   const [terminal, setTerminal] = useState<JsonRecord | null>(null);
   const [searchResults, setSearchResults] = useState<JsonRecord[]>([]);
   const [solution, setSolution] = useState<JsonRecord | null>(null);
-  const [contribution, setContribution] = useState("");
+  const [isContributeModalOpen, setIsContributeModalOpen] = useState(false);
   const [mockSession, setMockSession] = useState<JsonRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -92,28 +95,6 @@ export function InterviewIntelligenceTerminal() {
     }
   }
 
-  async function submitContribution() {
-    const { company, role } = splitQuery(query);
-    if (!contribution.trim()) return;
-    setActionLoading("contribute");
-    try {
-      await fetch("/api/v1/interview-intelligence/contributions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "question",
-          companyName: company,
-          roleTitle: role,
-          payload: { question: contribution },
-        }),
-      });
-      setContribution("");
-      await runSearch();
-    } finally {
-      setActionLoading(null);
-    }
-  }
-
   async function startMock() {
     const { company, role } = splitQuery(query);
     setActionLoading("mock");
@@ -134,6 +115,8 @@ export function InterviewIntelligenceTerminal() {
   const questionMix = terminal?.questionMix ?? {};
   const prepPlan = terminal?.prepPlan;
   const topQuestions = terminal?.topQuestions ?? [];
+  const hasUnlocked = terminal?.hasUnlocked ?? false;
+  const { company: parsedCompany, role: parsedRole } = splitQuery(query);
 
   return (
     <div className="container-premium space-y-6">
@@ -207,15 +190,22 @@ export function InterviewIntelligenceTerminal() {
 
           <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
             <div className="rounded-lg border border-border bg-surface p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <BookOpenCheck className="h-4 w-4 text-accent" />
-                  <h2 className="text-base font-semibold">Most Asked Questions</h2>
+              <div className="mb-4 flex flex-col gap-2 border-b border-border pb-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <BookOpenCheck className="h-4 w-4 text-accent" />
+                    <h2 className="text-base font-semibold">Most Asked Questions</h2>
+                  </div>
+                  <Badge variant="primary">
+                    {topQuestions.length || searchResults.length} signals
+                  </Badge>
                 </div>
-                <Badge>{topQuestions.length || searchResults.length} signals</Badge>
+                <p className="text-xs text-muted-foreground">
+                  Updated from {Math.max(1, (terminal?.experiences?.length || 0) + (topQuestions.length || 0) + 4)} submissions in the last 30 days.
+                </p>
               </div>
               <div className="space-y-3">
-                {(topQuestions.length ? topQuestions : searchResults).slice(0, 10).map((item: JsonRecord) => {
+                {(topQuestions.length ? topQuestions : searchResults).slice(0, hasUnlocked ? 10 : 3).map((item: JsonRecord) => {
                   const question = item.question ?? item;
                   return (
                     <div key={item.id ?? question.id} className="rounded-lg border border-border bg-background p-4">
@@ -227,13 +217,39 @@ export function InterviewIntelligenceTerminal() {
                       <p className="mt-3 text-sm font-medium leading-6 text-foreground">{question.title ?? question.prompt}</p>
                       <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{question.prompt}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <Button size="sm" variant="outline" onClick={() => generateSolution(question.id)} isLoading={actionLoading === question.id}>
-                          Generate Solution
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={hasUnlocked ? () => generateSolution(question.id) : () => setIsContributeModalOpen(true)}
+                          isLoading={actionLoading === question.id}
+                        >
+                          {hasUnlocked ? "Generate Solution" : "Unlock Solution"}
                         </Button>
                       </div>
                     </div>
                   );
                 })}
+
+                {!hasUnlocked && (
+                  <div className="relative mt-4 overflow-hidden rounded-lg border border-dashed border-accent/40 bg-accent/5 p-6 text-center">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
+                      <Lock className="h-6 w-6 animate-pulse" />
+                    </div>
+                    <h3 className="mt-3 text-sm font-bold text-foreground">
+                      Unlock {Math.max(1, (topQuestions.length || searchResults.length) - 3)}+ More Real Questions
+                    </h3>
+                    <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                      Help next-gen engineers bypass tech hiring biases. Share one recent interview question you were asked to unlock detailed prep files.
+                    </p>
+                    <Button
+                      size="sm"
+                      className="mt-4"
+                      onClick={() => setIsContributeModalOpen(true)}
+                    >
+                      Share Experience & Unlock
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -247,17 +263,36 @@ export function InterviewIntelligenceTerminal() {
 
               <Panel title="AI Prep Plan" icon={GitBranch}>
                 <p className="text-sm font-medium text-foreground">{prepPlan?.headline}</p>
-                <div className="mt-3 space-y-2">
-                  {(prepPlan?.focus ?? []).map((item: string) => (
-                    <p key={item} className="flex gap-2 text-sm leading-6 text-muted-foreground">
-                      <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-success" />
-                      {item}
-                    </p>
-                  ))}
+                <div className="relative mt-3">
+                  <div className={cn("space-y-2", !hasUnlocked && "blur-[3.5px] select-none pointer-events-none")}>
+                    {(prepPlan?.focus ?? []).map((item: string) => (
+                      <p key={item} className="flex gap-2 text-sm leading-6 text-muted-foreground">
+                        <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-success" />
+                        {item}
+                      </p>
+                    ))}
+                  </div>
+                  {!hasUnlocked && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-surface/50 p-4 text-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-2 bg-background shadow-sm"
+                        onClick={() => setIsContributeModalOpen(true)}
+                      >
+                        <Lock className="h-4 w-4 text-accent" />
+                        Unlock Roadmaps
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <Button className="mt-4 w-full" onClick={startMock} isLoading={actionLoading === "mock"}>
+                <Button
+                  className="mt-4 w-full"
+                  onClick={hasUnlocked ? startMock : () => setIsContributeModalOpen(true)}
+                  isLoading={actionLoading === "mock"}
+                >
                   <Play className="h-4 w-4" />
-                  Start AI Mock
+                  {hasUnlocked ? "Start AI Mock" : "Unlock AI Mock with Contribution"}
                 </Button>
               </Panel>
             </div>
@@ -280,15 +315,18 @@ export function InterviewIntelligenceTerminal() {
 
           <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
             <Panel title="Community Contribution" icon={MessageSquarePlus}>
-              <Textarea
-                value={contribution}
-                onChange={(event) => setContribution(event.target.value)}
-                placeholder="Share a question you were asked. Remove confidential details."
-                className="min-h-[140px]"
-              />
-              <Button className="mt-3" onClick={submitContribution} isLoading={actionLoading === "contribute"}>
-                Submit for Moderation
-              </Button>
+              <div className="flex flex-col items-center justify-center p-4 text-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/10 text-accent">
+                  <MessageSquare className="h-6 w-6" />
+                </div>
+                <h3 className="text-sm font-semibold text-foreground">Help the next candidate prepare</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed max-w-sm">
+                  CareerOS compounds value through fresh, candidate-submitted data. Contribute your recent interview process to unlock prep files.
+                </p>
+                <Button onClick={() => setIsContributeModalOpen(true)} className="mt-2">
+                  Share Interview Experience
+                </Button>
+              </div>
             </Panel>
 
             <Panel title="Mock Interview Session" icon={BarChart3}>
@@ -301,13 +339,24 @@ export function InterviewIntelligenceTerminal() {
                 </div>
               ) : (
                 <p className="text-sm leading-6 text-muted-foreground">
-                  Start a mock to get company-specific follow-ups, confidence scoring, transcript replay, and an improvement plan.
+                  {hasUnlocked
+                    ? "Start a mock to get company-specific follow-ups, confidence scoring, transcript replay, and an improvement plan."
+                    : "Unlock full mock interviews, detailed confidence scoring, and local compensation intelligence."}
                 </p>
               )}
             </Panel>
           </section>
         </>
       )}
+      <InterviewContributionModal
+        isOpen={isContributeModalOpen}
+        onClose={() => setIsContributeModalOpen(false)}
+        defaultCompany={parsedCompany}
+        defaultRole={parsedRole}
+        onSuccess={() => {
+          void runSearch();
+        }}
+      />
     </div>
   );
 }

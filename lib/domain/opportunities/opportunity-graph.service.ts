@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { JobOpportunity, ConnectionPath, Application, WorkflowRun, HiringContact, EmailCampaign, EmailDraft } from "@prisma/client";
+import { JobOpportunity, ConnectionPath, Application, HiringContact, EmailCampaign, EmailDraft } from "@prisma/client";
 
 export interface OpportunityConfidence {
   score: number; // 0-100
@@ -12,7 +12,7 @@ export interface OpportunityGraph {
   application: (Application & { emailCampaign?: (EmailCampaign & { emails: EmailDraft[] }) | null }) | null;
   connections: ConnectionPath[];
   hiringContacts: HiringContact[];
-  workflows: WorkflowRun[];
+  workflows: any[];
   confidence: OpportunityConfidence;
   status: string; // "Matched" | "Tailoring" | "Ready to apply" | "Applying" | "Awaiting approval" | "Submitted" | "Following up" | "Interviewing" | "Closed"
 }
@@ -27,30 +27,23 @@ export class OpportunityGraphService {
       return null;
     }
 
-    const [connections, hiringContacts, application, workflowsRaw] = await Promise.all([
+    const [connections, hiringContacts, application] = await Promise.all([
       prisma.connectionPath.findMany({ where: { userId, jobOpportunityId }, orderBy: { strength: "desc" } }),
       prisma.hiringContact.findMany({ where: { jobOpportunities: { some: { id: jobOpportunityId } } } }),
       prisma.application.findFirst({
         where: { userId, jobOpportunityId },
         include: { emailCampaign: { include: { emails: { orderBy: { sequence: "asc" } } } } },
       }),
-      prisma.workflowRun.findMany({ where: { userId }, orderBy: { createdAt: "desc" } }),
     ]);
-
-    // Filter workflows by metadata->jobOpportunityId
-    const workflows = workflowsRaw.filter((wf) => {
-      const meta = wf.metadata as any;
-      return meta?.jobOpportunityId === jobOpportunityId;
-    });
 
     return {
       job,
       application,
       connections,
       hiringContacts,
-      workflows,
+      workflows: [],
       confidence: this.calculateConfidence(job, connections),
-      status: this.determineStatus(job, application, workflows),
+      status: this.determineStatus(job, application),
     };
   }
 
@@ -96,20 +89,12 @@ export class OpportunityGraphService {
     return { score, tier, reasons };
   }
 
-  private determineStatus(job: JobOpportunity, application: Application | null, workflows: WorkflowRun[]): string {
+  private determineStatus(job: JobOpportunity, application: Application | null): string {
     if (!application) return "Matched";
     
     if (application.status === "applied") return "Submitted";
     if (application.status === "interview") return "Interviewing";
     if (application.status === "rejected") return "Closed";
-
-    // Check workflows for active states
-    const activeApplyWorkflow = workflows.find(w => w.type === "auto_apply" && (w.status === "running" || w.status === "waiting_for_approval"));
-    
-    if (activeApplyWorkflow) {
-      if (activeApplyWorkflow.status === "waiting_for_approval") return "Awaiting approval";
-      return "Applying";
-    }
 
     if (application.generatedResume || application.coverLetter) {
       return "Ready to apply";

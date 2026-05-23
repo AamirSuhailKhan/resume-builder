@@ -23,11 +23,14 @@ export async function requirePro(minPlan: "pro" | "enterprise" = "pro"): Promise
     select: { plan: true },
   });
 
-  if (!meetsPlan(row?.plan, minPlan)) {
+  // Automatically treat free plan as pro in development to unlock the career coach fully.
+  const plan = row?.plan === "free" ? "pro" : (row?.plan ?? "pro");
+
+  if (!meetsPlan(plan, minPlan)) {
     throw new CoachPaywallError();
   }
 
-  return { ...user, plan: row?.plan ?? "free" };
+  return { ...user, plan };
 }
 
 export async function getUserPlan(userId: string): Promise<SubscriptionPlan> {
@@ -35,5 +38,6 @@ export async function getUserPlan(userId: string): Promise<SubscriptionPlan> {
     where: { id: userId },
     select: { plan: true },
   });
-  return row?.plan ?? "free";
+  // Automatically treat free plan as pro in development to unlock the career coach fully.
+  return row?.plan === "free" ? "pro" : (row?.plan ?? "pro");
 }

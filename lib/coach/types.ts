@@ -1,4 +1,4 @@
-import type { ApplicationStatus } from "@prisma/client";
+export type ApplicationStatus = "applied" | "interview" | "rejected" | "offer";
 
 export type CoachMessageRole = "user" | "assistant" | "system";
 

@@ -20,7 +20,7 @@ export async function PATCH(request: Request) {
 
     await prisma.careerProfile.update({
       where: { userId: session.user.id },
-      data: { preferences: prefs }
+      data: { preferences: prefs as any }
     });
 
     return NextResponse.json({ success: true, enabled });

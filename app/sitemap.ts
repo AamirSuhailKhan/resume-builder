@@ -10,7 +10,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     include: { roles: { take: 5 } },
   }).catch(() => []);
 
-  const staticRoutes = ["", "/interview", "/matches", "/twin"].map((path) => ({
+  const SHOW_TWIN = false;
+  const staticRoutes = ["", "/interview", "/matches", ...(SHOW_TWIN ? ["/twin"] : [])].map((path) => ({
     url: `${baseUrl}${path}`,
     lastModified: new Date(),
     changeFrequency: "daily" as const,

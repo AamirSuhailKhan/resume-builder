@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         role: title,
         company,
         sourceUrl: url,
-        sourceType: "web",
+        sourceType: "verified",
         matchScore: 0,
         description: "",
         location: "",

@@ -55,9 +55,10 @@ function QuestionTypeBadge({ type }: { type: string }) {
   );
 }
 
-export default async function IndiaTrackDetailPage({ params }: { params: { slug: string } }) {
+export default async function IndiaTrackDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const company = await prisma.indiaCompanyTrack.findUnique({
-    where: { companySlug: params.slug },
+    where: { companySlug: slug },
   });
 
   if (!company) notFound();
@@ -96,7 +97,7 @@ export default async function IndiaTrackDetailPage({ params }: { params: { slug:
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground">{company.companyName}</h1>
             <div className="flex items-center gap-2 mt-1">
-              <Badge variant="outline" className={getTierStyle(company.tier)}>{formatTier(company.tier)}</Badge>
+              <Badge variant="primary" className={getTierStyle(company.tier)}>{formatTier(company.tier)}</Badge>
               {isHighHiring && (
                 <Badge variant="success" className="flex items-center gap-1">
                   <Flame className="w-3 h-3" /> Actively Hiring
@@ -108,7 +109,7 @@ export default async function IndiaTrackDetailPage({ params }: { params: { slug:
                 </Badge>
               )}
               {!isHighHiring && !isFrozen && (
-                <Badge variant="secondary">Normal Hiring</Badge>
+                <Badge variant="neutral">Normal Hiring</Badge>
               )}
             </div>
           </div>

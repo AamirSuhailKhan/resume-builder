@@ -1,3 +1,4 @@
+import "server-only";
 import { PrismaClient } from "@prisma/client";
 
 // Safe database URL diagnostics
@@ -45,13 +46,13 @@ export const prisma =
 
 // Bind log events in development for engine initialization tracing
 if (process.env.NODE_ENV === "development") {
-  prisma.$on("query" as any, (e: any) => {
+  (prisma as any).$on("query", (e: any) => {
     // console.log(`[PRISMA QUERY] ${e.query}`);
   });
-  prisma.$on("error" as any, (e: any) => {
+  (prisma as any).$on("error", (e: any) => {
     console.error(`[PRISMA ENGINE ERROR]`, e);
   });
-  prisma.$on("warn" as any, (e: any) => {
+  (prisma as any).$on("warn", (e: any) => {
     console.warn(`[PRISMA ENGINE WARNING]`, e);
   });
 }

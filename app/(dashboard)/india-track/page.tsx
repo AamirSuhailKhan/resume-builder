@@ -129,14 +129,14 @@ export default function IndiaTrackPage() {
                       </div>
                       <div>
                         <h2 className="text-xl font-bold">{company.companyName}</h2>
-                        <Badge variant="outline" className={getTierColor(company.tier)}>
+                        <Badge variant="primary" className={getTierColor(company.tier)}>
                           {formatTier(company.tier)}
                         </Badge>
                       </div>
                     </div>
                     {isHigh && <Badge variant="success" className="flex items-center gap-1"><Flame className="w-3 h-3" /> Actively hiring</Badge>}
                     {isFrozen && <Badge variant="neutral" className="flex items-center gap-1"><Snowflake className="w-3 h-3" /> Frozen</Badge>}
-                    {!isHigh && !isFrozen && <Badge variant="secondary" className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Normal</Badge>}
+                    {!isHigh && !isFrozen && <Badge variant="neutral" className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Normal</Badge>}
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 py-3 border-y border-border">

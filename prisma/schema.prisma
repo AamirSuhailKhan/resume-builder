@@ -58,37 +58,7 @@ enum DataSourceType {
   ai_inferred
 }
 
-enum WorkflowStatus {
-  draft
-  planned
-  waiting_for_data
-  waiting_for_approval
-  queued
-  running
-  blocked
-  retrying
-  completed
-  failed
-  canceled
-}
 
-enum AgentRunStatus {
-  planned
-  queued
-  running
-  waiting_for_approval
-  completed
-  failed
-  canceled
-}
-
-enum ApprovalStatus {
-  pending
-  approved
-  rejected
-  expired
-  canceled
-}
 
 enum BrowserExecutionStatus {
   queued
@@ -292,13 +262,8 @@ model User {
   careerProfile        CareerProfile?
   browserSessions      BrowserSession[]
   browserExecutions    BrowserExecution[]
-  executionReplays     ExecutionReplay[]
   careerMemories       CareerMemory[]
-  workflowRuns         WorkflowRun[]
-  agentRuns            AgentRun[]
-  approvalRequests     ApprovalRequest[]
   applicationArtifacts ApplicationArtifact[]
-  workflowEvents       WorkflowEvent[]
   emailCampaigns       EmailCampaign[]
   negotiationSessions  NegotiationSession[]
   ctcDecodings         CtcDecoding[]
@@ -316,13 +281,8 @@ model User {
   careerTwin           CareerTwin?
   twinMemories         TwinMemory[]
   twinInsights         TwinInsight[]
-  behavioralProfile    BehavioralProfile?
-  communicationProfile CommunicationProfile?
   careerTrajectories   CareerTrajectory[]
   outcomePredictions   OutcomePrediction[]
-  emotionalStates      EmotionalState[]
-  negotiationPatterns  NegotiationPattern[]
-  learningVelocities   LearningVelocity[]
   recruiterInteractions RecruiterInteraction[]
   twinSkillGaps        SkillGap[]
   twinSimulations      CareerSimulation[]
@@ -331,6 +291,8 @@ model User {
   interviewContributions InterviewContribution[]
   interviewMockSessions InterviewMockSession[]
   interviewSearchEvents InterviewSearchEvent[]
+  contributorReputation ContributorReputation?
+  contributionVotes     ContributionVote[]
 
   @@index([email])
 }
@@ -381,13 +343,8 @@ model CareerTwin {
   user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   memories             TwinMemory[]
   insights             TwinInsight[]
-  behavioralProfile    BehavioralProfile?
-  communicationProfile CommunicationProfile?
   trajectories         CareerTrajectory[]
   predictions          OutcomePrediction[]
-  emotionalStates      EmotionalState[]
-  negotiationPatterns  NegotiationPattern[]
-  learningVelocities   LearningVelocity[]
   recruiterInteractions RecruiterInteraction[]
   skillGaps            SkillGap[]
   simulations          CareerSimulation[]
@@ -451,47 +408,7 @@ model TwinInsight {
   @@index([twinId, status, impactScore])
 }
 
-model BehavioralProfile {
-  id                       String   @id @default(uuid()) @db.Uuid
-  twinId                   String   @unique @db.Uuid
-  userId                   String   @unique @db.Uuid
-  introversionScore        Float    @default(0.5)
-  communicationConfidence  Float    @default(0.5)
-  negotiationAggressiveness Float   @default(0.5)
-  applicationConsistency   Float    @default(0.5)
-  procrastinationRisk      Float    @default(0.3)
-  burnoutRisk              Float    @default(0.25)
-  interviewAnxiety         Float    @default(0.4)
-  learningDiscipline       Float    @default(0.5)
-  evidence                 Json     @default("[]")
-  confidence               Float    @default(0.55)
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
 
-  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model CommunicationProfile {
-  id             String   @id @default(uuid()) @db.Uuid
-  twinId         String   @unique @db.Uuid
-  userId         String   @unique @db.Uuid
-  tone           String   @default("clear")
-  clarityScore   Float    @default(0.6)
-  warmthScore    Float    @default(0.55)
-  brevityScore   Float    @default(0.55)
-  confidenceScore Float   @default(0.5)
-  recruiterFit   Json     @default("{}")
-  writingPatterns Json    @default("[]")
-  dos            String[] @default([])
-  donts          String[] @default([])
-  confidence     Float    @default(0.55)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
 
 model CareerTrajectory {
   id               String   @id @default(uuid()) @db.Uuid
@@ -540,71 +457,7 @@ model OutcomePrediction {
   @@index([subjectType, subjectId])
 }
 
-model EmotionalState {
-  id          String   @id @default(uuid()) @db.Uuid
-  twinId      String   @db.Uuid
-  userId      String   @db.Uuid
-  confidence  Float    @default(0.5)
-  momentum    Float    @default(0.5)
-  anxiety     Float    @default(0.35)
-  burnout     Float    @default(0.25)
-  motivation  Float    @default(0.55)
-  rejectionFatigue Float @default(0.2)
-  note        String?  @db.Text
-  intervention Json    @default("{}")
-  observedAt  DateTime @default(now())
-  createdAt   DateTime @default(now())
 
-  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, observedAt])
-  @@index([twinId, observedAt])
-}
-
-model NegotiationPattern {
-  id              String   @id @default(uuid()) @db.Uuid
-  twinId          String   @db.Uuid
-  userId          String   @db.Uuid
-  role            String?
-  company         String?
-  currency        String   @default("INR")
-  anchorAmount    Float?
-  finalAmount     Float?
-  aggressiveness  Float    @default(0.5)
-  successScore    Float    @default(0.5)
-  tactics         Json     @default("[]")
-  lessons         Json     @default("[]")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, createdAt])
-}
-
-model LearningVelocity {
-  id                 String   @id @default(uuid()) @db.Uuid
-  twinId             String   @db.Uuid
-  userId             String   @db.Uuid
-  skill              String
-  currentLevel       Float    @default(0.2)
-  targetLevel        Float    @default(0.8)
-  weeklyProgress     Float    @default(0)
-  estimatedWeeks     Int      @default(8)
-  learningStyle      String   @default("mixed")
-  evidence           Json     @default("[]")
-  lastMeasuredAt     DateTime @default(now())
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  twin CareerTwin @relation(fields: [twinId], references: [id], onDelete: Cascade)
-  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, skill])
-  @@index([twinId, skill])
-}
 
 model RecruiterInteraction {
   id              String   @id @default(uuid()) @db.Uuid
@@ -716,118 +569,7 @@ model CareerMemory {
   @@index([userId, createdAt])
 }
 
-model WorkflowRun {
-  id          String         @id @default(uuid()) @db.Uuid
-  userId      String         @db.Uuid
-  type        String
-  status      WorkflowStatus @default(draft)
-  goal        String
-  plan        Json?
-  policy      Json?
-  metadata    Json?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  completedAt DateTime?
 
-  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  agentRuns        AgentRun[]
-  approvalRequests ApprovalRequest[]
-  events           WorkflowEvent[]
-
-  @@index([userId, status, createdAt])
-  @@index([type, status])
-}
-
-model WorkflowEvent {
-  id         String   @id @default(uuid()) @db.Uuid
-  userId     String   @db.Uuid
-  workflowId String?  @db.Uuid
-  agentRunId String?  @db.Uuid
-  stepId     String?  @db.Uuid
-  type       String
-  source     String
-  visibility String   @default("internal")
-  payload    Json
-  traceId    String
-  sequence   BigInt   @default(autoincrement())
-  createdAt  DateTime @default(now())
-
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workflow WorkflowRun? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
-
-  @@index([userId, createdAt])
-  @@index([workflowId, sequence])
-  @@index([traceId])
-  @@index([type, createdAt])
-}
-
-model AgentRun {
-  id          String         @id @default(uuid()) @db.Uuid
-  userId      String         @db.Uuid
-  workflowId  String?        @db.Uuid
-  agentType   String
-  status      AgentRunStatus @default(planned)
-  input       Json?
-  output      Json?
-  costUsd     Float          @default(0)
-  tokenUsage  Json?
-  error       String?
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workflow WorkflowRun? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
-  steps    AgentStep[]
-
-  @@index([userId, status, createdAt])
-  @@index([workflowId, createdAt])
-  @@index([agentType, status])
-}
-
-model AgentStep {
-  id          String    @id @default(uuid()) @db.Uuid
-  agentRunId  String    @db.Uuid
-  stepType    String
-  status      String
-  summary     String
-  input       Json?
-  output      Json?
-  error       String?
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  agentRun AgentRun @relation(fields: [agentRunId], references: [id], onDelete: Cascade)
-
-  @@index([agentRunId, createdAt])
-  @@index([stepType, status])
-}
-
-model ApprovalRequest {
-  id         String         @id @default(uuid()) @db.Uuid
-  userId     String         @db.Uuid
-  workflowId String?        @db.Uuid
-  type       String
-  status     ApprovalStatus @default(pending)
-  title      String
-  summary    String
-  payload    Json
-  riskFlags  Json?
-  decision   Json?
-  expiresAt  DateTime?
-  decidedAt  DateTime?
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workflow WorkflowRun? @relation(fields: [workflowId], references: [id], onDelete: SetNull)
-
-  @@index([userId, status, createdAt])
-  @@index([workflowId, status])
-}
 
 model ApplicationArtifact {
   id            String   @id @default(uuid()) @db.Uuid
@@ -1705,41 +1447,83 @@ model RawInterviewArtifact {
 }
 
 model InterviewContribution {
-  id          String                    @id @default(uuid()) @db.Uuid
-  userId      String                    @db.Uuid
-  type        InterviewContributionType
-  status      InterviewModerationStatus @default(pending)
-  companyName String
-  roleTitle   String?
-  payload     Json
-  questionId  String?                   @db.Uuid
-  experienceId String?                  @db.Uuid
-  trustDelta  Float                     @default(0)
-  moderatorNote String?
-  createdAt   DateTime                  @default(now())
-  updatedAt   DateTime                  @updatedAt
+  id               String                    @id @default(uuid()) @db.Uuid
+  userId           String                    @db.Uuid
+  type             InterviewContributionType
+  status           InterviewModerationStatus @default(pending)
+  companyName      String
+  roleTitle        String?
+  payload          Json
+  questionId       String?                   @db.Uuid
+  experienceId     String?                   @db.Uuid
+  trustDelta       Float                     @default(0)
+  moderatorNote    String?
+  verificationTier Int                       @default(0)  // 0-3
+  upvoteCount      Int                       @default(0)
+  downvoteCount    Int                       @default(0)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
 
-  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  question   InterviewQuestion?   @relation(fields: [questionId], references: [id], onDelete: SetNull)
-  experience InterviewExperience? @relation(fields: [experienceId], references: [id], onDelete: SetNull)
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question     InterviewQuestion?      @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  experience   InterviewExperience?    @relation(fields: [experienceId], references: [id], onDelete: SetNull)
+  verification ContributionVerification?
+  votes        ContributionVote[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
   @@index([companyName])
+  @@index([verificationTier, status])
 }
 
 model ContributorReputation {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @unique @db.Uuid
-  trustScore        Float   @default(0.4)
-  acceptedCount     Int     @default(0)
-  rejectedCount     Int     @default(0)
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @unique @db.Uuid
+  trustScore         Float    @default(0.4)
+  acceptedCount      Int      @default(0)
+  rejectedCount      Int      @default(0)
+  totalPoints        Int      @default(0)
+  currentStreak      Int      @default(0)
+  longestStreak      Int      @default(0)
   verificationBadges String[] @default([])
   lastContributionAt DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([trustScore])
+  @@index([totalPoints])
+}
+
+// 4-tier verification record for a contribution
+model ContributionVerification {
+  id             String   @id @default(uuid()) @db.Uuid
+  contributionId String   @unique @db.Uuid
+  tier           Int      @default(0) // 0 unverified | 1 email | 2 document | 3 peer
+  method         String   @default("none")
+  notes          String[] @default([])
+  verifiedAt     DateTime @default(now())
+
+  contribution InterviewContribution @relation(fields: [contributionId], references: [id], onDelete: Cascade)
+
+  @@index([tier])
+}
+
+// Community trust voting on contributions
+model ContributionVote {
+  id             String   @id @default(uuid()) @db.Uuid
+  contributionId String   @db.Uuid
+  userId         String   @db.Uuid
+  type           String   // "helpful" | "not_helpful" | "inaccurate"
+  createdAt      DateTime @default(now())
+
+  contribution InterviewContribution @relation(fields: [contributionId], references: [id], onDelete: Cascade)
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([contributionId, userId])
+  @@index([contributionId, type])
+  @@index([userId])
 }
 
 model InterviewModerationEvent {
@@ -1755,6 +1539,97 @@ model InterviewModerationEvent {
 
   @@index([decision, createdAt])
   @@index([entityType, entityId])
+}
+
+// Contradiction detection alerts
+model ContradictionAlert {
+  id             String   @id @default(uuid()) @db.Uuid
+  entityType     String   // "Company" | "Question" | "Salary"
+  entityId       String
+  type           String   // "pattern_drift" | "difficulty_flip" | "salary_anomaly" | "round_count_drift" | "sudden_spike"
+  severity       String   // "soft" | "hard"
+  score          Float    @default(0)
+  details        String   @db.Text
+  shouldEscalate Boolean  @default(false)
+  resolvedAt     DateTime?
+  resolvedBy     String?  @db.Uuid
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([entityType, entityId, type])
+  @@index([severity, shouldEscalate])
+  @@index([resolvedAt])
+  @@index([createdAt])
+}
+
+// Moderation work queue item
+model ModerationQueueItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  priority     Int      @default(3)   // 0=P0 immediate, 1=P1, 2=P2, 3=P3 batch
+  queueType    String   // "fraud" | "contradiction" | "low_quality" | "verification" | "duplicate"
+  entityType   String   // "InterviewContribution" | "ContradictionAlert" etc.
+  entityId     String
+  summary      String
+  fraudScore   Float?
+  reviewerId   String?  @db.Uuid
+  status       String   @default("pending") // "pending" | "in_review" | "resolved" | "dismissed"
+  resolution   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  resolvedAt   DateTime?
+
+  @@index([priority, status, createdAt])
+  @@index([queueType, status])
+  @@index([reviewerId])
+}
+
+// Represents a synthesized intelligence snapshot
+model CompanyIntelligenceSnapshot {
+  id               String   @id @default(uuid()) @db.Uuid
+  companyId        String   @db.Uuid
+  companyName      String
+  periodStart      DateTime
+  periodEnd        DateTime
+  
+  // Synthesized Metrics
+  hiringVelocity   String   // "freeze" | "slow" | "normal" | "high"
+  avgDifficulty    Float
+  sysDesignWeight  Float
+  dsaWeight        Float
+  avgTimelineDays  Float
+  ghostingRate     Float
+
+  // Confidence & Traceability
+  confidenceScore  Float
+  confidenceInterval Json?    // e.g., [82, 91]
+  trendStability   String?  // "high" | "medium" | "volatile"
+  dataPointsCount  Int
+  
+  // Trend Deltas (vs previous snapshot)
+  signals          Json     // Array of P0/P1 insights
+  trace            Json?    // Detailed explanation trace
+  
+  createdAt        DateTime @default(now())
+
+  @@index([companyId, periodEnd])
+}
+
+// Role-specific timeline node
+model RoleIntelligenceNode {
+  id               String   @id @default(uuid()) @db.Uuid
+  companyId        String   @db.Uuid
+  normalizedRole   String   // "backend_sde2"
+  
+  // Market Compensation Tracking
+  medianBase       Int?
+  salaryTrend      String?  // "compressing" | "inflating" | "stable"
+  
+  // Loop Characteristics
+  roundDistribution Json    // { machine_coding: 0.2, sys_design: 0.4, dsa: 0.4 }
+  
+  updatedAt        DateTime @updatedAt
+  
+  @@unique([companyId, normalizedRole])
 }
 
 model InterviewPrediction {
@@ -2148,15 +2023,7 @@ model ExecutionReasoning {
   @@index([workflowId, createdAt])
 }
 
-model ExecutionReplay {
-  id           String   @id @default(uuid()) @db.Uuid
-  workflowId   String   @unique @db.Uuid
-  userId       String   @db.Uuid
-  artifactsUrl String // Location of compressed replay file
-  createdAt    DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
 
 model HiringContact {
   id           String    @id @default(uuid()) @db.Uuid

@@ -33,9 +33,10 @@ export function CollegeEqualizerPanel({
       });
       if (res.error) throw new Error(res.error);
       
-      setTier(res.data.tier);
-      if (res.data.suggestion) {
-        setSuggestion(res.data.suggestion);
+      const data = res.data as any;
+      setTier(data.tier);
+      if (data.suggestion) {
+        setSuggestion(data.suggestion);
       }
       setStatus("success");
     } catch (err) {

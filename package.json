@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",
+    "@ai-sdk/google": "^3.0.79",
     "@ai-sdk/react": "^3.0.186",
     "@auth/prisma-adapter": "^2.11.2",
     "@bull-board/api": "^7.0.0",

@@ -1,5 +1,4 @@
 import type { MockInterviewMetadata } from "@/lib/coach/types";
-import { CompanyIntelligenceService } from "@/lib/services/company-intelligence.service";
 
 export const DEFAULT_MOCK_METADATA: MockInterviewMetadata = {
   phase: "setup",
@@ -24,28 +23,6 @@ export function parseMockMetadata(raw: unknown): MockInterviewMetadata | null {
   if (typeof obj.company === "string") meta.company = obj.company;
   if (typeof obj.companyContext === "string") meta.companyContext = obj.companyContext;
   return meta;
-}
-
-export async function enrichMockMetadataWithCompany(
-  metadata: MockInterviewMetadata
-): Promise<MockInterviewMetadata> {
-  if (!metadata.company || metadata.companyContext) return metadata;
-
-  try {
-    const intel = await CompanyIntelligenceService.generateReport(metadata.company);
-    const interview = intel.interviewProcess as Record<string, unknown> | null;
-    const parts = [
-      `Company: ${metadata.company}`,
-      intel.glassdoorRating ? `Glassdoor-style rating signal: ${intel.glassdoorRating}/5` : null,
-      interview?.format ? `Interview format: ${interview.format}` : null,
-      interview?.rounds ? `Typical rounds: ${interview.rounds}` : null,
-      interview?.difficulty ? `Difficulty: ${interview.difficulty}` : null,
-    ].filter(Boolean);
-
-    return { ...metadata, companyContext: parts.join("\n") };
-  } catch {
-    return metadata;
-  }
 }
 
 const META_REGEX = /<!--coach-meta:(\{[\s\S]*?\})-->/;

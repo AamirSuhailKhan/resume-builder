@@ -30,7 +30,7 @@ export function useEventSource(url: string | null, options: EventSourceOptions =
         if (options.onMessage) options.onMessage(event);
       };
 
-      es.onerror = (error) => {
+      es.onerror = (error: any) => {
         if (error instanceof Event) {
           console.error("[SSE ERROR EVENT]", {
             type: error?.type,

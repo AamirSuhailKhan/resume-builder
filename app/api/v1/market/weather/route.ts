@@ -45,7 +45,9 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await MarketWeatherService.generateWeeklyReport(role, industry, location);
+    const finalRole = role || "Software Engineer";
+    const finalLocation = location || "Remote";
+    const result = await MarketWeatherService.generateWeeklyReport(finalRole, industry, finalLocation);
     return NextResponse.json({ data: result, error: null });
   } catch (err) {
     console.error("[MarketWeatherAPI] Error generating report", err);

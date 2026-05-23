@@ -1,8 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { AiAutoApplyPayload, AiJobIntelligencePayload, AiPortfolioPayload } from "@/lib/queue/types";
-import { WorkflowExecutor } from "@/lib/orchestration/executor";
-import { WorkflowStateManager } from "@/lib/orchestration/state-manager";
+
 
 function extractTerms(text: string, terms: string[]) {
   const lower = text.toLowerCase();
@@ -69,57 +68,7 @@ export async function handleAutoApply(payload: AiAutoApplyPayload) {
     data: { status: "processing", attempts: { increment: 1 }, lastError: null },
   });
 
-  const payloadRecord = asRecord(payload);
-  const workflowRunId =
-    stringField(payloadRecord, "workflowRunId") ??
-    stringField(jobRecord.payload, "workflowRunId");
 
-  if (workflowRunId) {
-    const traceId =
-      stringField(payloadRecord, "traceId") ??
-      stringField(jobRecord.payload, "traceId") ??
-      crypto.randomUUID();
-    const executor = new WorkflowExecutor();
-
-    try {
-      const result = await executor.execute({
-        userId: payload.userId,
-        workflowId: workflowRunId,
-        requestedBy: "worker",
-        traceId,
-      });
-
-      await prisma.job.update({
-        where: { id: payload.jobRecordId },
-        data: {
-          status: "completed",
-          completedAt: new Date(),
-          payload: {
-            ...asRecord(jobRecord.payload),
-            ...payloadRecord,
-            workflowRunId,
-            result,
-          } as Prisma.InputJsonValue,
-        },
-      });
-
-      return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Auto-apply workflow failed";
-      await prisma.job.update({
-        where: { id: payload.jobRecordId },
-        data: { status: "failed", lastError: message },
-      }).catch(() => undefined);
-      await WorkflowStateManager.transitionWorkflow({
-        userId: payload.userId,
-        workflowId: workflowRunId,
-        status: "failed",
-        traceId,
-        reason: message,
-      }).catch(() => undefined);
-      throw error;
-    }
-  }
 
   const application = await prisma.application.create({
     data: {

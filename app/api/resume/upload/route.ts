@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db/prisma";
 import { normalizeResume } from "@/lib/normalizeResume";
 import { validateUpload } from "@/lib/security/upload";
 import { createClient } from "@/lib/supabaseServer";
+import { analyzeOnboardingResume } from "@/lib/detectProfile";
 
 export const runtime = "nodejs";
 
@@ -187,9 +188,12 @@ export async function POST(request: Request) {
 
     await invalidateCoachPrompt(userId).catch(() => undefined);
 
+    const profileAnalysis = analyzeOnboardingResume(parsedData);
+
     return NextResponse.json({
       resumeId: resume.id,
       previewData: parsedData,
+      analysis: profileAnalysis,
     });
   } catch (error) {
     console.error("[ResumeUpload] Upload pipeline failed", error);

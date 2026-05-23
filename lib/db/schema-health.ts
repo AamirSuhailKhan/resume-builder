@@ -23,9 +23,6 @@ const CANARY_PROBES: Array<{ table: string; probe: () => Promise<unknown> }> = [
   { table: "AIUsage", probe: () => prisma.aIUsage.count() },
   { table: "Application", probe: () => prisma.application.count() },
   { table: "JobOpportunity", probe: () => prisma.jobOpportunity.count() },
-  { table: "WorkflowRun", probe: () => prisma.workflowRun.count() },
-  { table: "AgentRun", probe: () => prisma.agentRun.count() },
-  { table: "ApprovalRequest", probe: () => prisma.approvalRequest.count() },
   { table: "CareerProfile", probe: () => prisma.careerProfile.count() },
   { table: "CareerMemory", probe: () => prisma.careerMemory.count() },
 ];

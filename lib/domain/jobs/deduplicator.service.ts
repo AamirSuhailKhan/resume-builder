@@ -5,9 +5,9 @@ import crypto from "crypto";
 export interface NormalizedProviderJob {
   title: string;
   company: string;
-  location?: string;
+  location?: string | null;
   remote?: boolean;
-  employmentType?: string;
+  employmentType?: string | null;
   source: string;
   sourceUrl: string;
   externalId?: string;
@@ -100,7 +100,7 @@ export class JobDeduplicator {
     const normCompany = this.normalizeCompany(job.company);
     const normTitle = this.normalizeTitle(job.title);
     const normLocation = this.normalizeLocation(job.location || "");
-    const hash = this.generateHash(job.company, job.title, job.location);
+    const hash = this.generateHash(job.company, job.title, job.location || undefined);
 
     // Layer 1: Exact Match (Hash or Exact URL)
     const exactMatch = await prisma.canonicalJob.findFirst({

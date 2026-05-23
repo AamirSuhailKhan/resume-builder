@@ -1,9 +1,8 @@
-import { anthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
 import type { UIMessage } from "ai";
 import { convertToModelMessages, streamText } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { INTERVIEW_MODEL } from "@/app/api/interview/_lib/claude";
 import { CoachPaywallError, requirePro } from "@/lib/auth/require-pro";
 import { buildCoachSystemPrompt } from "@/lib/coach-context";
 import {
@@ -94,14 +93,17 @@ export async function POST(req: NextRequest) {
       metadata: metadata ?? undefined,
     });
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ error: "AI service is not configured." }, { status: 503 });
     }
+
+    // Map GEMINI_API_KEY to GOOGLE_GENERATIVE_AI_API_KEY for `@ai-sdk/google`
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY = process.env.GEMINI_API_KEY;
 
     const modelMessages = await convertToModelMessages(messages);
 
     const result = streamText({
-      model: anthropic(INTERVIEW_MODEL),
+      model: google("gemini-2.0-flash"),
       system,
       messages: modelMessages,
       maxOutputTokens: 4096,

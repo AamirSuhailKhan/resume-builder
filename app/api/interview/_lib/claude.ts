@@ -93,6 +93,7 @@ export async function callClaudeJson<T>({
   system,
   user,
   maxTokens = 2500,
+  model,
 }: {
   system: string;
   user: string;

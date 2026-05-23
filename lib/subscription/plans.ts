@@ -1,4 +1,4 @@
-import type { SubscriptionPlan } from "@prisma/client";
+export type SubscriptionPlan = "free" | "pro" | "enterprise";
 
 export const COACH_DAILY_LIMITS: Record<SubscriptionPlan, number> = {
   free: 0,
@@ -20,3 +20,4 @@ export function meetsPlan(current: SubscriptionPlan | null | undefined, required
 export function getCoachDailyLimit(plan: SubscriptionPlan | null | undefined): number {
   return COACH_DAILY_LIMITS[plan ?? "free"];
 }
+

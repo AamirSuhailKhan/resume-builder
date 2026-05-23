@@ -62,13 +62,15 @@ export default function JobOptimizerPage() {
     [resumeIds, resumesById]
   );
 
+  const [mounted, setMounted] = useState(false);
   const hydrated = useRef(false);
   useEffect(() => {
+    setMounted(true);
     if (!hydrated.current) {
       hydrate();
       hydrated.current = true;
     }
-  }, []);
+  }, [hydrate]);
 
   const [selectedId, setSelectedId] = useState("");
   const [job, setJob] = useState("");
@@ -133,6 +135,15 @@ export default function JobOptimizerPage() {
       // In a real app, parse PDF to text and create a temporary resume object
     }
   };
+
+  if (!mounted) {
+    return (
+      <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+        <div className="text-sm font-medium text-gray-400">Loading Optimizer...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 md:p-12 max-w-6xl mx-auto space-y-12 pb-24 font-sans">

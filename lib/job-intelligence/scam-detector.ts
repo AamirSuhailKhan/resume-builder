@@ -37,10 +37,10 @@ export class ScamJobDetector {
     if (benchmarkKey && job.salaryRange) {
       // Very naive extraction of the first large number (assumed INR for India context if it's large)
       const match = job.salaryRange.match(/(\d{5,})/);
-      if (match) {
+      if (match && match[1]) {
         const salaryVal = parseInt(match[1], 10);
         // @ts-ignore
-        const median = salaryBenchmarks[benchmarkKey]?.INR?.median;
+        const median = (salaryBenchmarks as any)[benchmarkKey]?.INR?.median;
         if (median && salaryVal > median * 3) {
           salaryScore = 20;
           signals.push("Unrealistically high salary (3x+ market median)");

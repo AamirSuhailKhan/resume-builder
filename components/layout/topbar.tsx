@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ApprovalBell } from "@/components/approvals/ApprovalBell";
 
+const SHOW_TWIN = false; // Hook for future reactivation
+
 const titles: Record<string, string> = {
   "/dashboard": "Command Center",
   "/twin": "AI Career Twin",
@@ -30,7 +32,7 @@ const journeyNav = [
   { label: "Apply", href: "/auto-apply" },
   { label: "Prepare", href: "/interview" },
   { label: "Negotiate", href: "/negotiation" },
-  { label: "Twin", href: "/twin" },
+  ...(SHOW_TWIN ? [{ label: "Twin", href: "/twin" }] : []),
 ];
 
 export function Topbar() {

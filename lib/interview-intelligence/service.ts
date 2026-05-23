@@ -12,8 +12,6 @@ import { getRedisClient } from "@/lib/redis";
 import { INDIA_COMPANIES_DATA } from "@/lib/data/india-companies-seed";
 import { AIModelRouter } from "@/lib/ai/providers";
 import { memoryService } from "@/lib/services/memory.service";
-import { CareerTwinService } from "@/lib/twin/career-twin.service";
-import { OrchestrationEventBus } from "@/lib/orchestration/events";
 import { indexInterviewQuestion } from "@/lib/search/interview.search";
 import {
   clamp,
@@ -478,7 +476,7 @@ export class InterviewIntelligenceService {
   static async getCompanyTerminal(companyName: string, roleTitle?: string | undefined, userId?: string | undefined) {
     const company = await this.upsertCompany(companyName);
     const role = roleTitle ? await this.upsertRole(company.id, roleTitle, getRoleLevel(roleTitle)) : null;
-    const [questions, experiences, recruiterPatterns, salaries, selectionPatterns, trends, prediction] = await Promise.all([
+    const [questions, experiences, recruiterPatterns, salaries, selectionPatterns, trends, prediction, user, contributionCount] = await Promise.all([
       prisma.questionFrequency.findMany({
         where: { companyId: company.id, ...(role ? { companyRoleId: role.id } : {}) },
         include: { question: { include: { solution: true } }, companyRole: true },
@@ -501,9 +499,13 @@ export class InterviewIntelligenceService {
         roleTitle?: string | undefined;
         userId?: string | undefined;
       }),
+      userId ? prisma.user.findUnique({ where: { id: userId }, select: { plan: true } }) : Promise.resolve(null),
+      userId ? prisma.interviewContribution.count({ where: { userId } }) : Promise.resolve(0),
     ]);
 
     const mix = topicMix(questions.map((item) => item.question.kind));
+    const hasUnlocked = user ? (user.plan !== "free" || contributionCount > 0) : false;
+
     return {
       company,
       role,
@@ -515,6 +517,7 @@ export class InterviewIntelligenceService {
       difficultyTrends: trends,
       questionMix: mix,
       prediction,
+      hasUnlocked,
       prepPlan: buildPrepPlan(compact({ companyName, roleTitle, questions: questions.map((item) => item.question), prediction }) as {
         companyName: string;
         roleTitle?: string | undefined;
@@ -702,16 +705,6 @@ export class InterviewIntelligenceService {
       });
     }
 
-    await OrchestrationEventBus.publish(userId, {
-      type: "agent.completed",
-      source: "interview_intelligence",
-      visibility: "user_visible",
-      payload: {
-        title: "Interview contribution processed",
-        status: moderation.status,
-        companyName: input.companyName,
-      },
-    }).catch(() => undefined);
 
     return contribution;
   }
@@ -766,31 +759,12 @@ export class InterviewIntelligenceService {
   }
 
   private static async personalizationTerms(userId?: string) {
-    if (!userId) return [];
-    try {
-      const twin = await CareerTwinService.getSnapshot(userId);
-      return [
-        ...Object.values(twin.professionalIdentity as JsonRecord).map(String),
-        ...((twin.skillGaps ?? []) as Array<{ skill?: string }>).map((gap) => gap.skill).filter(Boolean).map(String),
-      ].slice(0, 12);
-    } catch {
-      return [];
-    }
+    return [];
   }
 
   private static async weakAreas(userId: string | undefined, results: InterviewSearchResult[]) {
     const topics = Array.from(new Set(results.map((result) => result.question.topic).filter(Boolean).map(String)));
-    if (!userId) return topics.slice(0, 3).map((topic) => ({ topic, reason: "High company frequency", confidence: 0.52 }));
-    try {
-      const twin = await CareerTwinService.getSnapshot(userId);
-      const gaps = ((twin.skillGaps ?? []) as Array<{ skill?: string; priority?: number }>).slice(0, 4);
-      return [
-        ...gaps.map((gap) => ({ topic: gap.skill ?? "Interview skill", reason: "Career Twin skill gap", confidence: gap.priority ?? 0.6 })),
-        ...topics.slice(0, 3).map((topic) => ({ topic, reason: "Company pattern", confidence: 0.52 })),
-      ].slice(0, 5);
-    } catch {
-      return topics.slice(0, 3).map((topic) => ({ topic, reason: "High company frequency", confidence: 0.52 }));
-    }
+    return topics.slice(0, 3).map((topic) => ({ topic, reason: "High company frequency", confidence: 0.52 }));
   }
 }
 

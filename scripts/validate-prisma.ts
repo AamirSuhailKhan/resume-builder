@@ -16,10 +16,7 @@ async function main() {
     "twinMemory",
     "twinInsight",
     "outcomePrediction",
-    "careerSimulation",
-    "emotionalState",
-    "agentRun",
-    "workflowRun"
+    "careerSimulation"
   ] as const;
 
   let missingModels = false;

@@ -3,6 +3,8 @@
  * Handles install events and cross-tab messaging.
  */
 
+declare const chrome: any;
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log("[CareerOS] Extension installed.");
 });

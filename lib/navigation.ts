@@ -83,8 +83,6 @@ export const NAV_ITEMS: NavGroup[] = [
     color: "text-slate-400",
     items: [
       { title: "Analytics", href: "/analytics", icon: BarChart3 },
-      { title: "Agent Runs", href: "/agents", icon: GitBranch },
-      { title: "AI Career Twin", href: "/twin", icon: BrainCircuit, badge: "Brain" },
     ],
   },
 ];

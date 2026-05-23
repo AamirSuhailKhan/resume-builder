@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { MemoryRetriever } from "@/lib/orchestration/memory";
+
 import { getCachedCoachPrompt, setCachedCoachPrompt } from "@/lib/coach/cache";
 import { inferCollegeTier } from "@/lib/coach/college-tier";
 import { getMarketContextForRole } from "@/lib/coach/market-context";
@@ -12,10 +12,8 @@ import {
 import { analyzeRejectionPatterns } from "@/lib/coach/rejection-patterns";
 import { computeResumeAbTest } from "@/lib/coach/resume-ab-test";
 import type { MockInterviewMetadata } from "@/lib/coach/types";
-import {
-  enrichMockMetadataWithCompany,
-  parseMockMetadata,
-} from "@/lib/coach/mock-interview";
+import { enrichMockMetadataWithCompany } from "@/lib/coach/mock-interview-server";
+import { parseMockMetadata } from "@/lib/coach/mock-interview";
 
 function firstName(name: string | null | undefined, email: string): string {
   if (name?.trim()) return name.trim().split(/\s+/)[0]!;
@@ -77,7 +75,7 @@ export async function buildCoachSystemPrompt(
 
   if (cached && !mockAppendix) return cached;
 
-  const [user, careerProfile, resumes, applications, existingInsight, memories] = await Promise.all([
+  const [user, careerProfile, resumes, applications, existingInsight] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: { name: true, email: true, plan: true },
@@ -95,8 +93,9 @@ export async function buildCoachSystemPrompt(
       take: 20,
     }),
     prisma.coachInsight.findUnique({ where: { userId } }),
-    MemoryRetriever.retrieve({ userId, intent: "coaching", limit: 5 }),
   ]);
+
+  const memories: any[] = [];
 
   const email = user?.email ?? "user@example.com";
   const userFirstName = firstName(user?.name, email);

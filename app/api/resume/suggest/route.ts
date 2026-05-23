@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { normalizeResume } from "@/lib/normalizeResume";
 import { apiError, errorToResponse } from "@/lib/api/response";
 import type { ResumeData } from "@/lib/storage";
-import type { ResumeSuggestion, SuggestionSection, SuggestionSession } from "@/types/suggestions";
+import type { ResumeSuggestion, SuggestionSection, SuggestionSession, ResumeIntelligenceData } from "@/types/suggestions";
 
 export const runtime = "nodejs";
 
@@ -162,13 +162,152 @@ function sanitizeAiSuggestions(raw: unknown, resumeId?: string): ResumeSuggestio
   }).slice(0, 12);
 }
 
+function fallbackIntelligence(resume: ResumeData, jobDescription = ""): ResumeIntelligenceData {
+  const missingSkills = keywordsFromJob(jobDescription, resume.skills);
+  const totalExperiencePoints = resume.experience.map(e => e.points).join("\n");
+  const metricMatches = totalExperiencePoints.match(/\d+%/g) || [];
+  const metricsCount = metricMatches.length;
+
+  const weaknesses = [];
+  if (metricsCount < 3) {
+    weaknesses.push({
+      id: "metric_density",
+      issue: "Low metric density in experience bullets",
+      severity: "critical" as const,
+      section: "experience",
+      recommendation: "Quantify achievements using the X-Y-Z formula. E.g. 'Accomplished [X] as measured by [Y], by doing [Z]' rather than describing responsibilities."
+    });
+  }
+  if (resume.skills.length < 5) {
+    weaknesses.push({
+      id: "skills_sparse",
+      issue: "Sparse skills matrix",
+      severity: "moderate" as const,
+      section: "skills",
+      recommendation: "Ensure core technologies, frameworks, and libraries are explicitly listed to survive automated parsing."
+    });
+  }
+  if (missingSkills.length > 2) {
+    weaknesses.push({
+      id: "skills_gap",
+      issue: `Missing critical tech tags: ${missingSkills.slice(0, 3).join(", ")}`,
+      severity: "critical" as const,
+      section: "skills",
+      recommendation: "Integrate these technical keywords in both your skills list and experience section if you have worked with them."
+    });
+  }
+
+  const scanTime = totalExperiencePoints.split(/\s+/).length > 300 ? 5.8 : 7.2;
+
+  return {
+    callbackProbability: {
+      before: 35 + Math.min(metricsCount * 5 + resume.skills.length * 2, 35),
+      after: 82
+    },
+    dimensions: {
+      technicalDepth: { before: 60, after: 85, feedback: "Tech stacks are mentioned but lack architectural context and version highlights." },
+      achievementFraming: { before: 50, after: 80, feedback: "Several bullets lead with passive verbs (e.g. 'helped', 'worked on') instead of strong impact verbs." },
+      atsCompatibility: { before: 75, after: 90, feedback: "Format is parsable but lacks specific technical keywords specified in the job description." },
+      recruiterPsychology: { before: 55, after: 82, feedback: "First 6-second scan reveals high text block density, which increases friction." },
+      marketCompetitiveness: { before: 62, after: 85, feedback: "Aligns decently with mid-tier product expectations, but needs specific outcomes for Tier-1 competitiveness." }
+    },
+    weaknesses,
+    recruiterScannability: {
+      scanTimeSeconds: scanTime,
+      readabilityScore: 68,
+      topTakeaways: [
+        "Has solid experience but fails to highlight primary ownership.",
+        "Core skills section is visible, but keywords are unranked.",
+        "Academic credentials align with general standards."
+      ],
+      criticalFrictionPoints: [
+        "Generic phrases reduce perceived senior-level command.",
+        "Missing specific metric outcomes makes claims harder to trust."
+      ]
+    },
+    indiaMarketFit: {
+      tierMatch: "Tier 2 Product",
+      targetMatchPercentage: 70,
+      skillsGap: missingSkills.slice(0, 4),
+      recommendedSteps: [
+        "Reframe experience statements to lead with action verbs.",
+        "Explicitly list database and cloud stacks in experience bullets.",
+        "Incorporate missing core libraries."
+      ]
+    }
+  };
+}
+
+function sanitizeIntelligence(raw: unknown, resume: ResumeData, jobDescription: string): ResumeIntelligenceData {
+  const rec = asRecord(raw);
+  const cb = asRecord(rec.callbackProbability);
+  const dim = asRecord(rec.dimensions);
+  const scannability = asRecord(rec.recruiterScannability);
+  const fit = asRecord(rec.indiaMarketFit);
+
+  const defaultIntel = fallbackIntelligence(resume, jobDescription);
+
+  const sanitizeDim = (val: unknown, def: { before: number; after: number; feedback: string }) => {
+    const r = asRecord(val);
+    return {
+      before: clampScore(r.before) ?? def.before,
+      after: clampScore(r.after) ?? def.after,
+      feedback: toText(r.feedback) || def.feedback
+    };
+  };
+
+  const rawWeaknesses = Array.isArray(rec.weaknesses) ? rec.weaknesses : [];
+  const weaknesses = rawWeaknesses.flatMap((w) => {
+    const r = asRecord(w);
+    const issue = toText(r.issue);
+    if (!issue) return [];
+    return {
+      id: toText(r.id) || randomUUID(),
+      issue,
+      severity: (["critical", "moderate", "low"].includes(toText(r.severity)) ? toText(r.severity) : "moderate") as "critical" | "moderate" | "low",
+      section: toText(r.section) || "experience",
+      recommendation: toText(r.recommendation) || "Optimize this section for clarity."
+    };
+  });
+
+  return {
+    callbackProbability: {
+      before: clampScore(cb.before) ?? defaultIntel.callbackProbability.before,
+      after: clampScore(cb.after) ?? defaultIntel.callbackProbability.after
+    },
+    dimensions: {
+      technicalDepth: sanitizeDim(dim.technicalDepth, defaultIntel.dimensions.technicalDepth),
+      achievementFraming: sanitizeDim(dim.achievementFraming, defaultIntel.dimensions.achievementFraming),
+      atsCompatibility: sanitizeDim(dim.atsCompatibility, defaultIntel.dimensions.atsCompatibility),
+      recruiterPsychology: sanitizeDim(dim.recruiterPsychology, defaultIntel.dimensions.recruiterPsychology),
+      marketCompetitiveness: sanitizeDim(dim.marketCompetitiveness, defaultIntel.dimensions.marketCompetitiveness)
+    },
+    weaknesses: weaknesses.length > 0 ? weaknesses : defaultIntel.weaknesses,
+    recruiterScannability: {
+      scanTimeSeconds: typeof scannability.scanTimeSeconds === "number" ? scannability.scanTimeSeconds : defaultIntel.recruiterScannability.scanTimeSeconds,
+      readabilityScore: clampScore(scannability.readabilityScore) ?? defaultIntel.recruiterScannability.readabilityScore,
+      topTakeaways: Array.isArray(scannability.topTakeaways) ? scannability.topTakeaways.map(toText).filter(Boolean) : defaultIntel.recruiterScannability.topTakeaways,
+      criticalFrictionPoints: Array.isArray(scannability.criticalFrictionPoints) ? scannability.criticalFrictionPoints.map(toText).filter(Boolean) : defaultIntel.recruiterScannability.criticalFrictionPoints
+    },
+    indiaMarketFit: {
+      tierMatch: (["Tier 1 Product", "Tier 2 Product", "Service/Consulting", "Early-Stage Startup"].includes(toText(fit.tierMatch))
+        ? toText(fit.tierMatch)
+        : defaultIntel.indiaMarketFit.tierMatch) as any,
+      targetMatchPercentage: clampScore(fit.targetMatchPercentage) ?? defaultIntel.indiaMarketFit.targetMatchPercentage,
+      skillsGap: Array.isArray(fit.skillsGap) ? fit.skillsGap.map(toText).filter(Boolean) : defaultIntel.indiaMarketFit.skillsGap,
+      recommendedSteps: Array.isArray(fit.recommendedSteps) ? fit.recommendedSteps.map(toText).filter(Boolean) : defaultIntel.indiaMarketFit.recommendedSteps
+    }
+  };
+}
+
 async function getAiSuggestions(resume: ResumeData, jobDescription: string, userId: string) {
   if (!process.env.GEMINI_API_KEY) return null;
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const prompt = `
-You are a resume editor. Return only JSON.
-Create concise, field-level resume suggestions for the target job.
+You are a senior technical recruiter and resume intelligence expert. Return only JSON.
+Analyze this resume against the target job description. Generate concise, field-level suggestions for optimization, as well as a multi-dimensional recruiter-informed audit of the resume.
+
 Use paths from this schema only:
 - personal.summary
 - personal.name
@@ -179,19 +318,53 @@ Use paths from this schema only:
 
 Do not fabricate employers, degrees, dates, or exact metrics. If metrics are useful, phrase them as editable suggestions.
 
-Return this shape:
+Return exactly this JSON structure:
 {
   "scores": { "before": number, "after": number },
+  "intelligence": {
+    "callbackProbability": {
+      "before": number,
+      "after": number
+    },
+    "dimensions": {
+      "technicalDepth": { "before": number, "after": number, "feedback": "Evaluation of tech stacks, frameworks, and tools vs target job requirements." },
+      "achievementFraming": { "before": number, "after": number, "feedback": "Evaluation of metric density and outcome-oriented phrasing." },
+      "atsCompatibility": { "before": number, "after": number, "feedback": "Parseability score, formatting, structural compliance." },
+      "recruiterPsychology": { "before": number, "after": number, "feedback": "Scanability, readability, impact delivery." },
+      "marketCompetitiveness": { "before": number, "after": number, "feedback": "Competitiveness check in the Indian developer market." }
+    },
+    "weaknesses": [
+      {
+        "id": "weakness_1",
+        "issue": "Brief description of weakness",
+        "severity": "critical",
+        "section": "experience",
+        "recommendation": "How to resolve this"
+      }
+    ],
+    "recruiterScannability": {
+      "scanTimeSeconds": number,
+      "readabilityScore": number,
+      "topTakeaways": ["String list of 3-4 points a recruiter notices in first glance"],
+      "criticalFrictionPoints": ["String list of concerns or reasons for rejection"]
+    },
+    "indiaMarketFit": {
+      "tierMatch": "Tier 1 Product",
+      "targetMatchPercentage": number,
+      "skillsGap": ["List of missing in-demand skills in Indian hiring landscape"],
+      "recommendedSteps": ["Actionable checklist of next steps"]
+    }
+  },
   "suggestions": [
     {
-      "section": "summary|experience|education|skills|personal|other",
+      "section": "summary",
       "path": "personal.summary",
       "original": "existing exact text when available",
       "suggested": "replacement text",
-      "rationale": "why",
-      "impact": "expected effect",
-      "confidence": 0.7,
-      "scoreDelta": 4
+      "rationale": "recruiter psychological rationale for the shift",
+      "impact": "expected impact on scannability",
+      "confidence": 0.85,
+      "scoreDelta": 5
     }
   ]
 }
@@ -258,7 +431,7 @@ export async function POST(req: NextRequest) {
       title: storedResume?.title ?? asRecord(rawResume).title,
     });
 
-    let aiResult: unknown = null;
+    let aiResult: any = null;
     try {
       aiResult = await getAiSuggestions(resume, jobDescription, userId);
     } catch (error) {
@@ -289,6 +462,10 @@ export async function POST(req: NextRequest) {
     if (before !== undefined && after !== undefined) {
       session.scores = { before, after };
     }
+
+    // Process intelligence audit
+    const rawIntel = aiResult?.intelligence;
+    session.intelligence = sanitizeIntelligence(rawIntel, resume, jobDescription);
 
     return NextResponse.json({ data: session, error: null });
   } catch (error) {
