@@ -1,7 +1,7 @@
 "use client";
 
 import type { UIMessage } from "ai";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CoachChat } from "@/components/coach/CoachChat";
 import { CoachInput } from "@/components/coach/CoachInput";
 import { CoachPaywall } from "@/components/coach/CoachPaywall";
@@ -33,7 +33,7 @@ export function CoachShell({
   const isPro = meetsPlan(plan, "pro");
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
-  const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
+  const [sessionId, setSessionId] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
   const [demoMessages, setDemoMessages] = useState<UIMessage[]>(
@@ -41,6 +41,8 @@ export function CoachShell({
   );
  
   const chat = useCoachChat(sessionId, []);
+  // Guard against concurrent session-creation races
+  const creatingSessionRef = useRef(false);
  
   const displayMessages = isPro ? chat.messages : demoMessages;
   const isLoading = isPro && (chat.status === "streaming" || chat.status === "submitted");
@@ -77,11 +79,22 @@ export function CoachShell({
   }, [isPro, chat.status, refreshSessions, refreshUsage]);
 
   async function createSession(): Promise<string> {
-    const res = await fetch("/api/v1/coach/sessions", { method: "POST" });
-    const data = await res.json();
-    const id = data.session?.id as string;
-    await refreshSessions();
-    return id;
+    if (creatingSessionRef.current) {
+      // Wait briefly and return current sessionId to avoid duplicate creation
+      await new Promise((r) => setTimeout(r, 300));
+      return sessionId;
+    }
+    creatingSessionRef.current = true;
+    try {
+      const res = await fetch("/api/v1/coach/sessions", { method: "POST" });
+      if (!res.ok) throw new Error("Failed to create session");
+      const data = await res.json();
+      const id = data.session?.id as string;
+      await refreshSessions();
+      return id;
+    } finally {
+      creatingSessionRef.current = false;
+    }
   }
 
   async function handleNewChat() {
@@ -136,7 +149,15 @@ export function CoachShell({
       await patchSessionMode(id, "mock_interview");
     }
 
-    await chat.sendMessage({ text }, { body: { sessionId: id } });
+    // Update sessionId state first so transport.body is rebuilt before send
+    if (id !== sessionId) {
+      setSessionId(id);
+      // Tiny yield — React batches state + re-renders the transport before the
+      // SDK initiates the POST, so the correct sessionId is sent.
+      await new Promise((r) => setTimeout(r, 0));
+    }
+
+    chat.sendMessage({ text });
   }
 
   async function handleSaveNote(content: string) {
@@ -155,6 +176,16 @@ export function CoachShell({
       });
     }
   }, [isPro, loadingSessions, sessions.length]);
+
+  useEffect(() => {
+    if (isPro && !loadingSessions && sessions.length > 0) {
+      const exists = sessions.some((s) => s.id === sessionId);
+      const firstSession = sessions[0];
+      if (!exists && sessionId === "" && firstSession) {
+        void loadSession(firstSession.id);
+      }
+    }
+  }, [isPro, loadingSessions, sessions, sessionId]);
 
   const showPaywall = !isPro && demoMessages.length >= 3;
 

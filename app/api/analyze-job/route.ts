@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/session";
 import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
 import { errorToResponse } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
+import { safeParseAIJson } from "@/lib/ai/recovery";
 
 export const runtime = "nodejs";
 
@@ -76,7 +77,15 @@ ${jobDescription}
     });
 
     const raw = response.text ?? '{}';
-    const result = JSON.parse(raw);
+    const result = safeParseAIJson(raw, {
+      required_skills: [],
+      optional_skills: [],
+      keywords: [],
+      responsibilities: [],
+      seniority: "",
+      hidden_expectations: [],
+      industry_signals: []
+    });
 
     const payload = {
       required_skills: Array.isArray(result?.required_skills) ? result.required_skills.map(String) : [],

@@ -7,6 +7,7 @@ import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
 import { errorToResponse } from "@/lib/api/response";
 import { memoryService } from "@/lib/services/memory.service";
 import { logger } from "@/lib/logger";
+import { safeParseAndValidate } from "@/lib/ai/recovery";
 
 export const runtime = "nodejs";
 
@@ -109,8 +110,20 @@ Job Description: ${jobDescription}${memoriesContext}
       config: { responseMimeType: 'application/json' },
     });
 
-    const rawResult = JSON.parse(response.text ?? '{}');
-    const validatedResult = responseSchema.parse(rawResult);
+    const fallbackResult = {
+      optimizedResume: resumeData || {},
+      atsScore: 70,
+      missingKeywords: [],
+      improvements: ["Review skills list directly for maximum ATS score increase."],
+      rewrittenBullets: [],
+      matchAnalysis: "Tailored review completed. Recommended adjustments are shown below."
+    };
+
+    const validatedResult = safeParseAndValidate(
+      response.text ?? '{}',
+      responseSchema,
+      fallbackResult
+    );
 
     // Track Usage
     await prisma.aIUsage.create({

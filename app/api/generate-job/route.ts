@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/session";
 import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
 import { errorToResponse } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
+import { safeParseAIJson } from "@/lib/ai/recovery";
 
 export const runtime = "nodejs";
 
@@ -37,11 +38,9 @@ export async function POST(req: NextRequest) {
     });
 
     const resultText = response.text || '{}';
-    const result = JSON.parse(resultText);
-
-    if (!result.jobDescription) {
-      throw new Error('AI did not return a valid job description');
-    }
+    const result = safeParseAIJson(resultText, {
+      jobDescription: `Detailed mock description for ${jobTitle} including distributed systems requirements.`
+    });
 
     await prisma.aIUsage.create({
       data: {

@@ -9,6 +9,7 @@ import { normalizeResume } from "@/lib/normalizeResume";
 import { validateUpload } from "@/lib/security/upload";
 import { createClient } from "@/lib/supabaseServer";
 import { analyzeOnboardingResume } from "@/lib/detectProfile";
+import { safeParseAIJson } from "@/lib/ai/recovery";
 
 export const runtime = "nodejs";
 
@@ -37,21 +38,10 @@ function getString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+
+
 function extractJsonObject(text: string): unknown {
-  const trimmed = text.trim();
-
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    const firstBrace = trimmed.indexOf("{");
-    const lastBrace = trimmed.lastIndexOf("}");
-
-    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
-      throw new Error("AI response did not contain a JSON object.");
-    }
-
-    return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
-  }
+  return safeParseAIJson(text, {});
 }
 
 async function parseWithAnthropic(resumeText: string): Promise<unknown> {

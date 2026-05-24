@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/session";
 import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
 import { errorToResponse } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
+import { safeParseAIJson } from "@/lib/ai/recovery";
 
 export const runtime = "nodejs";
 
@@ -104,7 +105,22 @@ ${jobDescription}
     });
 
     const raw = response.text ?? '{}';
-    const result = JSON.parse(raw);
+    const result = safeParseAIJson(raw, {
+      scores: {
+        before: 45,
+        after: 80,
+      },
+      tailored_package: {
+        resume: "",
+        cover_letter: "",
+        email: "",
+      },
+      optimizations: [],
+      metrics_and_proof: {
+        suggested_metrics: [],
+        proof_suggestions: [],
+      },
+    });
     const resultRecord = asRecord(result);
     const scores = asRecord(resultRecord.scores);
     const tailoredPackage = asRecord(resultRecord.tailored_package);

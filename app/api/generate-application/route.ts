@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/session";
 import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
 import { errorToResponse } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
+import { safeParseAIJson } from "@/lib/ai/recovery";
 
 export const runtime = "nodejs";
 
@@ -91,7 +92,10 @@ ${jobDescription}
     });
 
     const raw = response.text ?? '{}';
-    const result = JSON.parse(raw);
+    const result = safeParseAIJson(raw, {
+      cover_letter: "",
+      email: ""
+    });
 
     const payload = {
       cover_letter: typeof result?.cover_letter === 'string' ? result.cover_letter : '',

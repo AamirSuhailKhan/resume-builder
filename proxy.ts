@@ -59,6 +59,9 @@ export async function proxy(request: NextRequest) {
   const isAuthenticated = !!session?.user?.id;
 
   if (!isAuthenticated) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     // Redirect unauthenticated users to the demo ATS page
     const demoUrl = new URL("/demo/ats", request.url);
     return NextResponse.redirect(demoUrl);

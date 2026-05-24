@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/session";
 import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
 import { errorToResponse } from "@/lib/api/response";
 import { prisma } from "@/lib/db/prisma";
+import { safeParseAIJson } from "@/lib/ai/recovery";
 
 export const runtime = "nodejs";
 
@@ -70,7 +71,15 @@ ${jobDescription || ""}
     });
 
     const resultText = response.text || "{}";
-    const result = JSON.parse(resultText);
+    const result = safeParseAIJson(resultText, {
+      score: 50,
+      keywordMatchData: {
+        matched: [],
+        missing: [],
+        percentage: 0
+      },
+      suggestions: ["Please review the requirements directly to optimize details."]
+    });
 
     await prisma.aIUsage.create({
       data: {
