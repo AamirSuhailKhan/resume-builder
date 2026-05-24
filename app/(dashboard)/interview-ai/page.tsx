@@ -186,12 +186,7 @@ const shellStyle: CSSProperties = {
   ["--color-success-primary" as string]: "var(--success)",
   ["--color-warning-primary" as string]: "var(--warning)",
   ["--color-danger-primary" as string]: "var(--danger)",
-  minHeight: "100vh",
-  background: "var(--color-background-primary)",
   color: "var(--color-text-primary)",
-  fontFamily:
-    "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
-  padding: "28px 14px 64px",
 };
 
 export default function InterviewAI() {
@@ -338,7 +333,7 @@ export default function InterviewAI() {
   );
 
   return (
-    <main style={shellStyle}>
+    <div style={shellStyle}>
       <style>{`
         @keyframes interviewaiPulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.92; } }
         @keyframes interviewaiSlide { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -408,7 +403,7 @@ export default function InterviewAI() {
           />
         ) : null}
       </div>
-    </main>
+    </div>
   );
 }
 
