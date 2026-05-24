@@ -11,11 +11,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }).catch(() => []);
 
   const SHOW_TWIN = false;
-  const staticRoutes = ["", "/interview", "/matches", ...(SHOW_TWIN ? ["/twin"] : [])].map((path) => ({
+  const staticRoutes = ["", "/interview-ai", "/matches", ...(SHOW_TWIN ? ["/twin"] : [])].map((path) => ({
     url: `${baseUrl}${path}`,
     lastModified: new Date(),
     changeFrequency: "daily" as const,
-    priority: path === "/interview" ? 0.95 : 0.7,
+    priority: path === "/interview-ai" ? 0.95 : 0.7,
   }));
 
   const interviewRoutes = companies.flatMap((company) => {

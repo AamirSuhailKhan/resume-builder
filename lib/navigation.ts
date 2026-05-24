@@ -14,6 +14,7 @@ import {
   MailCheck,
   Scale,
   ScanText,
+  Sparkles,
   Trophy,
   UserRoundSearch,
   type LucideIcon,
@@ -61,9 +62,9 @@ export const NAV_ITEMS: NavGroup[] = [
     label: "Prepare",
     color: "text-teal-500",
     items: [
-      { title: "Interview Engine", href: "/interview", icon: UserRoundSearch },
+    { title: "InterviewAI", href: "/interview-ai", icon: UserRoundSearch },
       { title: "Skill Gap", href: "/skill-gap", icon: GraduationCap },
-      { title: "Career Coach", href: "/coach", icon: SparklesIcon, badge: "AI" },
+      { title: "Career Coach", href: "/coach", icon: Sparkles, badge: "AI" },
     ],
   },
   {
@@ -86,6 +87,3 @@ export const NAV_ITEMS: NavGroup[] = [
     ],
   },
 ];
-
-// Sparkles is imported separately or renamed to SparklesIcon to avoid collision with settings
-import { Sparkles as SparklesIcon } from "lucide-react";

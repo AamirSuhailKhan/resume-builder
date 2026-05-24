@@ -70,7 +70,7 @@ export default async function InterviewSeoPage({ params }: PageProps) {
     <main className="min-h-screen bg-background text-foreground">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="container-premium py-10">
-        <Link href="/interview" className="text-sm text-accent hover:underline">Open Interview Terminal</Link>
+        <Link href="/interview-ai" className="text-sm text-accent hover:underline">Open InterviewAI</Link>
         <h1 className="mt-4 max-w-4xl text-4xl font-semibold tracking-normal">
           {titleCase(company)} {titleCase(role)} Interview Questions
         </h1>

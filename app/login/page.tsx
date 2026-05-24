@@ -18,6 +18,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isSessionExpired = searchParams?.get("error") === "SessionExpired";
+  const redirectParam = searchParams?.get("redirect") || "/dashboard";
   const { user, loading } = useSessionUser();
   const error = useAuthStore(selectAuthError);
   const signInWithGoogle = useAuthStore(selectSignIn);
@@ -27,15 +28,15 @@ function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user) router.replace("/dashboard");
-  }, [user, router]);
+    if (user) router.replace(redirectParam);
+  }, [user, router, redirectParam]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     const ok = await signInWithCredentials(email, password);
     setSubmitting(false);
-    if (ok) router.replace("/dashboard");
+    if (ok) router.replace(redirectParam);
   }
 
   return (

@@ -19,7 +19,7 @@ const titles: Record<string, string> = {
   "/matches": "Job Matches",
   "/auto-apply": "Auto Apply",
   "/applications": "Applications",
-  "/interview": "Interview Engine",
+  "/interview-ai": "InterviewAI",
   "/coach": "Career Coach",
   "/analytics": "Analytics",
   "/portfolio": "Portfolio",
@@ -30,7 +30,7 @@ const journeyNav = [
   { label: "Home", href: "/dashboard" },
   { label: "Find", href: "/matches" },
   { label: "Apply", href: "/auto-apply" },
-  { label: "Prepare", href: "/interview" },
+    { label: "Prepare", href: "/interview-ai" },
   { label: "Negotiate", href: "/negotiation" },
   ...(SHOW_TWIN ? [{ label: "Twin", href: "/twin" }] : []),
 ];

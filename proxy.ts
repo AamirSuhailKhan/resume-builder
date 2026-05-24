@@ -16,24 +16,30 @@ const { auth } = NextAuth(authConfig);
 
 // ── Route classification ────────────────────────────────────────────────────
 
-/** Routes that are always publicly accessible. */
-const PUBLIC_ROUTES = new Set([
+/** Exact paths that are always publicly accessible. */
+const PUBLIC_PATHS = new Set([
+  "/",
   "/login",
   "/register",
-  "/auth/callback",
+  "/pricing",
 ]);
 
-/** Route prefixes that are always public (API, static assets, etc.) */
+/** Route prefixes that are always public */
 const PUBLIC_PREFIXES = [
-  "/api/auth",       // NextAuth internal endpoints
-  "/_next",          // Next.js static/chunks
+  "/api/auth",            // NextAuth internal endpoints
+  "/api/v1/public",       // Public API endpoints
+  "/_next",               // Next.js static/chunks
+  "/demo",                // Demo pages (no auth required)
+  "/auth",                // Auth pages (signup, callback, etc.)
+  "/onboarding",          // Onboarding flow
+  "/roles",               // Role market maps (public)
   "/favicon",
   "/robots.txt",
   "/sitemap",
 ];
 
-function isPublic(pathname: string): boolean {
-  if (PUBLIC_ROUTES.has(pathname)) return true;
+function isPublicRoute(pathname: string): boolean {
+  if (PUBLIC_PATHS.has(pathname)) return true;
   return PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
@@ -43,19 +49,19 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Always allow public paths through without auth check
-  if (isPublic(pathname)) {
+  if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
   // Check session via JWT (edge-safe, no DB call)
+  // auth() with no args returns the session in Next.js 16 proxy context
   const session = await auth();
   const isAuthenticated = !!session?.user?.id;
 
   if (!isAuthenticated) {
-    // Preserve the intended destination for post-login redirect
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+    // Redirect unauthenticated users to the demo ATS page
+    const demoUrl = new URL("/demo/ats", request.url);
+    return NextResponse.redirect(demoUrl);
   }
 
   return NextResponse.next();
@@ -70,8 +76,8 @@ export const config = {
      * - _next/static  (static files)
      * - _next/image   (image optimisation)
      * - favicon.ico
-     * - Files with an extension (e.g. .png, .svg, .ico)
+     * - Files with an extension (e.g. .png, .svg, .ico, .webp)
      */
-    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|otf)$).*)",
   ],
 };

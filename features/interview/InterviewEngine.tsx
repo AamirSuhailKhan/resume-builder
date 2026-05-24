@@ -341,7 +341,7 @@ export function InterviewEngine() {
   return (
     <SectionShell>
       <PageHeader
-        eyebrow="Interview Engine"
+        eyebrow="InterviewAI"
         title="Practice against the role, not generic questions."
         description="Claude generates targeted prompts and evaluates your answers against the signals hiring teams actually listen for."
       />

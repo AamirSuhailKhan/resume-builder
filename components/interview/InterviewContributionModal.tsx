@@ -103,7 +103,7 @@ export function InterviewContributionModal({
             </p>
           </div>
           <Button onClick={handleClose} className="mt-4 w-full">
-            Back to Interview Terminal
+            Back to InterviewAI
           </Button>
         </div>
       ) : (

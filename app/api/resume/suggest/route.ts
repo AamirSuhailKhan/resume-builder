@@ -407,13 +407,45 @@ async function requireUserId() {
 
 export async function POST(req: NextRequest) {
   try {
-    const userId = await requireUserId();
+    const authSession = await auth();
+    const userId = authSession?.user?.id;
     const body = await req.json().catch(() => null);
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) return apiError("Invalid suggestion request.", 400);
 
     const { resumeId, resumeData, jobDescription = "" } = parsed.data;
     if (!resumeId && !resumeData) return apiError("Provide resumeId or resumeData.", 400);
+
+    // Guest Mode Bypass
+    if (!userId) {
+      const rawResume = resumeData;
+      const resume = normalizeResume({
+        ...asRecord(rawResume),
+        id: "demo",
+        title: "Demo Resume",
+      });
+
+      const suggestions = fallbackSuggestions(resume, jobDescription);
+      const sessionData: SuggestionSession = {
+        id: randomUUID(),
+        source: "api",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        jobDescription,
+        resumeSnapshot: resume,
+        suggestions,
+        persisted: false,
+      };
+
+      sessionData.intelligence = fallbackIntelligence(resume, jobDescription);
+      const metricsCount = resume.experience.map(e => e.points).join("\n").match(/\d+%/g)?.length || 0;
+      sessionData.scores = {
+        before: 35 + Math.min(metricsCount * 5 + resume.skills.length * 2, 35),
+        after: 82
+      };
+
+      return NextResponse.json({ data: sessionData, error: null });
+    }
 
     const storedResume = resumeId
       ? await prisma.resume.findFirst({
@@ -447,7 +479,7 @@ export async function POST(req: NextRequest) {
     const before = clampScore(scoresRecord.before);
     const after = clampScore(scoresRecord.after);
     const now = new Date().toISOString();
-    const session: SuggestionSession = {
+    const suggestionSession: SuggestionSession = {
       id: randomUUID(),
       ...(resumeId ? { resumeId } : {}),
       source: "api",
@@ -460,14 +492,14 @@ export async function POST(req: NextRequest) {
     };
 
     if (before !== undefined && after !== undefined) {
-      session.scores = { before, after };
+      suggestionSession.scores = { before, after };
     }
 
     // Process intelligence audit
     const rawIntel = aiResult?.intelligence;
-    session.intelligence = sanitizeIntelligence(rawIntel, resume, jobDescription);
+    suggestionSession.intelligence = sanitizeIntelligence(rawIntel, resume, jobDescription);
 
-    return NextResponse.json({ data: session, error: null });
+    return NextResponse.json({ data: suggestionSession, error: null });
   } catch (error) {
     return errorToResponse(error);
   }

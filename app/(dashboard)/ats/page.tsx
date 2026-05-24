@@ -46,6 +46,7 @@ import { normalizeResume } from "@/lib/normalizeResume";
 import type { ResumeData } from "@/lib/storage";
 import type { ResumeSuggestion, SuggestionSession } from "@/types/suggestions";
 import { motion, AnimatePresence } from "framer-motion";
+import EmailCaptureBar from "@/components/EmailCaptureBar";
 
 type OptimizationStep = "idle" | "analyzing" | "done" | "error";
 
@@ -1164,6 +1165,17 @@ export default function ApplicationMaximizerPage() {
             </Button>
           </div>
         </div>
+      )}
+
+      {suggestionSession && (
+        <EmailCaptureBar
+          source="ats"
+          metadata={{
+            score: suggestionSession.intelligence?.callbackProbability?.after ?? 82,
+            jobTitle: isDemoMode ? "CRED - Core Platform Senior Fullstack SDE" : (resume?.title ?? "Custom Profile"),
+            matchRate: suggestionSession.intelligence?.indiaMarketFit?.targetMatchPercentage ?? 70,
+          }}
+        />
       )}
 
     </div>

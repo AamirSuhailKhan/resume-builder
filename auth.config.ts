@@ -19,8 +19,23 @@ const authConfig: NextAuthConfig = {
       if (session.user && token.sub) session.user.id = token.sub;
       return session;
     },
-    authorized({ auth }) {
-      return !!auth?.user?.id;
+    authorized({ auth, request: { nextUrl } }) {
+      const isLoggedIn = !!auth?.user;
+      const isPublic =
+        nextUrl.pathname === "/" ||
+        nextUrl.pathname.startsWith("/login") ||
+        nextUrl.pathname.startsWith("/auth") ||
+        nextUrl.pathname.startsWith("/demo") ||
+        nextUrl.pathname.startsWith("/onboarding") ||
+        nextUrl.pathname.startsWith("/roles") ||
+        nextUrl.pathname.startsWith("/pricing") ||
+        nextUrl.pathname.startsWith("/api/v1/public") ||
+        nextUrl.pathname.startsWith("/api/auth");
+
+      if (!isPublic) {
+        return isLoggedIn;
+      }
+      return true;
     },
   },
 };

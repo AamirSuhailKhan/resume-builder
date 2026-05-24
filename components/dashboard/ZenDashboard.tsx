@@ -21,6 +21,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { WeeklyMomentumCard } from "./WeeklyMomentumCard";
 
 // Props from Server Component
 interface ZenDashboardProps {
@@ -39,49 +40,25 @@ type MoodState = "focused" | "calm" | "anxious" | "tired" | null;
 export function ZenDashboard({ stats }: ZenDashboardProps) {
   // 1. Emotional motivation state
   const [mood, setMood] = useState<MoodState>(null);
-  
-  // 2. Daily momentum checklist (loaded from local storage or set default)
-  const [tasks, setTasks] = useState([
-    { id: "matches", text: "Check today's fresh job matches", done: false, href: "/matches" },
-    { id: "resume", text: "Audit resume metrics in Intelligence cockpit", done: false, href: "/ats" },
-    { id: "tracker", text: "Update callback logs in application board", done: false, href: "/ats" }
-  ]);
 
   useEffect(() => {
-    const savedMood = localStorage.getItem("careeros_zen_mood");
+    const savedMood = localStorage.getItem("careerOS_mood");
     if (savedMood) setMood(savedMood as MoodState);
-
-    const savedTasks = localStorage.getItem("careeros_zen_tasks");
-    if (savedTasks) {
-      try {
-        setTasks(JSON.parse(savedTasks));
-      } catch (e) {
-        console.error(e);
-      }
-    }
   }, []);
-
-  const saveTasks = (updated: typeof tasks) => {
-    setTasks(updated);
-    localStorage.setItem("careeros_zen_tasks", JSON.stringify(updated));
-  };
-
-  const handleToggleTask = (id: string) => {
-    const updated = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
-    saveTasks(updated);
-  };
 
   const handleSetMood = (selected: MoodState) => {
     setMood(selected);
     if (selected) {
-      localStorage.setItem("careeros_zen_mood", selected);
+      localStorage.setItem("careerOS_mood", selected);
     } else {
-      localStorage.removeItem("careeros_zen_mood");
+      localStorage.removeItem("careerOS_mood");
+    }
+    
+    // Dispatch storage event manually so other components in the same window update immediately
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("storage"));
     }
   };
-
-  const completedCount = tasks.filter(t => t.done).length;
-  const progressPercent = Math.round((completedCount / tasks.length) * 100);
 
   // 3. Primary Mission of the Day (One Primary Action Rule)
   const primaryMission = useMemo(() => {
@@ -218,46 +195,8 @@ export function ZenDashboard({ stats }: ZenDashboardProps) {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-[1.3fr_1fr]">
         
         {/* Daily Tasks Checklist */}
-        <div className="border border-border bg-[#0b0d13] p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-border/40 pb-3">
-            <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-              DAILY MOMENTUM CHECKLIST
-            </span>
-            <span className="text-[10px] text-cyan-400 font-bold bg-cyan-950/20 border border-cyan-800 px-2 py-0.5">
-              {completedCount}/{tasks.length} DONE ({progressPercent}%)
-            </span>
-          </div>
-
-          <div className="space-y-3 pt-1">
-            {tasks.map(task => (
-              <div
-                key={task.id}
-                onClick={() => handleToggleTask(task.id)}
-                className="flex items-start gap-3 cursor-pointer group text-xs select-none"
-              >
-                {task.done ? (
-                  <CheckCircle2 className="h-4.5 w-4.5 text-cyan-400 shrink-0 mt-0.5" />
-                ) : (
-                  <Circle className="h-4.5 w-4.5 text-muted-foreground shrink-0 mt-0.5 group-hover:text-foreground transition-colors" />
-                )}
-                <div className="flex-1 space-y-1">
-                  <span className={`leading-relaxed ${task.done ? "line-through text-muted-foreground" : "text-foreground font-semibold"}`}>
-                    {task.text}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <Link
-                      href={task.href}
-                      onClick={e => e.stopPropagation()}
-                      className="text-[9px] text-cyan-500 hover:underline flex items-center gap-0.5"
-                    >
-                      Open Module <ExternalLink className="h-2 w-2" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Dynamic Weekly Momentum Card */}
+        <WeeklyMomentumCard />
 
         {/* Minimal Pipeline Status Funnel */}
         <div className="border border-border bg-[#0b0d13] p-6 space-y-4">

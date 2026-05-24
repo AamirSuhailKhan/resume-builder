@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import EmailCaptureBar from "@/components/EmailCaptureBar";
 
 // Data Structures for Compensation Benchmarks in India (c. 2026)
 type RoleKey = "sde1" | "sde2" | "sde3" | "staff" | "pm1" | "pm2" | "dir_pm";
@@ -1047,6 +1048,15 @@ export default function SalaryIntelligencePage() {
         )}
 
       </div>
+
+      <EmailCaptureBar
+        source="salary-intelligence"
+        metadata={{
+          role: selectedRole,
+          tier: selectedTier,
+          ctcRange: `${formatLakhs(totalCtcMin)} - ${formatLakhs(totalCtcMax)}`,
+        }}
+      />
 
     </div>
   );
