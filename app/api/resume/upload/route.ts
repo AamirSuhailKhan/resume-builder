@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { Buffer } from "node:buffer";
-import { PDFParse } from "pdf-parse";
 import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -9,7 +8,8 @@ import { normalizeResume } from "@/lib/normalizeResume";
 import { validateUpload } from "@/lib/security/upload";
 import { createClient } from "@/lib/supabaseServer";
 import { analyzeOnboardingResume } from "@/lib/detectProfile";
-import { safeParseAIJson } from "@/lib/ai/recovery";
+import { claudeJSON } from "@/lib/ai/core";
+import { ResumeParserService } from "@/lib/resume/parser";
 
 export const runtime = "nodejs";
 
@@ -25,73 +25,18 @@ const RESUME_PARSE_SYSTEM_PROMPT = `You are a resume parser. Extract structured 
 }
 Use UUID v4 strings for all id fields. Format dates as "YYYY-MM" or "Present".`;
 
-type AnthropicTextBlock = {
-  type: "text";
-  text: string;
-};
-
-type AnthropicMessageResponse = {
-  content?: AnthropicTextBlock[];
-};
-
 function getString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
-
-
-function extractJsonObject(text: string): unknown {
-  return safeParseAIJson(text, {});
-}
-
 async function parseWithAnthropic(resumeText: string): Promise<unknown> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY is not configured.");
-  }
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 4000,
-      system: RESUME_PARSE_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `Parse this resume:\n\n${resumeText}`,
-        },
-      ],
-    }),
+  return claudeJSON<unknown>({
+    system: RESUME_PARSE_SYSTEM_PROMPT,
+    user: `Parse this resume:\n\n${resumeText}`,
+    fallback: {},
+    maxTokens: 4000,
+    maxRetries: 1,
   });
-
-  if (!response.ok) {
-    throw new Error(`Anthropic request failed with status ${response.status}.`);
-  }
-
-  const data = (await response.json()) as AnthropicMessageResponse;
-  const text = data.content?.find((block) => block.type === "text")?.text;
-
-  if (!text) {
-    throw new Error("Anthropic returned an empty response.");
-  }
-
-  return extractJsonObject(text);
-}
-
-async function extractPdfText(buffer: Buffer): Promise<string> {
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
-
-  try {
-    const pdfData = await parser.getText();
-    return pdfData.text;
-  } finally {
-    await parser.destroy();
-  }
 }
 
 export async function POST(request: Request) {
@@ -136,15 +81,14 @@ export async function POST(request: Request) {
       throw uploadError;
     }
 
-    let resumeText: string;
-    try {
-      resumeText = await extractPdfText(buffer);
-    } catch {
+    const parseResult = await ResumeParserService.parsePdf(buffer);
+    if (!parseResult.success || !parseResult.rawText) {
       return NextResponse.json(
-        { error: "Unable to extract text from this PDF. Please upload a text-based resume PDF." },
+        { error: "We couldn't read this file. Please upload another PDF, DOCX, or paste resume content." },
         { status: 422 }
       );
     }
+    const resumeText = parseResult.rawText;
 
     let rawParsedResume: unknown;
     try {

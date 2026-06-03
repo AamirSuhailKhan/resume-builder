@@ -6,6 +6,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum ResumeStatus {
@@ -297,6 +298,14 @@ model User {
   actionFeedItems       ActionFeedItem[]
   verifiedContributions VerifiedContribution[]
   contributionCredit    ContributionCredit?
+  interviewEvaluations  InterviewEvaluation[]
+  interviewAnswers      InterviewAnswer[]
+  readinessSnapshots    ReadinessSnapshot[]
+  roadmapSnapshots      RoadmapSnapshot[]
+  readinessScores       ReadinessScore[]
+  preparationRoadmaps   PreparationRoadmap[]
+  mockInterviews        MockInterview[]
+  interviewProgresses   InterviewProgress[]
 
   @@index([email])
 }
@@ -1046,6 +1055,7 @@ model Company {
   salaryInsights     SalaryInsight[]
   selectionPatterns  SelectionPattern[]
   difficultyTrends   DifficultyTrend[]
+  mockSessions        InterviewMockSession[]
 
   @@index([normalizedName])
   @@index([companyType, industry])
@@ -1663,6 +1673,14 @@ model InterviewMockSession {
   id             String   @id @default(uuid()) @db.Uuid
   userId         String   @db.Uuid
   companyId      String?  @db.Uuid
+  targetLocation String?
+  compensationTarget String?
+  experienceLevel String?
+  resumeSource   String?
+  jdSource        String?
+  normalizedProfile Json   @default("{}")
+  jobDescriptionAnalysis Json @default("{}")
+  blueprint      Json     @default("{}")
   roleTitle      String
   mode           String   @default("mixed")
   status         String   @default("active")
@@ -1676,9 +1694,90 @@ model InterviewMockSession {
   updatedAt      DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  rounds MockInterviewRound[]
+  questions MockInterviewQuestion[]
+  answers InterviewAnswer[]
+  evaluation InterviewEvaluation?
+  readinessSnapshots ReadinessSnapshot[]
+  roadmapSnapshots RoadmapSnapshot[]
 
   @@index([userId, createdAt])
   @@index([companyId, roleTitle])
+}
+
+model MockInterviewRound {
+  id             String   @id @default(uuid()) @db.Uuid
+  sessionId      String   @db.Uuid
+  roundNumber    Int
+  type           String
+  name           String
+  durationMinutes Int?
+  status         String   @default("pending")
+  difficultyScore Float?
+  focusAreas     String[] @default([])
+  expectedSignals Json    @default("[]")
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  session InterviewMockSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questions MockInterviewQuestion[]
+  answers InterviewAnswer[]
+
+  @@unique([sessionId, roundNumber])
+  @@index([sessionId, status])
+  @@index([type, status])
+}
+
+model MockInterviewQuestion {
+  id             String   @id @default(uuid()) @db.Uuid
+  sessionId      String   @db.Uuid
+  roundId        String?  @db.Uuid
+  questionNumber Int
+  prompt         String   @db.Text
+  questionType   String
+  focusTopic     String?
+  difficultyScore Float?
+  persona        String?
+  rationale      String?  @db.Text
+  followUpDepth  Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  session InterviewMockSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  round MockInterviewRound? @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  answers InterviewAnswer[]
+
+  @@index([sessionId, questionNumber])
+  @@index([roundId, questionNumber])
+}
+
+model InterviewAnswer {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  sessionId      String   @db.Uuid
+  roundId        String?  @db.Uuid
+  questionId     String?  @db.Uuid
+  answerText     String   @db.Text
+  wordCount      Int      @default(0)
+  evaluation     Json     @default("{}")
+  communicationScore Float?
+  technicalDepthScore Float?
+  correctnessScore Float?
+  tradeoffsScore Float?
+  confidenceScore Float?
+  completenessScore Float?
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session InterviewMockSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  round MockInterviewRound? @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  question MockInterviewQuestion? @relation(fields: [questionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([roundId, createdAt])
 }
 
 model InterviewSearchEvent {
@@ -2326,4 +2425,147 @@ model ContributionCredit {
   lifetimeEarned Int      @default(0)
 
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model InterviewEvaluation {
+  id                     String   @id @default(uuid()) @db.Uuid
+  userId                 String   @db.Uuid
+  sessionId              String   @unique @db.Uuid
+  score                  Int
+  summary                String   @db.Text
+  technicalDepthFeedback String?  @db.Text
+  communicationFeedback  String?  @db.Text
+  problemSolvingFeedback String?  @db.Text
+  starBehavioralFeedback String?  @db.Text
+  tradeoffFeedback       String?  @db.Text
+  strengths              String[]
+  improvements           String[]
+  improvedAnswerExample  String?  @db.Text
+  nextDrill              String?  @db.Text
+  createdAt              DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session InterviewMockSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model ReadinessSnapshot {
+  id                     String   @id @default(uuid()) @db.Uuid
+  userId                 String   @db.Uuid
+  sessionId              String?  @db.Uuid
+  companyName            String?
+  roleTitle              String
+  overallScore           Int
+  resumeMatchScore       Int
+  jdMatchScore           Int
+  skillCoverageScore     Int
+  mockPerformanceScore   Int?
+  behavioralScore        Int?
+  communicationScore     Int?
+  systemDesignScore      Int?
+  domainScore            Int?
+  formulaTrace           Json     @default("{}")
+  explanations           Json     @default("[]")
+  createdAt              DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session InterviewMockSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+}
+
+model RoadmapSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  sessionId       String?  @db.Uuid
+  companyName     String?
+  roleTitle       String
+  sourceWeaknesses Json    @default("[]")
+  sevenDayPlan    String[] @default([])
+  fourteenDayPlan String[] @default([])
+  thirtyDayPlan   String[] @default([])
+  ninetyDayPlan   String[] @default([])
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session InterviewMockSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+}
+
+model ReadinessScore {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @db.Uuid
+  roleTitle          String
+  companyName        String?
+  overallScore       Int
+  dsaScore           Int
+  systemDesignScore  Int
+  behavioralScore    Int
+  communicationScore Int
+  domainScore        Int
+  companyFitIndex    Int
+  keyGaps            Json     @default("[]")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CompanyProfile {
+  id                  String   @id @default(uuid()) @db.Uuid
+  name                String   @unique
+  slug                String   @unique
+  difficultyScore     Float
+  strictnessScore     Float
+  systemDesignDepth   Float
+  behavioralWeight    Float
+  communicationWeight Float
+  rounds              Json     @default("[]")
+  engineeringCulture  String?  @db.Text
+  compensationInfo    Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model PreparationRoadmap {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
+  roleTitle        String
+  companyName      String?
+  sevenDaysPlan    String[]
+  fourteenDaysPlan String[]
+  thirtyDaysPlan   String[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MockInterview {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @db.Uuid
+  roleTitle    String
+  companyName  String?
+  transcript   Json      @default("[]")
+  scores       Json?
+  feedback     Json?
+  status       String    @default("active")
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model InterviewProgress {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @db.Uuid
+  streakCount    Int       @default(0)
+  lastPrepDate   DateTime?
+  completedMocks Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

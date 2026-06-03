@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
     "bullmq",
     "pino",
     "pino-pretty",
+    "pdf-parse",
+    "pdfjs-dist",
+    "mammoth",
   ],
 };
 

@@ -42,6 +42,18 @@ export class ATSEngine {
     const result = await AIModelRouter.executeTask<ATSAnalysisResult>(prompt, {
       model: "medium",
       temperature: 0.1, // Highly deterministic
+      fallback: {
+        atsScore: 0,
+        matchedKeywords: [],
+        missingKeywords: [],
+        semanticAlignment: 0,
+        formattingScore: 0,
+        readabilityScore: 0,
+        impactScore: 0,
+        reasoning: "AI analysis was unavailable; returning a safe empty ATS analysis.",
+        evidence: [],
+        recommendations: [],
+      } satisfies ATSAnalysisResult,
     }, ATSEngineSchema);
 
     return result;

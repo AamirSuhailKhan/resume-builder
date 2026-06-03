@@ -1,3 +1,5 @@
-import { InterviewIntelligenceTerminal } from "@/features/interview/InterviewIntelligenceTerminal";
+import { redirect } from "next/navigation";
 
-export default InterviewIntelligenceTerminal;
+export default function InterviewRedirectPage() {
+  redirect("/interview-ai");
+}

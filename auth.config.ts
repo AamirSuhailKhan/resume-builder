@@ -30,6 +30,8 @@ const authConfig: NextAuthConfig = {
         nextUrl.pathname.startsWith("/roles") ||
         nextUrl.pathname.startsWith("/pricing") ||
         nextUrl.pathname.startsWith("/api/v1/public") ||
+        nextUrl.pathname.startsWith("/api/resume") ||
+        nextUrl.pathname.startsWith("/resume") ||
         nextUrl.pathname.startsWith("/api/auth");
 
       if (!isPublic) {

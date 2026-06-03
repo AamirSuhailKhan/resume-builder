@@ -13,6 +13,7 @@ export interface AIProviderOptions {
   model: "cheap" | "medium" | "premium";
   temperature?: number;
   maxTokens?: number;
+  fallback?: unknown;
 }
 
 const MODEL_MAP: Record<AIProviderOptions["model"], string> = {
@@ -37,7 +38,7 @@ export class AIModelRouter {
       temperature: options.temperature ?? 0.2,
       maxTokens: options.maxTokens ?? 4096,
       ...(schema ? { schema } : {}),
-      fallback: (schema ? undefined : prompt) as T,
+      fallback: (options.fallback ?? (schema ? {} : prompt)) as T,
       maxRetries: options.model === "cheap" ? 1 : 0,
     });
 

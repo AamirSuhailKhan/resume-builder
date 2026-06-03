@@ -39,8 +39,8 @@ export class ScamJobDetector {
       const match = job.salaryRange.match(/(\d{5,})/);
       if (match && match[1]) {
         const salaryVal = parseInt(match[1], 10);
-        // @ts-ignore
-        const median = (salaryBenchmarks as any)[benchmarkKey]?.INR?.median;
+        const benchmarkData = salaryBenchmarks as Record<string, { INR?: { median?: number } }>;
+        const median = benchmarkData[benchmarkKey]?.INR?.median;
         if (median && salaryVal > median * 3) {
           salaryScore = 20;
           signals.push("Unrealistically high salary (3x+ market median)");

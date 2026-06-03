@@ -22,12 +22,15 @@ const PUBLIC_PATHS = new Set([
   "/login",
   "/register",
   "/pricing",
+  "/api/health",
 ]);
 
 /** Route prefixes that are always public */
 const PUBLIC_PREFIXES = [
   "/api/auth",            // NextAuth internal endpoints
   "/api/v1/public",       // Public API endpoints
+  "/api/resume",          // Guest & public resume intelligence api
+  "/resume",              // Guest & public resume routes
   "/_next",               // Next.js static/chunks
   "/demo",                // Demo pages (no auth required)
   "/auth",                // Auth pages (signup, callback, etc.)

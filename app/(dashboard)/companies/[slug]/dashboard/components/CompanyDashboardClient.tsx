@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
@@ -759,34 +760,34 @@ export default function CompanyDashboardClient({ initialData, slug }: ClientProp
               SEO AUDIT RADAR
             </span>
             <div className="space-y-1">
-              <a
+              <Link
                 href={`/companies/${data.company.slug}/interview-trends`}
                 className="flex items-center justify-between text-accent hover:underline py-1"
               >
                 <span>/interview-trends</span>
                 <ChevronRight className="h-3.5 w-3.5" />
-              </a>
-              <a
+              </Link>
+              <Link
                 href={`/companies/${data.company.slug}/backend-hiring-signals`}
                 className="flex items-center justify-between text-accent hover:underline py-1"
               >
                 <span>/backend-hiring-signals</span>
                 <ChevronRight className="h-3.5 w-3.5" />
-              </a>
-              <a
+              </Link>
+              <Link
                 href={`/companies/${data.company.slug}/salary-evolution`}
                 className="flex items-center justify-between text-accent hover:underline py-1"
               >
                 <span>/salary-evolution</span>
                 <ChevronRight className="h-3.5 w-3.5" />
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/roles/backend-sde2-market-map"
                 className="flex items-center justify-between text-accent hover:underline py-1"
               >
                 <span>/roles/backend-sde2-market-map</span>
                 <ChevronRight className="h-3.5 w-3.5" />
-              </a>
+              </Link>
             </div>
           </div>
         </div>
