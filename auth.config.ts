@@ -12,11 +12,19 @@ const authConfig: NextAuthConfig = {
   providers: [],
   callbacks: {
     jwt({ token, user }) {
-      if (user?.id) token.sub = user.id;
+      if (user) {
+        if (user.id) token.sub = user.id;
+        if (user.role) token.role = user.role;
+        if (user.plan) token.plan = user.plan;
+      }
       return token;
     },
     session({ session, token }) {
-      if (session.user && token.sub) session.user.id = token.sub;
+      if (session.user && token.sub) {
+        session.user.id = token.sub;
+        session.user.role = (token.role as string) || "USER";
+        session.user.plan = (token.plan as string) || "free";
+      }
       return session;
     },
     authorized({ auth, request: { nextUrl } }) {

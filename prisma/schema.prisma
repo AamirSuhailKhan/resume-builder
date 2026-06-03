@@ -247,6 +247,7 @@ model User {
   passwordHash   String?
   activeResumeId String?          @db.Uuid
   plan           SubscriptionPlan @default(free)
+  role           String           @default("USER")
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -259,6 +260,8 @@ model User {
   connectionPaths      ConnectionPath[]
   applications         Application[]
   interviewSessions    InterviewSession[]
+  networkContacts      NetworkContact[]
+  recruiters           Recruiter[]
   aiUsages             AIUsage[]
   careerProfile        CareerProfile?
   browserSessions      BrowserSession[]
@@ -306,6 +309,16 @@ model User {
   preparationRoadmaps   PreparationRoadmap[]
   mockInterviews        MockInterview[]
   interviewProgresses   InterviewProgress[]
+
+  // Career Graph Engine
+  careerGraphNodes      CareerGraphNode[]
+  careerGraphEdges      CareerGraphEdge[]
+  careerGraphMeta       CareerGraphMeta?
+  careerGraphEvents     CareerGraphEvent[]
+  careerGraphSnapshots  CareerGraphSnapshot[]
+
+  auditLogs             AuditLog[]
+  securityAlerts        SecurityAlert[]
 
   @@index([email])
 }
@@ -760,10 +773,38 @@ model JobOpportunity {
   hiringContacts  HiringContact[]  @relation("ContactJobs")
   connectionPaths ConnectionPath[]
   emailCampaigns  EmailCampaign[]
+  intelligence    JobIntelligence?
 
   @@index([userId, matchScore])
   @@index([userId, createdAt])
   @@map("job_opportunities")
+}
+
+model JobIntelligence {
+  id               String   @id @default(uuid()) @db.Uuid
+  jobOpportunityId String   @unique @db.Uuid
+  
+  opportunityScore Float    @default(0) // 0-100
+  
+  hiringVelocity   Float    @default(0) // 0-100
+  marketDemand     Float    @default(0) // 0-100
+  competitionScore Float    @default(0) // 0-100
+  salaryPrediction Json?    // { min, max, currency, confidence }
+  layoffRisk       Float    @default(0) // 0-100
+  careerGrowth     Float    @default(0) // 0-100
+  skillDemandTrends Json?   // [{ skill, trend: "up" | "down" }]
+  companyMomentum  Float    @default(0) // 0-100
+  
+  matchQuality     Float    @default(0) // 0-100
+  stabilityScore   Float    @default(0) // 0-100
+  
+  computedAt       DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  jobOpportunity   JobOpportunity @relation(fields: [jobOpportunityId], references: [id], onDelete: Cascade)
+  
+  @@index([jobOpportunityId])
+  @@index([opportunityScore])
 }
 
 model AIUsage {
@@ -2568,4 +2609,296 @@ model InterviewProgress {
   updatedAt      DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CAREER GRAPH ENGINE
+// Central intelligence layer — persistent graph of career entities & relations.
+// ══════════════════════════════════════════════════════════════════════════════
+
+enum CareerGraphNodeKind {
+  SKILL
+  EXPERIENCE
+  PROJECT
+  CERTIFICATION
+  EDUCATION
+  APPLICATION
+  INTERVIEW
+  COMPANY
+  RECRUITER
+  CAREER_GOAL
+  SALARY_TARGET
+  JOB_MATCH
+  SKILL_GAP
+  OFFER
+}
+
+enum CareerGraphEdgeKind {
+  HAS_SKILL
+  REQUIRES_SKILL
+  FILLS_GAP
+  VALIDATES_SKILL
+  WORKED_AT
+  BUILT
+  USED_IN
+  APPLIED_TO
+  TARGETED_BY
+  MATCHED_TO
+  INTERVIEWED_AT
+  LED_BY
+  FOLLOWED_APPLICATION
+  RECEIVED_OFFER
+  OFFERED_BY
+  TARGETS_ROLE
+  TARGETS_COMPANY
+  TARGETS_SALARY
+  EARNED
+  STUDIED_AT
+  CONTACTED_BY
+  RECRUITS_FOR
+}
+
+enum CareerGraphEventType {
+  RESUME_UPLOADED
+  RESUME_EDITED
+  JOB_SAVED
+  JOB_APPLIED
+  INTERVIEW_COMPLETED
+  SKILL_ADDED
+  CERTIFICATION_ADDED
+  OFFER_RECEIVED
+  GRAPH_RECOMPUTED
+  NODE_ADDED
+  NODE_UPDATED
+  EDGE_ADDED
+  EDGE_REMOVED
+}
+
+/// Persistent node in the user's Career Graph.
+/// Every career entity (skill, experience, project, etc.) is materialized
+/// as a node that participates in cross-entity graph queries.
+model CareerGraphNode {
+  id               String               @id @default(uuid()) @db.Uuid
+  userId           String               @db.Uuid
+  kind             CareerGraphNodeKind
+  label            String               // Human-readable label (e.g. "React", "Software Engineer @ Stripe")
+  payload          Json                 // Typed payload per node kind (see lib/career-graph/types.ts)
+  weight           Float                @default(0.5)  // Importance score 0–1
+  confidence       Float                @default(0.7)  // Data confidence 0–1
+  sourceEntityId   String?              // FK to originating row (resumeId, applicationId, etc.)
+  sourceEntityType String?              // Table name of originating row
+  isActive         Boolean              @default(true)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outgoingEdges    CareerGraphEdge[]    @relation("EdgeSource")
+  incomingEdges    CareerGraphEdge[]    @relation("EdgeTarget")
+
+  @@index([userId, kind])
+  @@index([userId, isActive])
+  @@index([sourceEntityId, sourceEntityType])
+  @@index([userId, kind, isActive])
+}
+
+/// Directed, typed edge between two Career Graph nodes.
+model CareerGraphEdge {
+  id           String               @id @default(uuid()) @db.Uuid
+  userId       String               @db.Uuid
+  sourceNodeId String               @db.Uuid
+  targetNodeId String               @db.Uuid
+  kind         CareerGraphEdgeKind
+  weight       Float                @default(0.5)  // Relationship strength 0–1
+  metadata     Json                 @default("{}")
+  createdAt    DateTime             @default(now())
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceNode   CareerGraphNode      @relation("EdgeSource", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode   CareerGraphNode      @relation("EdgeTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceNodeId, targetNodeId, kind])
+  @@index([userId, kind])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
+}
+
+/// Materialized metadata snapshot for fast graph summary queries.
+/// Updated on every graph recompute — avoids full-scan on dashboards.
+model CareerGraphMeta {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @unique @db.Uuid
+  totalNodes        Int      @default(0)
+  totalEdges        Int      @default(0)
+  nodesByKind       Json     @default("{}")   // { SKILL: 12, EXPERIENCE: 3, ... }
+  edgesByKind       Json     @default("{}")
+  completenessScore Float    @default(0)      // 0–100
+  graphVersion      Int      @default(0)
+  lastComputedAt    DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Immutable event log for every graph mutation.
+/// Supports audit, replay, and diff computation.
+model CareerGraphEvent {
+  id          String                 @id @default(uuid()) @db.Uuid
+  userId      String                 @db.Uuid
+  eventType   CareerGraphEventType
+  sourceType  String?                // What triggered the event
+  sourceId    String?                // ID of the triggering entity
+  affectedIds String[]               @default([]) // Node/edge IDs changed
+  payload     Json                   @default("{}")
+  graphVersion Int                   @default(0)
+  createdAt   DateTime               @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, eventType])
+  @@index([sourceId, sourceType])
+}
+
+/// Periodic analytics snapshot for the career graph.
+/// Used to power trend charts & historical comparisons.
+model CareerGraphSnapshot {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
+  snapshotDate     DateTime @db.Date
+  graphVersion     Int
+  analytics        Json     // Full CareerGraphAnalytics payload
+  completenessScore Float
+  nodeCount        Int
+  edgeCount        Int
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, snapshotDate])
+  @@index([userId, snapshotDate])
+}
+
+model NetworkContact {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @db.Uuid
+  name               String
+  title              String?
+  company            String?
+  school             String?
+  graduationYear     Int?
+  linkedinUrl        String?
+  email              String?
+  isAlumni           Boolean  @default(false)
+  isRecruiter        Boolean  @default(false)
+  isReferralPartner  Boolean  @default(false)
+  connectionStrength Float    @default(0) // 0-100
+  status             String   @default("DISCOVERED") // DISCOVERED | OUTREACHED | CONNECTED | COFFEE_CHAT | REFERRAL_REQUESTED | REFERRAL_SECURED
+  notes              String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activities NetworkActivity[]
+
+  @@index([userId])
+  @@index([company])
+  @@index([connectionStrength])
+}
+
+model NetworkActivity {
+  id          String   @id @default(uuid()) @db.Uuid
+  contactId   String   @db.Uuid
+  type        String   // EMAIL | LINKEDIN_MESSAGE | COFFEE_CHAT | PHONE_CALL | OTHER
+  date        DateTime @default(now())
+  description String   @db.Text
+  outcome     String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  contact NetworkContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@index([contactId])
+}
+
+model Recruiter {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  name            String
+  email           String?
+  linkedinUrl     String?
+  companyName     String
+  title           String?  // e.g. Technical Recruiter
+  roleFamily      String   @default("Engineering") // Engineering | Product | Design | Business | Other
+  responseScore   Float    @default(50.0) // 0-100 response score
+  ghostingRate    Float    @default(0.3) // 0-1 ghosting rate
+  avgResponseDays Float    @default(3.0)
+  engagementScore Float    @default(50.0) // predicted engagement probability (0-100)
+  status          String   @default("ACTIVE") // ACTIVE | INACTIVE | GHOSTED
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interactions RecruiterContactInteraction[]
+
+  @@index([userId])
+  @@index([companyName])
+  @@index([roleFamily])
+  @@index([responseScore])
+}
+
+model RecruiterContactInteraction {
+  id               String   @id @default(uuid()) @db.Uuid
+  recruiterId      String   @db.Uuid
+  type             String   // INMAIL | EMAIL | LINKEDIN_CONNECT | PHONE_SCREEN | INTERVIEW_SCHEDULED
+  date             DateTime @default(now())
+  status           String   // SENT | REPLIED | GHOSTED | NO_INTEREST
+  responseTimeDays Float?
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  recruiter Recruiter @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+
+  @@index([recruiterId])
+  @@index([status])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  action    String   // e.g. USER_LOGIN, EXPORT_DATA, DELETE_ACCOUNT, SENSITIVE_READ
+  resource  String   // e.g. USER, RESUME, PROFILE
+  details   Json     @default("{}")
+  ipAddress String?
+  status    String   // SUCCESS | FAILED
+  createdAt DateTime @default(now())
+
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model SecurityAlert {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @db.Uuid
+  type        String   // e.g. RATE_LIMIT_EXCEEDED, BRUTE_FORCE, EXPORT_DATA
+  severity    String   // LOW | MEDIUM | HIGH | CRITICAL
+  description String   @db.Text
+  status      String   @default("OPEN") // OPEN | RESOLVED | INVESTIGATING
+  details     Json     @default("{}")
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([status])
+  @@index([severity])
+  @@index([createdAt])
 }

@@ -27,7 +27,7 @@ export default async function ApplicationsPage() {
       stage: stageStr,
       owner: "You",
       nextStep: app.notes || "Follow up in 3 days",
-      score: app.matchScore,
+      score: app.matchScore ?? 0,
     };
   });
 

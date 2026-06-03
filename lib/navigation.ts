@@ -12,11 +12,14 @@ import {
   KanbanSquare,
   Mail,
   MailCheck,
+  Network,
   Scale,
   ScanText,
   Sparkles,
   Trophy,
+  UserCheck,
   UserRoundSearch,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 
@@ -43,6 +46,8 @@ export const NAV_ITEMS: NavGroup[] = [
       { title: "Job Matches", href: "/matches", icon: BriefcaseBusiness },
       { title: "Market Weather", href: "/market-weather", icon: CloudLightning },
       { title: "FAANG India Track", href: "/india-track", icon: Trophy },
+      { title: "Networking CRM", href: "/networking", icon: Network },
+      { title: "Recruiter Intel", href: "/recruiter-intelligence", icon: UserCheck, badge: "AI" },
     ],
   },
   {
@@ -62,9 +67,11 @@ export const NAV_ITEMS: NavGroup[] = [
     label: "Prepare",
     color: "text-teal-500",
     items: [
-    { title: "InterviewAI", href: "/interview-ai", icon: UserRoundSearch },
+      { title: "InterviewAI", href: "/interview-ai", icon: UserRoundSearch },
       { title: "Skill Gap", href: "/skill-gap", icon: GraduationCap },
       { title: "Career Coach", href: "/coach", icon: Sparkles, badge: "AI" },
+      { title: "Career Graph", href: "/career-graph", icon: GitBranch },
+      { title: "Career Agent", href: "/agent", icon: BrainCircuit, badge: "AUTO" },
     ],
   },
   {
@@ -84,6 +91,8 @@ export const NAV_ITEMS: NavGroup[] = [
     color: "text-slate-400",
     items: [
       { title: "Analytics", href: "/analytics", icon: BarChart3 },
+      { title: "Security Hub", href: "/security", icon: ShieldAlert },
     ],
   },
 ];
+

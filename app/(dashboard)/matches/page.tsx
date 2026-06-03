@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { isIndiaLocation } from "@/lib/domain/jobs/providers/india";
+import { CacheService, CacheKeys } from "@/lib/cache/cache.service";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -25,14 +26,24 @@ export default async function MatchesPage() {
   }
   
   const [opportunities, profile, indiaTracks] = await Promise.all([
-    JobsService.getOpportunitiesForUser(session.user.id),
+    // Cache job opportunities per user — 2 min TTL
+    CacheService.remember(
+      CacheKeys.jobMatches(session.user.id),
+      () => JobsService.getOpportunitiesForUser(session.user.id),
+      120
+    ),
     prisma.careerProfile.findUnique({
       where: { userId: session.user.id },
       select: { constraints: true },
     }),
-    prisma.indiaCompanyTrack.findMany({
-      select: { companyName: true, companySlug: true },
-    }),
+    // Cache india tracks globally — 1h TTL (essentially static data)
+    CacheService.remember(
+      CacheKeys.indiaTracks(),
+      () => prisma.indiaCompanyTrack.findMany({
+        select: { companyName: true, companySlug: true },
+      }),
+      3600
+    ),
   ]);
   
   // Build a lowercase name -> slug map for O(1) job card lookup
@@ -74,3 +85,4 @@ export default async function MatchesPage() {
 
   return <JobMatchDashboard initialJobs={mappedJobs} defaultIndiaOnly={defaultIndiaOnly} />;
 }
+

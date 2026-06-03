@@ -1,18 +1,34 @@
 import { prisma } from "@/lib/db/prisma";
-import { Application } from "@prisma/client";
+
+export interface ApplicationListItem {
+  id: string;
+  company: string;
+  role: string;
+  status: string;
+  notes: string | null;
+  matchScore: number | null;
+  updatedAt: Date;
+}
 
 export class ApplicationService {
-  static async getApplicationsForUser(userId: string): Promise<Application[]> {
+  static async getApplicationsForUser(userId: string): Promise<ApplicationListItem[]> {
     return prisma.application.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },
-      include: {
-        jobOpportunity: true,
-      }
+      // Only select fields used by the tracker UI — avoids full jobOpportunity join
+      select: {
+        id: true,
+        company: true,
+        role: true,
+        status: true,
+        notes: true,
+        matchScore: true,
+        updatedAt: true,
+      },
     });
   }
 
-  static async updateApplicationStatus(id: string, userId: string, status: "applied" | "interview" | "rejected" | "offer"): Promise<Application> {
+  static async updateApplicationStatus(id: string, userId: string, status: "applied" | "interview" | "rejected" | "offer") {
     return prisma.application.update({
       where: { id, userId },
       data: { status },
@@ -25,3 +41,4 @@ export class ApplicationService {
     });
   }
 }
+

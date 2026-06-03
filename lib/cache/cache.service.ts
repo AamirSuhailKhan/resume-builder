@@ -69,9 +69,17 @@ export class CacheService {
 // Cache key builders — centralised to avoid typos
 export const CacheKeys = {
   analytics: (userId: string) => `analytics:${userId}`,
+  analyticsHealth: (userId: string) => `analytics:health:${userId}`,
+  dashboardStats: (userId: string) => `dashboard:stats:${userId}`,
+  weeklyTrends: (userId: string) => `analytics:trends:${userId}`,
+  jobMatches: (userId: string) => `jobs:matches:${userId}`,
+  indiaTracks: () => `india:tracks:all`,
+  recruiterList: (userId: string) => `recruiter:list:${userId}`,
+  networkContacts: (userId: string) => `network:contacts:${userId}`,
   atsResult: (resumeId: string, jobHash: string) => `ats:${resumeId}:${jobHash}`,
   jobSearch: (query: string) => `search:jobs:${encodeURIComponent(query)}`,
   providerHealth: (provider: string) => `provider:health:${provider}`,
   featureFlag: (key: string) => `flag:${key}`,
   coachPrompt: (userId: string) => `coach:prompt:${userId}`,
+  jobIntelligence: (jobId: string) => `job:intelligence:${jobId}`,
 };

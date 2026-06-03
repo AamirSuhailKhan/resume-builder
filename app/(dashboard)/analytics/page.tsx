@@ -3,20 +3,36 @@ import { ApplicationHealthDashboard } from "@/components/analytics/ApplicationHe
 import { AnalyticsService } from "@/lib/services/analytics.service";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import { CacheService, CacheKeys } from "@/lib/cache/cache.service";
+import { Suspense } from "react";
 
-export default async function AnalyticsPage() {
+export const metadata = {
+  title: "Analytics | CareerOS",
+};
+
+async function AnalyticsData() {
   const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  if (!session?.user?.id) redirect("/login");
 
   const userId = session.user.id;
-  const metrics = await AnalyticsService.getDashboardMetrics(userId);
-  const trends = await AnalyticsService.getWeeklyTrends(userId);
+  const CACHE_TTL = 300; // 5 minutes
 
-  // Map trends to the format needed by the charts
-  const appsData = trends.datasets.find((dataset) => dataset.label === "Applications")?.data ?? [];
-  const interviewsData = trends.datasets.find((dataset) => dataset.label === "Interviews")?.data ?? [];
+  // Parallelise both service calls + cache both independently
+  const [metrics, trends] = await Promise.all([
+    CacheService.remember(
+      CacheKeys.analyticsHealth(userId),
+      () => AnalyticsService.getDashboardMetrics(userId),
+      CACHE_TTL
+    ),
+    CacheService.remember(
+      CacheKeys.weeklyTrends(userId),
+      () => AnalyticsService.getWeeklyTrends(userId),
+      CACHE_TTL
+    ),
+  ]);
+
+  const appsData = trends.datasets.find((d) => d.label === "Applications")?.data ?? [];
+  const interviewsData = trends.datasets.find((d) => d.label === "Interviews")?.data ?? [];
 
   const trendData = trends.labels.map((label, i) => ({
     week: label,
@@ -30,15 +46,26 @@ export default async function AnalyticsPage() {
   const realResponseRate = totalApps > 0 ? Math.round((totalInterviews / totalApps) * 100) : 0;
 
   const dashboardMetrics = {
-    responseRate: `${realResponseRate}%`, 
+    responseRate: `${realResponseRate}%`,
     resumeScore: metrics.resumeScore.toString(),
     interviewPace: totalInterviews.toString(),
   };
 
+  return <AnalyticsDashboard trendData={trendData} metrics={dashboardMetrics} />;
+}
+
+export default async function AnalyticsPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+
   return (
     <div className="space-y-8 px-6">
+      {/* ApplicationHealthDashboard fetches its own data client-side, wrap in Suspense */}
       <ApplicationHealthDashboard />
-      <AnalyticsDashboard trendData={trendData} metrics={dashboardMetrics} />
+      <Suspense fallback={<div className="h-64 animate-pulse rounded-lg bg-surface-muted" />}>
+        <AnalyticsData />
+      </Suspense>
     </div>
   );
 }
+

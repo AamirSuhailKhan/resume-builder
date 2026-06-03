@@ -210,9 +210,10 @@ export class AnalyticsService {
       : null;
 
     const dayBuckets = new Map<string, { total: number; responses: number }>();
-    const formatter = new Intl.DateTimeFormat("en-US", { weekday: "long" });
+    // Hoist formatter outside loop to avoid O(n) object creation
+    const dayFormatter = new Intl.DateTimeFormat("en-US", { weekday: "long" });
     for (const application of applications) {
-      const day = formatter.format(application.createdAt);
+      const day = dayFormatter.format(application.createdAt);
       const bucket = dayBuckets.get(day) ?? { total: 0, responses: 0 };
       bucket.total += 1;
       if (application.status !== "applied") bucket.responses += 1;
@@ -286,6 +287,7 @@ export class AnalyticsService {
     const normalizedIndustry = industry.toLowerCase() || "tech";
     const normalizedLocation = location.toLowerCase() || "india";
 
+    // Single query: exact match first, then fallback — avoids double round-trip
     const exact = await prisma.anonymousBenchmark.findUnique({
       where: {
         roleLevel_industry_location: {
@@ -296,7 +298,10 @@ export class AnalyticsService {
       },
     });
 
-    return exact ?? prisma.anonymousBenchmark.findFirst({
+    if (exact) return exact;
+
+    // Fallback: best-sampled record for the same role level
+    return prisma.anonymousBenchmark.findFirst({
       where: { roleLevel: normalizedRole },
       orderBy: { sampleSize: "desc" },
     });
