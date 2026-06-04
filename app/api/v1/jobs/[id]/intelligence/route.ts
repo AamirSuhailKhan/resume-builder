@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { OpportunityScorer } from "@/lib/job-intelligence/opportunity-scorer";
+import { OpportunityIntelligenceService } from "@/lib/job-intelligence/opportunity-intelligence";
 import { logger } from "@/lib/logger";
 import { CacheService, CacheKeys } from "@/lib/cache/cache.service";
 
@@ -48,12 +48,7 @@ export async function GET(
     }
 
     // Otherwise compute / recompute it
-    const intelligence = await OpportunityScorer.computeOpportunityScore({
-      jobId: job.id,
-      companyName: job.company,
-      role: job.role,
-      userMatchScore: job.matchScore
-    });
+    const intelligence = await OpportunityIntelligenceService.computeOpportunityIntelligence(job.id, session.user.id);
 
     // Cache freshly computed result
     await CacheService.set(cacheKey, intelligence, 86400);

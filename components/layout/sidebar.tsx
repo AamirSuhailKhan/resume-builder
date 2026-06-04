@@ -50,7 +50,7 @@ export function Sidebar({ user }: SidebarProps) {
         </div>
       </Link>
 
-      {/* Home button */}
+      {/* Mission Control button */}
       <Link
         href="/dashboard"
         className={cn(
@@ -61,7 +61,7 @@ export function Sidebar({ user }: SidebarProps) {
         )}
       >
         <LayoutDashboard className="h-4 w-4 shrink-0" />
-        <span>Home</span>
+        <span>Mission Control</span>
       </Link>
 
       {/* Journey nav */}

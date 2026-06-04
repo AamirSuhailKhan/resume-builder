@@ -33,6 +33,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "server-only": [
+        "./lib/server-only-mock.ts"
       ]
     }
   },

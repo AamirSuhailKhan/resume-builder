@@ -374,14 +374,31 @@ async function buildFromCareerProfile(userId: string): Promise<void> {
   if (!profile) return;
 
   // Career Goals
-  const goals = (profile.goals as Array<Record<string, unknown>>) ?? [];
-  for (const goal of goals) {
+  let goalsArray: Array<Record<string, any>> = [];
+  if (Array.isArray(profile.goals)) {
+    goalsArray = profile.goals as Array<Record<string, any>>;
+  } else if (profile.goals && typeof profile.goals === "object") {
+    const g = profile.goals as Record<string, any>;
+    if (g.targetRoles && Array.isArray(g.targetRoles)) {
+      goalsArray = g.targetRoles.map(role => ({
+        targetRole: role,
+        targetCompany: Array.isArray(g.targetCompanies) && g.targetCompanies.length > 0 ? g.targetCompanies[0] : (g.targetCompany ?? null),
+        timeline: g.timeline ?? null,
+        priority: 0.8,
+      }));
+    } else {
+      goalsArray = [g];
+    }
+  }
+
+  for (const goal of goalsArray) {
+    const targetRole = (goal.targetRole as string) ?? "";
     await GraphService.upsertNode(
       userId,
       "CAREER_GOAL" as GraphNodeKind,
-      (goal.title as string) ?? `Goal: ${goal.targetRole as string}`,
+      (goal.title as string) ?? `Goal: ${targetRole}`,
       {
-        targetRole: (goal.targetRole as string) ?? "",
+        targetRole,
         targetCompany: (goal.targetCompany as string) ?? null,
         targetIndustry: (goal.targetIndustry as string) ?? null,
         timeline: (goal.timeline as string) ?? null,

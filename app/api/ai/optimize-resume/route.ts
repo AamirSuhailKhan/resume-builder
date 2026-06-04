@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GoogleGenAI } from "@google/genai";
+import { geminiJSON } from "@/lib/ai/core";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/session";
 import { NextRequest, NextResponse } from "next/server";
@@ -7,7 +7,6 @@ import { applyRateLimit, getClientIdentifier } from "@/lib/security/ratelimit";
 import { errorToResponse } from "@/lib/api/response";
 import { memoryService } from "@/lib/services/memory.service";
 import { logger } from "@/lib/logger";
-import { safeParseAndValidate } from "@/lib/ai/recovery";
 
 export const runtime = "nodejs";
 
@@ -69,12 +68,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: "GEMINI_API_KEY missing" }, { status: 500 });
-    }
-
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
     // ── Retrieve career memories for evidence-based suggestions ──
     let memoriesContext = "";
     try {
@@ -104,12 +97,6 @@ Resume Data: ${JSON.stringify(resumeData)}
 Job Description: ${jobDescription}${memoriesContext}
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: { responseMimeType: 'application/json' },
-    });
-
     const fallbackResult = {
       optimizedResume: resumeData || {},
       atsScore: 70,
@@ -119,11 +106,13 @@ Job Description: ${jobDescription}${memoriesContext}
       matchAnalysis: "Tailored review completed. Recommended adjustments are shown below."
     };
 
-    const validatedResult = safeParseAndValidate(
-      response.text ?? '{}',
-      responseSchema,
-      fallbackResult
-    );
+    const validatedResult = await geminiJSON({
+      system: "You are an expert ATS optimizer and career coach.",
+      user: prompt,
+      schema: responseSchema,
+      fallback: fallbackResult,
+      model: "gemini-2.5-flash",
+    });
 
     // Track Usage
     await prisma.aIUsage.create({
@@ -131,9 +120,9 @@ Job Description: ${jobDescription}${memoriesContext}
         userId: user.id,
         provider: "google",
         model: "gemini-2.5-flash",
-        promptTokens: 0, // Gemini SDK doesn't always return exact token counts synchronously here, estimating:
+        promptTokens: 0,
         completionTokens: 0,
-        estimatedCost: 0.001, // Flat estimated cost per operation
+        estimatedCost: 0.001,
       }
     });
 

@@ -171,7 +171,12 @@ export function analyzeOnboardingResume(resume: ResumeProfileInput): OnboardingA
   let hasMetrics = false;
   let textBlob = "";
   for (const exp of experience) {
-    const roleText = (exp.role || "") + " " + (exp.company || "") + " " + (exp.points || []).join(" ");
+    const pts = Array.isArray(exp.points)
+      ? exp.points
+      : typeof exp.points === "string"
+        ? exp.points.split("\n")
+        : [];
+    const roleText = (exp.role || "") + " " + (exp.company || "") + " " + pts.join(" ");
     textBlob += " " + roleText;
     if (/[0-9]+%|[0-9]+\s*x|[0-9]+\s*ms|lakh|crore|million|billion|\$[0-9]+/i.test(roleText)) {
       hasMetrics = true;

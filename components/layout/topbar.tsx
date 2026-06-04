@@ -16,6 +16,7 @@ const titles: Record<string, string> = {
   "/ats": "ATS Score",
   "/job-optimizer": "Job Optimizer",
   "/job-intelligence": "Job Intelligence",
+  "/opportunities": "Opportunity Intelligence",
   "/matches": "Job Matches",
   "/auto-apply": "Auto Apply",
   "/applications": "Applications",
@@ -27,12 +28,13 @@ const titles: Record<string, string> = {
 };
 
 const journeyNav = [
-  { label: "Home", href: "/dashboard" },
-  { label: "Find", href: "/matches" },
-  { label: "Apply", href: "/auto-apply" },
-    { label: "Prepare", href: "/interview-ai" },
+  { label: "Mission Control", href: "/dashboard" },
+  { label: "Find", href: "/opportunities" },
+  { label: "Grow", href: "/agent" },
+  { label: "Apply", href: "/builder" },
+  { label: "Prepare", href: "/interview-ai" },
   { label: "Negotiate", href: "/negotiation" },
-  ...(SHOW_TWIN ? [{ label: "Twin", href: "/twin" }] : []),
+  { label: "Track", href: "/analytics" },
 ];
 
 export function Topbar() {

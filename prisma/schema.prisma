@@ -319,6 +319,7 @@ model User {
 
   auditLogs             AuditLog[]
   securityAlerts        SecurityAlert[]
+  careerHealthSnapshots CareerHealthSnapshot[]
 
   @@index([email])
 }
@@ -797,6 +798,13 @@ model JobIntelligence {
   
   matchQuality     Float    @default(0) // 0-100
   stabilityScore   Float    @default(0) // 0-100
+  
+  // Opportunity Intelligence Engine additions
+  whyMatters           String?  @db.Text
+  interviewProbability Float    @default(0)
+  successProbability   Float    @default(0)
+  requiredSkills       String[] @default([])
+  salaryGrowth         Float    @default(0) // e.g. % growth predicted or relative bump
   
   computedAt       DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -2902,3 +2910,22 @@ model SecurityAlert {
   @@index([severity])
   @@index([createdAt])
 }
+
+model CareerHealthSnapshot {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @db.Uuid
+  overallScore      Int
+  skillHealth       Int
+  interviewHealth   Int
+  networkingHealth  Int
+  applicationHealth Int
+  marketHealth      Int
+  details           Json     // stores explanations (why, hurts, improve)
+  createdAt         DateTime @default(now())
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+

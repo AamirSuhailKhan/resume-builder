@@ -1,521 +1,448 @@
 "use client";
-
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Brain, Send, RefreshCw, Target, Activity, Award, Compass, Clock, CheckCircle2, AlertTriangle, Lightbulb, Terminal, ChevronDown, ChevronUp } from "lucide-react";
 import type { CareerRoadmap, AgentExecutionReport, WeeklyAdaptationReport } from "@/lib/agent/types";
+import { AgentAnalysisPanel, type AnalysisData } from "./AgentAnalysisPanel";
 
-// ─── Theme Colors ─────────────────────────────────────────────────────────────
-const COLORS = {
-  bg: "#050508",
-  panel: "rgba(15,15,25,0.95)",
-  border: "#1f2937",
-  primary: "#a855f7", // purple
-  primaryGlow: "rgba(168,85,247,0.15)",
-  accent: "#06b6d4", // cyan
-  accentGlow: "rgba(6,182,212,0.15)",
-  success: "#10b981", // green
-  warning: "#f59e0b", // amber
-  muted: "#6b7280",
-  text: "#f3f4f6",
+type Tab = "roadmap" | "analysis" | "memory" | "log";
+type PlanFilter = "all" | "skill_acquisition" | "project_build" | "certification" | "networking" | "application" | "interview_prep";
+
+const BADGE: Record<string, string> = {
+  skill_acquisition: "bg-purple-950/60 text-purple-300 border-purple-800/30",
+  project_build: "bg-cyan-950/60 text-cyan-300 border-cyan-800/30",
+  certification: "bg-amber-950/60 text-amber-300 border-amber-800/30",
+  networking: "bg-blue-950/60 text-blue-300 border-blue-800/30",
+  application: "bg-emerald-950/60 text-emerald-300 border-emerald-800/30",
+  interview_prep: "bg-pink-950/60 text-pink-300 border-pink-800/30",
 };
 
 export function AutonomousAgentDashboard() {
+  const [tab, setTab] = useState<Tab>("roadmap");
   const [goalInput, setGoalInput] = useState("");
-  const [activeRoadmap, setActiveRoadmap] = useState<CareerRoadmap | null>(null);
+  const [roadmap, setRoadmap] = useState<CareerRoadmap | null>(null);
   const [loading, setLoading] = useState(false);
   const [execReport, setExecReport] = useState<AgentExecutionReport | null>(null);
-  const [currentWeek, setCurrentWeek] = useState(1);
   const [adapting, setAdapting] = useState(false);
   const [adaptReport, setAdaptReport] = useState<WeeklyAdaptationReport | null>(null);
+  const [currentWeek, setCurrentWeek] = useState(1);
+  const [progress, setProgress] = useState<any>(null);
+  const [memories, setMemories] = useState<any[]>([]);
+  const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [filter, setFilter] = useState<PlanFilter>("all");
+  const [expandedPhases, setExpandedPhases] = useState<Set<number>>(new Set([1]));
+  const [primaryGoal, setPrimaryGoal] = useState<any>(null);
 
-  // Fetch active roadmap on mount
-  useEffect(() => {
-    async function loadRoadmap() {
-      try {
-        const res = await fetch("/api/v1/agent/roadmap");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.activeRoadmap) {
-            setActiveRoadmap(data.activeRoadmap);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load roadmap:", err);
+  const refresh = useCallback(async () => {
+    try {
+      const [statusRes, memRes] = await Promise.all([
+        fetch("/api/v1/agent/status"),
+        fetch("/api/v1/agent/memory"),
+      ]);
+      if (statusRes.ok) {
+        const d = await statusRes.json();
+        if (d.status?.roadmap) setRoadmap(d.status.roadmap);
+        if (d.status?.progress) setProgress(d.status.progress);
+        if (d.status?.primaryGoal) setPrimaryGoal(d.status.primaryGoal);
+        if (d.status?.currentWeek) setCurrentWeek(d.status.currentWeek);
       }
-    }
-    loadRoadmap();
+      if (memRes.ok) {
+        const d = await memRes.json();
+        if (d.memories) setMemories(d.memories);
+      }
+    } catch {}
   }, []);
 
-  const handleActivateAgent = async (e: React.FormEvent) => {
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const handleGoal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!goalInput.trim()) return;
-
     setLoading(true);
     setExecReport(null);
     try {
       const res = await fetch("/api/v1/agent/goal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ goalInput }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setExecReport(data.report);
-        if (data.report?.workingMemory?.roadmap) {
-          setActiveRoadmap(data.report.workingMemory.roadmap);
-        } else {
-          // reload active plan
-          const planRes = await fetch("/api/v1/agent/roadmap");
-          const planData = await planRes.json();
-          setActiveRoadmap(planData.activeRoadmap);
-        }
+        const d = await res.json();
+        setExecReport(d.report);
+        await refresh();
+        setTab("roadmap");
       }
-    } catch (err) {
-      console.error("Goal activation failed:", err);
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
+    setLoading(false);
   };
 
-  const handleToggleTask = async (roadmapId: string, taskId: string) => {
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
     try {
-      const res = await fetch("/api/v1/agent/task/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roadmapId, taskId }),
+      const res = await fetch("/api/v1/agent/analyze", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetRole: primaryGoal?.targetRole ?? roadmap?.targetRole ?? "Software Engineer",
+          targetCompany: primaryGoal?.targetCompany ?? roadmap?.targetCompany,
+          timelineMonths: primaryGoal ? Math.ceil((primaryGoal.timelineWeeks ?? 48) / 4) : 12,
+        }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setActiveRoadmap(data.roadmap);
+        const d = await res.json();
+        setAnalysis(d.analysis);
+        setTab("analysis");
       }
-    } catch (err) {
-      console.error("Task toggle failed:", err);
+    } catch {}
+    setAnalyzing(false);
+  };
+
+  const handleToggle = async (taskId: string) => {
+    if (!roadmap) return;
+    const res = await fetch("/api/v1/agent/task/complete", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roadmapId: roadmap.id, taskId }),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      if (d.roadmap) setRoadmap(d.roadmap);
+      await refresh();
     }
   };
 
-  const handleAdaptRoadmap = async () => {
+  const handleAdapt = async () => {
     setAdapting(true);
-    setAdaptReport(null);
-    try {
-      const res = await fetch("/api/v1/agent/adapt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentWeekNumber: currentWeek }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setAdaptReport(data.report);
-        // reload active plan
-        const planRes = await fetch("/api/v1/agent/roadmap");
-        const planData = await planRes.json();
-        setActiveRoadmap(planData.activeRoadmap);
-        setCurrentWeek((prev) => prev + 1);
-      }
-    } catch (err) {
-      console.error("Adaptation trigger failed:", err);
-    } finally {
-      setAdapting(false);
+    const res = await fetch("/api/v1/agent/adapt", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ currentWeekNumber: currentWeek }),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      setAdaptReport(d.report);
+      await refresh();
     }
+    setAdapting(false);
   };
 
-  const totalTasks = activeRoadmap?.phases?.flatMap((p) => p.weeklyPlans?.flatMap((w) => w.actionItems) ?? [])?.length ?? 0;
-  const completedTasks = activeRoadmap?.phases?.flatMap((p) => p.weeklyPlans?.flatMap((w) => w.actionItems?.filter((t) => t.completed) ?? []) ?? [])?.length ?? 0;
-  const progressPct = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+  const togglePhase = (n: number) => {
+    setExpandedPhases(prev => {
+      const s = new Set(prev);
+      s.has(n) ? s.delete(n) : s.add(n);
+      return s;
+    });
+  };
+
+  const allTasks = roadmap?.phases.flatMap(p => p.weeklyPlans.flatMap(w => w.actionItems.map(t => ({ ...t, weekNumber: w.weekNumber, phaseTitle: p.title })))) ?? [];
+  const filteredTasks = filter === "all" ? allTasks : allTasks.filter(t => t.type === filter);
+  const total = allTasks.length;
+  const done = allTasks.filter(t => t.completed).length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  const TabBtn = ({ id, label }: { id: Tab; label: string }) => (
+    <button onClick={() => setTab(id)}
+      className={`px-4 py-2 text-xs font-extrabold rounded-xl border transition-all ${tab === id ? "bg-purple-950/60 text-purple-200 border-purple-500/40" : "bg-transparent text-slate-400 border-transparent hover:text-white"}`}>
+      {label}
+    </button>
+  );
 
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.title}>Autonomous Career Agent</h1>
-          <p style={styles.subtitle}>Let the agent orchestrate your skill-ups, job applications, and milestones autonomously.</p>
+    <div className="min-h-screen bg-[#030307] text-slate-100 font-sans p-6 md:p-8 max-w-7xl mx-auto space-y-8">
+
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-slate-800 pb-6">
+        <div className="space-y-2">
+          <div className="inline-flex items-center gap-2 rounded-full border border-purple-500/20 bg-purple-950/30 px-3 py-1 text-xs font-semibold text-purple-300">
+            <Brain className="h-3.5 w-3.5 animate-pulse" /> Autonomous Intelligence Suite
+          </div>
+          <h1 className="text-4xl font-black tracking-tight bg-gradient-to-r from-white to-purple-400 bg-clip-text text-transparent">
+            AI Career Manager
+          </h1>
+          <p className="text-slate-400 text-sm">Persistent AI that analyzes, plans, and tracks your career path autonomously.</p>
         </div>
+        {roadmap && (
+          <button onClick={handleAnalyze} disabled={analyzing}
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs uppercase px-5 py-2.5 rounded-xl shadow-lg transition-all">
+            <Activity className={`h-4 w-4 ${analyzing ? "animate-spin" : ""}`} />
+            {analyzing ? "Analyzing..." : "Run Deep Analysis"}
+          </button>
+        )}
       </div>
 
-      {/* Grid Layout */}
-      <div style={styles.grid}>
-        {/* Left Column: Command & Logs */}
-        <div style={styles.leftCol}>
-          <div style={styles.card}>
-            <h2 style={styles.cardTitle}>Set Target Career Goal</h2>
-            <form onSubmit={handleActivateAgent} style={styles.form}>
-              <input
-                type="text"
-                value={goalInput}
-                onChange={(e) => setGoalInput(e.target.value)}
-                placeholder="e.g. I want a Backend Engineer job at Google in 6 months"
-                style={styles.input}
-                disabled={loading}
-              />
-              <button type="submit" style={styles.btn} disabled={loading}>
-                {loading ? "Orchestrating..." : "Launch Agent"}
-              </button>
-            </form>
+      {/* GOAL ACTIVATION */}
+      <div className="bg-slate-950 border border-slate-800 rounded-3xl p-6 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Target className="h-4 w-4 text-purple-400" /> Career Goal
+            </h2>
+            {primaryGoal && (
+              <p className="text-xs text-purple-300 mt-1 font-medium">
+                Active: {primaryGoal.targetRole}{primaryGoal.targetCompany ? ` @ ${primaryGoal.targetCompany}` : ""} · {Math.ceil((primaryGoal.timelineWeeks ?? 48) / 4)}mo
+              </p>
+            )}
+          </div>
+          {progress && (
+            <div className="flex items-center gap-4 text-right">
+              <div>
+                <div className="text-[10px] text-slate-500 font-black uppercase">Streak</div>
+                <div className="text-lg font-black text-white">{progress.activeStreak}<span className="text-xs text-slate-400 ml-1">days</span></div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 font-black uppercase">Readiness</div>
+                <div className="text-lg font-black text-emerald-400">{Math.round(progress.readinessScore)}%</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 font-black uppercase">Progress</div>
+                <div className="text-lg font-black text-purple-400">{pct}%</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <form onSubmit={handleGoal} className="flex gap-3">
+          <input value={goalInput} onChange={e => setGoalInput(e.target.value)} disabled={loading}
+            placeholder="e.g. I want a Backend Engineer role at Google within 12 months"
+            className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors" />
+          <button type="submit" disabled={loading}
+            className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs uppercase px-5 py-3 rounded-xl transition-all whitespace-nowrap">
+            {loading ? <><RefreshCw className="h-4 w-4 animate-spin" /> Running...</> : <><Send className="h-4 w-4" /> Deploy Agent</>}
+          </button>
+        </form>
+
+        {roadmap && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-[10px] text-slate-500 font-black uppercase">
+              <span>Overall Completion</span><span>{done}/{total} tasks · {pct}%</span>
+            </div>
+            <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-purple-500 to-emerald-400 transition-all duration-500" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* MAIN CONTENT AREA */}
+      {!roadmap && !loading ? (
+        <div className="bg-slate-950 border border-dashed border-slate-800 rounded-3xl p-20 flex flex-col items-center justify-center text-center space-y-4">
+          <div className="h-16 w-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center">
+            <Compass className="h-8 w-8 text-slate-600" />
+          </div>
+          <h3 className="text-lg font-bold text-white">No Active Goal</h3>
+          <p className="text-xs text-slate-500 max-w-sm">Enter your career target above and deploy the agent to generate your personalized roadmap.</p>
+        </div>
+      ) : roadmap ? (
+        <div className="space-y-6">
+          {/* TAB BAR */}
+          <div className="flex flex-wrap items-center gap-2">
+            <TabBtn id="roadmap" label="Weekly Roadmap" />
+            <TabBtn id="analysis" label="Deep Analysis" />
+            <TabBtn id="memory" label="Memory Vault" />
+            <TabBtn id="log" label="Agent Log" />
           </div>
 
-          {/* Terminal Logs / Execution Steps */}
-          {execReport && (
-            <div style={styles.card}>
-              <h2 style={styles.cardTitle}>Planner Log</h2>
-              <div style={styles.terminal}>
-                <div style={styles.terminalHeader}>
-                  <span style={styles.dotRed}></span>
-                  <span style={styles.dotYellow}></span>
-                  <span style={styles.dotGreen}></span>
-                  <span style={{ marginLeft: 8, fontSize: 10, color: COLORS.muted }}>career-agent-planner.sh</span>
+          {/* ROADMAP TAB */}
+          {tab === "roadmap" && (
+            <div className="space-y-6">
+              {/* Plan Filters */}
+              <div className="flex flex-wrap gap-2">
+                {(["all","skill_acquisition","project_build","certification","networking","application","interview_prep"] as PlanFilter[]).map(f => (
+                  <button key={f} onClick={() => setFilter(f)}
+                    className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-lg border transition-all ${filter === f ? "bg-slate-800 text-white border-slate-700" : "bg-transparent text-slate-500 border-transparent hover:text-slate-300"}`}>
+                    {f === "all" ? "All Tasks" : f.replace("_", " ")}
+                  </button>
+                ))}
+              </div>
+
+              {filter === "all" ? (
+                /* Phase view */
+                roadmap.phases.map(phase => (
+                  <div key={phase.phaseNumber} className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden">
+                    <button onClick={() => togglePhase(phase.phaseNumber)}
+                      className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-900/30 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[10px] font-black uppercase bg-purple-950/60 text-purple-300 border border-purple-800/30 px-2 py-0.5 rounded-full">Phase {phase.phaseNumber}</span>
+                        <div>
+                          <h3 className="text-sm font-bold text-white">{phase.title}</h3>
+                          <p className="text-[11px] text-slate-400">{phase.focus}</p>
+                        </div>
+                      </div>
+                      {expandedPhases.has(phase.phaseNumber) ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
+                    </button>
+                    {expandedPhases.has(phase.phaseNumber) && (
+                      <div className="px-5 pb-5 space-y-4 border-t border-slate-900">
+                        {phase.weeklyPlans.map(week => (
+                          <div key={week.weekNumber} className="pt-4">
+                            <h4 className={`text-xs font-extrabold mb-3 flex items-center justify-between ${week.weekNumber === currentWeek ? "text-purple-400" : "text-slate-400"}`}>
+                              <span>Week {week.weekNumber}: {week.focus}</span>
+                              {week.weekNumber === currentWeek && <span className="text-[9px] bg-purple-950 border border-purple-800 text-purple-300 px-2 py-0.5 rounded-full animate-pulse">Active</span>}
+                            </h4>
+                            <div className="space-y-2">
+                              {week.actionItems.map(task => (
+                                <div key={task.id} className="flex items-start gap-3 bg-slate-900/30 p-3 rounded-xl border border-slate-900 hover:border-slate-800 transition-all">
+                                  <input type="checkbox" checked={task.completed} onChange={() => handleToggle(task.id)}
+                                    className="mt-0.5 cursor-pointer accent-purple-500 h-4 w-4 flex-shrink-0" />
+                                  <div className="flex-grow space-y-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${BADGE[task.type] ?? "bg-slate-900 text-slate-400 border-slate-800"}`}>
+                                        {task.type.replace("_"," ")}
+                                      </span>
+                                      <span className="text-[10px] text-slate-500 flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{task.estimatedHours}h</span>
+                                    </div>
+                                    <p className={`text-xs font-semibold leading-snug ${task.completed ? "line-through text-slate-500" : "text-white"}`}>{task.title}</p>
+                                    <p className="text-[10px] text-slate-400 leading-normal">{task.description}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                /* Filtered flat view */
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-white capitalize">{filter.replace(/_/g," ")} Plan</h3>
+                  {filteredTasks.length === 0 ? (
+                    <p className="text-xs text-slate-500 py-6 text-center">No tasks in this category.</p>
+                  ) : filteredTasks.map(task => (
+                    <div key={task.id} className="flex items-start gap-3 bg-slate-900/30 p-3 rounded-xl border border-slate-900">
+                      <input type="checkbox" checked={task.completed} onChange={() => handleToggle(task.id)}
+                        className="mt-0.5 cursor-pointer accent-purple-500 h-4 w-4 flex-shrink-0" />
+                      <div className="flex-grow space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${BADGE[task.type] ?? "bg-slate-900 text-slate-400 border-slate-800"}`}>
+                            {task.type.replace("_"," ")}
+                          </span>
+                          <span className="text-[10px] text-slate-500">Week {task.weekNumber} · {task.phaseTitle}</span>
+                        </div>
+                        <p className={`text-xs font-semibold ${task.completed ? "line-through text-slate-500" : "text-white"}`}>{task.title}</p>
+                        <p className="text-[10px] text-slate-400">{task.description}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div style={styles.terminalContent}>
-                  {execReport.steps.map((step) => (
-                    <div key={step.stepNumber} style={{ marginBottom: 12 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ color: COLORS.accent, fontWeight: 600, fontSize: 12 }}>
-                          Step {step.stepNumber}: {step.toolToExecute}
+              )}
+
+              {/* Adapt Controls */}
+              <div className="flex items-center justify-between bg-slate-950 border border-slate-800 rounded-2xl p-4">
+                <div>
+                  <p className="text-xs font-bold text-white">Week {currentWeek} Sync</p>
+                  <p className="text-[10px] text-slate-500">Adapt roadmap based on this week's activity</p>
+                </div>
+                <button onClick={handleAdapt} disabled={adapting}
+                  className="flex items-center gap-2 border border-purple-500/40 text-purple-400 hover:bg-purple-950/20 font-bold text-xs uppercase px-4 py-2 rounded-xl transition-all">
+                  <RefreshCw className={`h-3.5 w-3.5 ${adapting ? "animate-spin" : ""}`} />
+                  {adapting ? "Syncing..." : "Run Adaptation"}
+                </button>
+              </div>
+
+              {adaptReport && (
+                <div className="bg-slate-950 border border-purple-500/20 rounded-2xl p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-purple-300 flex items-center gap-2">
+                    <Lightbulb className="h-4 w-4" /> Adaptation Report · Week {adaptReport.originalWeekNumber}→{adaptReport.adaptationWeekNumber}
+                  </h3>
+                  <p className="text-xs text-slate-300">{adaptReport.reasonsForChange.join(" ")}</p>
+                  <div className="space-y-2">
+                    {adaptReport.adjustmentsMade.map((a, i) => (
+                      <div key={i} className="flex items-center gap-3 bg-slate-900/40 p-3 rounded-xl text-xs">
+                        <span className="bg-amber-950/60 text-amber-300 border border-amber-800/40 text-[9px] font-black px-2 py-0.5 rounded-full flex-shrink-0">{a.type.replace("_"," ")}</span>
+                        <span className="text-slate-300">{a.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ANALYSIS TAB */}
+          {tab === "analysis" && (
+            <div>
+              {analysis ? (
+                <AgentAnalysisPanel analysis={analysis} />
+              ) : (
+                <div className="bg-slate-950 border border-dashed border-slate-800 rounded-2xl p-16 flex flex-col items-center text-center space-y-4">
+                  <Activity className="h-10 w-10 text-slate-600" />
+                  <h3 className="text-base font-bold text-white">No Analysis Yet</h3>
+                  <p className="text-xs text-slate-500 max-w-sm">Click "Run Deep Analysis" in the header to generate a 6-dimensional intelligence report.</p>
+                  <button onClick={handleAnalyze} disabled={analyzing}
+                    className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold text-xs uppercase px-5 py-2.5 rounded-xl">
+                    {analyzing ? "Analyzing..." : "Run Deep Analysis"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MEMORY TAB */}
+          {tab === "memory" && (
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <Award className="h-4 w-4 text-amber-400" /> Permanent Memory Vault
+              </h3>
+              {memories.length === 0 ? (
+                <p className="text-xs text-slate-500 py-8 text-center">Memory vault is empty. Activate goals to build permanent context.</p>
+              ) : (
+                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+                  {memories.map(m => (
+                    <div key={m.id} className="bg-slate-900/30 border border-slate-900 hover:border-slate-800 p-4 rounded-2xl space-y-2 transition-colors">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="bg-amber-950/60 text-amber-300 border border-amber-800/40 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
+                          {String(m.type).replace("_"," ")}
                         </span>
-                        <span
-                          style={{
-                            fontSize: 10,
-                            padding: "2px 6px",
-                            borderRadius: 4,
-                            background: step.status === "completed" ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)",
-                            color: step.status === "completed" ? COLORS.success : COLORS.warning,
-                          }}
-                        >
-                          {step.status}
+                        <span className="text-[9px] text-slate-500 font-bold">
+                          {new Date(m.createdAt).toLocaleDateString(undefined, { month:"short", day:"numeric" })}
                         </span>
                       </div>
-                      <p style={{ margin: "4px 0 0 0", color: "#d1d5db", fontSize: 12 }}>{step.reasoning}</p>
+                      <h4 className="text-xs font-bold text-white">{m.title}</h4>
+                      <p className="text-[10px] text-slate-400 leading-normal">{m.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* LOG TAB */}
+          {tab === "log" && (
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden">
+              <div className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Terminal className="h-4 w-4 text-purple-400" />
+                  <span className="text-xs font-bold text-slate-300">Orchestrator Run Log</span>
+                </div>
+                <div className="flex gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                </div>
+              </div>
+              {execReport ? (
+                <div className="p-4 font-mono text-[11px] leading-relaxed text-[#c7c9d3] bg-black/90 max-h-[600px] overflow-y-auto space-y-4">
+                  {execReport.steps.map(step => (
+                    <div key={step.stepNumber} className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-purple-400 font-bold">&gt; [{step.toolToExecute.toUpperCase()}]</span>
+                        <span className={step.status === "completed" ? "text-emerald-400" : "text-amber-400"}>{step.status}</span>
+                      </div>
+                      <p className="text-slate-500 pl-2">{step.reasoning}</p>
                       {step.result && step.toolToExecute === "analyze_missing_skills" && (
-                        <div style={styles.nestedJson}>
-                          <span style={{ color: COLORS.warning }}>Gaps Identified:</span>{" "}
+                        <div className="bg-slate-900 border border-slate-800 p-2.5 rounded font-sans text-xs text-slate-300 pl-2">
+                          <span className="text-amber-400 font-bold">Gaps: </span>
                           {step.result.gapSkills?.join(", ")}
                         </div>
                       )}
                     </div>
                   ))}
-                  <div style={{ color: COLORS.success, fontSize: 12, marginTop: 10 }}>✓ Plan execution completed. Roadmap successfully initialized.</div>
+                  <div className="text-emerald-400 font-bold pt-2">&gt;&gt; COMPLETE: Roadmap initialized. Memory persisted.</div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Adaptation Report Panel */}
-          {adaptReport && (
-            <div style={{ ...styles.card, border: `1px solid ${COLORS.accent}44`, boxShadow: `0 0 15px ${COLORS.accentGlow}` }}>
-              <h2 style={{ ...styles.cardTitle, color: COLORS.accent }}>Adaptation Summary (Week {adaptReport.originalWeekNumber} → {adaptReport.adaptationWeekNumber})</h2>
-              <div style={{ fontSize: 13, color: "#d1d5db", lineHeight: 1.6 }}>
-                <p><strong>Reasoning:</strong> {adaptReport.reasonsForChange.join(", ")}</p>
-                <div style={{ marginTop: 10 }}>
-                  <strong>Adjustments Executed:</strong>
-                  <ul style={{ margin: "5px 0 0 0", paddingLeft: 20 }}>
-                    {adaptReport.adjustmentsMade.map((a, i) => (
-                      <li key={i} style={{ marginBottom: 4 }}>
-                        <span style={{ color: COLORS.warning, fontWeight: 600 }}>{a.type.replace("_", " ")}</span>: {a.description}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              ) : (
+                <div className="p-8 text-center text-xs text-slate-500">No agent run logs yet. Deploy a goal to see orchestration logs.</div>
+              )}
             </div>
           )}
         </div>
-
-        {/* Right Column: Roadmap & Progress */}
-        <div style={styles.rightCol}>
-          {activeRoadmap ? (
-            <>
-              {/* Progress Bar Card */}
-              <div style={styles.card}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <h2 style={styles.cardTitle}>Roadmap Execution</h2>
-                  <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.primary }}>{progressPct}% Done</span>
-                </div>
-                <div style={styles.progressBg}>
-                  <div style={{ ...styles.progressFill, width: `${progressPct}%` }}></div>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
-                  <span style={{ fontSize: 12, color: COLORS.muted }}>Target: {activeRoadmap.targetRole} {activeRoadmap.targetCompany ? `@ ${activeRoadmap.targetCompany}` : ""}</span>
-                  <span style={{ fontSize: 12, color: COLORS.muted }}>Timeline: {activeRoadmap.timelineWeeks} Weeks</span>
-                </div>
-              </div>
-
-              {/* Phased Roadmap Viewer */}
-              {activeRoadmap.phases?.map((phase) => (
-                <div key={phase.phaseNumber} style={{ ...styles.card, position: "relative" }}>
-                  <div style={styles.phaseHeader}>
-                    <span style={styles.phaseBadge}>Phase {phase.phaseNumber}</span>
-                    <h3 style={styles.phaseTitle}>{phase.title}</h3>
-                  </div>
-                  <p style={{ fontSize: 12, color: COLORS.muted, margin: "4px 0 16px 0" }}>{phase.focus}</p>
-
-                  {/* Weekly list */}
-                  {phase.weeklyPlans?.map((week) => (
-                    <div key={week.weekNumber} style={styles.weekSection}>
-                      <h4 style={styles.weekTitle}>Week {week.weekNumber}: {week.focus}</h4>
-                      <div style={styles.taskList}>
-                        {week.actionItems?.map((task) => (
-                          <div key={task.id} style={styles.taskItem}>
-                            <input
-                              type="checkbox"
-                              checked={task.completed}
-                              onChange={() => handleToggleTask(activeRoadmap.id, task.id)}
-                              style={styles.checkbox}
-                            />
-                            <div style={{ flex: 1 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ ...styles.taskLabel, textDecoration: task.completed ? "line-through" : "none", color: task.completed ? COLORS.muted : COLORS.text }}>
-                                  {task.title}
-                                </span>
-                                <span style={{ ...styles.typeTag, borderColor: getTypeColor(task.type), color: getTypeColor(task.type) }}>
-                                  {task.type.replace("_", " ")}
-                                </span>
-                              </div>
-                              <p style={{ fontSize: 11, color: COLORS.muted, margin: "2px 0 0 0" }}>{task.description}</p>
-                            </div>
-                            <span style={{ fontSize: 11, color: COLORS.muted, flexShrink: 0 }}>{task.estimatedHours} hrs</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-
-              {/* Adapt Button */}
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 40 }}>
-                <button onClick={handleAdaptRoadmap} disabled={adapting} style={styles.adaptBtn}>
-                  {adapting ? "Adapting Roadmap..." : "↻ Run End-of-Week Adaptation"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div style={styles.emptyCard}>
-              <span style={{ fontSize: 40, marginBottom: 12 }}>🤖</span>
-              <h3 style={{ fontSize: 16, fontWeight: 600, color: COLORS.text }}>No Active Goal</h3>
-              <p style={{ fontSize: 12, color: COLORS.muted, textAlign: "center", maxWidth: 280, marginTop: 4 }}>
-                Enter your target career goal in the left input box and launch the agent.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }
-
-function getTypeColor(type: string): string {
-  switch (type) {
-    case "skill_acquisition": return COLORS.primary;
-    case "project_build": return COLORS.accent;
-    case "certification": return COLORS.warning;
-    case "networking": return "#3b82f6";
-    case "application": return COLORS.success;
-    case "interview_prep": return "#ec4899";
-    default: return COLORS.muted;
-  }
-}
-
-// ─── Inline Styles ─────────────────────────────────────────────────────────────
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    padding: "24px 28px",
-    background: COLORS.bg,
-    minHeight: "100vh",
-    fontFamily: "Inter, sans-serif",
-    color: COLORS.text,
-  },
-  header: {
-    marginBottom: 28,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 700,
-    margin: 0,
-    background: "linear-gradient(135deg, #fff, #a855f7)",
-    WebkitBackgroundClip: "text",
-    WebkitTextFillColor: "transparent",
-  },
-  subtitle: {
-    fontSize: 13,
-    color: COLORS.muted,
-    marginTop: 4,
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1.2fr",
-    gap: 24,
-  },
-  leftCol: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 20,
-  },
-  rightCol: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 20,
-  },
-  card: {
-    background: COLORS.panel,
-    border: `1px solid ${COLORS.border}`,
-    borderRadius: 14,
-    padding: 20,
-  },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: 600,
-    margin: "0 0 16px 0",
-    color: "#e5e7eb",
-    letterSpacing: "0.02em",
-  },
-  form: {
-    display: "flex",
-    gap: 12,
-  },
-  input: {
-    flex: 1,
-    background: "#0c0c16",
-    border: "1px solid #374151",
-    borderRadius: 8,
-    padding: "10px 14px",
-    fontSize: 13,
-    color: "#fff",
-    outline: "none",
-  },
-  btn: {
-    background: `linear-gradient(135deg, ${COLORS.primary}, #7c3aed)`,
-    color: "#fff",
-    border: "none",
-    borderRadius: 8,
-    padding: "10px 20px",
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-  },
-  terminal: {
-    background: "#09090e",
-    border: "1px solid #1e1e2f",
-    borderRadius: 10,
-    overflow: "hidden",
-  },
-  terminalHeader: {
-    background: "#161623",
-    padding: "8px 12px",
-    display: "flex",
-    alignItems: "center",
-    borderBottom: "1px solid #1e1e2f",
-  },
-  dotRed: { width: 8, height: 8, borderRadius: "50%", background: "#ef4444", display: "inline-block" },
-  dotYellow: { width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", display: "inline-block", marginLeft: 4 },
-  dotGreen: { width: 8, height: 8, borderRadius: "50%", background: "#10b981", display: "inline-block", marginLeft: 4 },
-  terminalContent: {
-    padding: 16,
-    fontFamily: "monospace",
-    fontSize: 12,
-    lineHeight: 1.5,
-    maxHeight: 380,
-    overflowY: "auto",
-  },
-  nestedJson: {
-    background: "#11111d",
-    padding: "6px 10px",
-    borderRadius: 6,
-    fontSize: 11,
-    marginTop: 6,
-    borderLeft: `2px solid ${COLORS.warning}`,
-  },
-  progressBg: {
-    background: "#1f2937",
-    height: 8,
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  progressFill: {
-    background: `linear-gradient(90deg, ${COLORS.primary}, ${COLORS.accent})`,
-    height: "100%",
-    borderRadius: 4,
-    transition: "width 0.4s ease-out",
-  },
-  phaseHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-  phaseBadge: {
-    fontSize: 10,
-    fontWeight: 700,
-    background: COLORS.primaryGlow,
-    color: COLORS.primary,
-    border: `1px solid ${COLORS.primary}44`,
-    padding: "2px 8px",
-    borderRadius: 12,
-    textTransform: "uppercase",
-  },
-  phaseTitle: {
-    fontSize: 14,
-    fontWeight: 600,
-    margin: 0,
-  },
-  weekSection: {
-    borderTop: "1px solid #1f2937",
-    paddingTop: 14,
-    marginTop: 14,
-  },
-  weekTitle: {
-    fontSize: 12,
-    fontWeight: 600,
-    color: COLORS.accent,
-    margin: "0 0 10px 0",
-  },
-  taskList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  },
-  taskItem: {
-    display: "flex",
-    gap: 12,
-    alignItems: "flex-start",
-    background: "#0a0a0f",
-    padding: "10px 12px",
-    borderRadius: 8,
-    border: "1px solid #11111d",
-  },
-  checkbox: {
-    marginTop: 3,
-    cursor: "pointer",
-  },
-  taskLabel: {
-    fontSize: 12,
-    fontWeight: 500,
-  },
-  typeTag: {
-    fontSize: 9,
-    fontWeight: 700,
-    border: "1px solid",
-    padding: "1px 6px",
-    borderRadius: 4,
-    textTransform: "uppercase",
-    letterSpacing: "0.02em",
-  },
-  adaptBtn: {
-    background: "transparent",
-    border: `1px solid ${COLORS.accent}`,
-    color: COLORS.accent,
-    padding: "10px 18px",
-    borderRadius: 8,
-    fontSize: 12,
-    fontWeight: 600,
-    cursor: "pointer",
-    boxShadow: `0 0 10px ${COLORS.accentGlow}`,
-  },
-  emptyCard: {
-    background: COLORS.panel,
-    border: `1px dashed ${COLORS.border}`,
-    borderRadius: 14,
-    padding: "80px 40px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-};

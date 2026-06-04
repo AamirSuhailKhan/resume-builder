@@ -2,8 +2,15 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/navbar";
 import { ArrowRight, Target, Zap, FileText, CheckCircle2, TrendingUp, ShieldCheck, Sparkles } from "lucide-react";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const session = await auth();
+  if (session?.user?.id) {
+    redirect("/dashboard");
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background selection:bg-indigo-500/20 overflow-hidden font-sans">
       <Navbar />

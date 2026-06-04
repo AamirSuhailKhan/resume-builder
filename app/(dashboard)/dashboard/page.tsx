@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db/prisma";
-import { ZenDashboard } from "@/components/dashboard/ZenDashboard";
 import { cookies } from "next/headers";
-import { CacheService, CacheKeys } from "@/lib/cache/cache.service";
+import { DashboardService } from "@/lib/services/dashboard.service";
+import { CareerHealthService } from "@/lib/services/career-health.service";
+import { CareerMissionControl } from "@/components/dashboard/CareerMissionControl";
 
 function onboardingComplete(value: unknown): boolean {
   return Boolean(
@@ -23,6 +24,7 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  // Enforce onboarding check
   const cookieStore = await cookies();
   const hasCompletionCookie = cookieStore.get("onboarding_complete")?.value === "true";
 
@@ -37,59 +39,13 @@ export default async function DashboardPage() {
     }
   }
 
-  // Cache dashboard stats for 2 minutes — recomputed lazily
-  const cachedStats = await CacheService.remember(
-    CacheKeys.dashboardStats(userId),
-    async () => {
-      const [resumeCount, applicationStats, upcomingInterview] = await Promise.all([
-        prisma.resume.count({ where: { userId } }),
-        prisma.application.groupBy({
-          by: ["status"],
-          where: { userId },
-          _count: { status: true },
-        }),
-        prisma.application.findFirst({
-          where: { userId, status: "interview" },
-          orderBy: { updatedAt: "desc" },
-          select: { id: true, company: true, role: true, updatedAt: true },
-        }),
-      ]);
-      return { resumeCount, applicationStats, upcomingInterview };
-    },
-    120
-  );
-
-  const { resumeCount, applicationStats, upcomingInterview } = cachedStats;
-
-  const totalApplied =
-    applicationStats.find((s: any) => s.status === "applied")?._count?.status ?? 0;
-  const totalInterviews =
-    applicationStats.find((s: any) => s.status === "interview")?._count?.status ?? 0;
-  const totalOffers =
-    applicationStats.find((s: any) => s.status === "offer")?._count?.status ?? 0;
-  const totalApplications = applicationStats.reduce((sum: number, s: any) => sum + s._count.status, 0);
-
-  const formattedInterview = upcomingInterview
-    ? {
-        id: upcomingInterview.id,
-        company: upcomingInterview.company,
-        role: upcomingInterview.role,
-        updatedAt: new Date(upcomingInterview.updatedAt).toISOString(),
-      }
-    : null;
+  // Fetch telemetry and stats securely
+  const data = await DashboardService.getDashboardData(userId);
+  const healthHistory = await CareerHealthService.getHealthHistory(userId);
 
   return (
     <main className="container mx-auto p-4 md:p-8">
-      <ZenDashboard
-        stats={{
-          totalApplications,
-          resumeCount,
-          hasPendingApproval: false,
-          upcomingInterview: formattedInterview,
-          totalOffers,
-          totalApplied,
-        }}
-      />
+      <CareerMissionControl data={data} initialHistory={healthHistory} />
     </main>
   );
 }
