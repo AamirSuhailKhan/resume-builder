@@ -11,6 +11,7 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
 import { CompanyIntelligencePanel } from "@/components/jobs/CompanyIntelligencePanel";
 import { CareerPathPanel } from "@/components/career/CareerPathPanel";
+import { NetworkingPanel } from "@/features/jobs/NetworkingPanel";
 
 export type MatchResult = {
   id: string;
@@ -341,7 +342,7 @@ export function JobMatchDashboard({
                 </div>
               )}
               {activeTab === "intel" && <CompanyIntelligencePanel companyName={selectedJob.company} />}
-              {activeTab === "connections" && <p className="text-sm text-muted-foreground">Warm-path connections will appear here when available.</p>}
+              {activeTab === "connections" && <NetworkingPanel jobOpportunityId={selectedJob.id} />}
               {activeTab === "career" && (
                 <CareerPathPanel
                   jobOpportunityId={selectedJob.id}

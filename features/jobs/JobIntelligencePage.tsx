@@ -9,13 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, SectionShell } from "@/components/features/section-shell";
 
-const sampleJD = `Senior Frontend Engineer
-
-We are looking for a product-minded engineer to build polished dashboard workflows with React, Next.js, TypeScript, Prisma, PostgreSQL, queues, and strong UX judgment. You will own performance, accessibility, reusable components, and AI-assisted product surfaces.`;
-
 export function JobIntelligencePage() {
-  const [jd, setJd] = useState(sampleJD);
-  const [status, setStatus] = useState<"idle" | "queued" | "done">("done");
+  const [jd, setJd] = useState("");
+  const [status, setStatus] = useState<"idle" | "queued" | "done">("idle");
 
   const [parsedData, setParsedData] = useState<{skills: string[], tools: string[], experience: string[], missing: string[]}>({
     skills: [],
@@ -102,9 +98,15 @@ export function JobIntelligencePage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Badge variant="success">Strong fit</Badge>
+                  <Badge variant={matchScore >= 80 ? "success" : matchScore >= 55 ? "primary" : "warning"}>
+                    {matchScore >= 80 ? "Strong fit" : matchScore >= 55 ? "Partial fit" : "Weak fit"}
+                  </Badge>
                   <p className="text-sm leading-6 text-muted-foreground">
-                    Your active profile aligns with the core product engineering signals. Close the missing skill gaps before applying.
+                    {matchScore >= 80
+                      ? "Your profile aligns well with this role. Target the missing skill gaps before applying."
+                      : matchScore >= 55
+                      ? "There's a reasonable overlap, but significant skill gaps remain. Prioritise closing them."
+                      : "Low match. This role requires skills not currently in your profile."}
                   </p>
                 </div>
               </div>
@@ -112,7 +114,16 @@ export function JobIntelligencePage() {
           </Card>
 
           <AnimatePresence mode="wait">
-            {status === "queued" ? (
+            {status === "idle" ? (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="rounded-lg border border-dashed border-border bg-surface/50 p-8 text-center text-sm text-muted-foreground"
+              >
+                Paste a job description on the left and click &ldquo;Analyze JD&rdquo; to see your match breakdown.
+              </motion.div>
+            ) : status === "queued" ? (
               <motion.div
                 key="loading"
                 initial={{ opacity: 0, y: 8 }}
@@ -121,7 +132,7 @@ export function JobIntelligencePage() {
                 className="rounded-lg border border-border bg-surface p-5 text-sm text-muted-foreground"
               >
                 <Loader2 className="mr-2 inline h-4 w-4 animate-spin text-accent" />
-                AI analysis queued. Worker will persist structured output when complete.
+                Analyzing job description — extracting skills, tools, and match signals...
               </motion.div>
             ) : (
               <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-4 sm:grid-cols-2">

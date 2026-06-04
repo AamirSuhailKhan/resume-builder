@@ -125,7 +125,7 @@ export function CareerMissionControl({ data, initialHistory }: CareerMissionCont
   };
 
   // Custom tooltips for Recharts
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const renderCustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-slate-950/95 border border-slate-800 p-3 rounded-2xl shadow-2xl backdrop-blur-md">
@@ -192,7 +192,7 @@ export function CareerMissionControl({ data, initialHistory }: CareerMissionCont
           </button>
         </div>
         <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-slate-950 px-3 py-1 rounded-full border border-slate-900">
-          Last Synchronized: {mounted ? new Date(currentHealth.createdAt || Date.now()).toLocaleTimeString() : ""}
+          Last Synchronized: {mounted ? (currentHealth.createdAt ? new Date(currentHealth.createdAt).toLocaleTimeString() : "") : ""}
         </div>
       </div>
 
@@ -763,7 +763,7 @@ export function CareerMissionControl({ data, initialHistory }: CareerMissionCont
                         }}
                       />
                       <YAxis stroke="#64748b" fontSize={10} fontWeight="bold" domain={[30, 100]} />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip content={renderCustomTooltip} />
                       <Legend wrapperStyle={{ fontSize: "11px", fontWeight: "bold", paddingTop: "10px" }} />
                       <Line
                         name="Overall Health"

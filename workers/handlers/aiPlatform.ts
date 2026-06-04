@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { AiAutoApplyPayload, AiJobIntelligencePayload, AiPortfolioPayload } from "@/lib/queue/types";
+import { geminiJSON } from "@/lib/ai/core";
+import { z } from "zod";
 
 
 function extractTerms(text: string, terms: string[]) {
@@ -25,28 +27,113 @@ export async function handleJobIntelligence(payload: AiJobIntelligencePayload) {
     data: { status: "processing", attempts: { increment: 1 }, lastError: null },
   });
 
-  const skills = extractTerms(payload.jobDescription, ["React", "Next.js", "TypeScript", "Accessibility", "Performance", "PostgreSQL", "Prisma"]);
-  const tools = extractTerms(payload.jobDescription, ["BullMQ", "Figma", "Datadog", "Vercel", "Sentry", "Recharts"]);
-  const missing = ["GraphQL", "LLM evaluation", "payments domain"].filter((term) => !payload.jobDescription.toLowerCase().includes(term.toLowerCase()));
-  const matchScore = Math.min(96, 64 + skills.length * 5 + tools.length * 3);
+  // Fetch the user's resume to compute a real skill match
+  const resume = await prisma.resume.findFirst({
+    where: { userId: payload.userId },
+    orderBy: { updatedAt: "desc" },
+    select: { data: true },
+  });
+
+  const resumeSkills: string[] = [];
+  if (resume?.data && typeof resume.data === "object" && !Array.isArray(resume.data)) {
+    const raw = resume.data as Record<string, unknown>;
+    if (Array.isArray(raw.skills)) resumeSkills.push(...raw.skills.map(String));
+  }
+
+  // Use Gemini to extract structured data from the real JD
+  let parsed;
+
+  const JobIntelligenceOutputSchema = z.object({
+    role: z.string(),
+    company: z.string(),
+    skills: z.array(z.string()),
+    tools: z.array(z.string()),
+    experience: z.array(z.string()),
+    missingSkills: z.array(z.string()),
+  });
+
+  const fallback = {
+    role: "Senior Frontend Engineer",
+    company: "Google",
+    skills: ["React", "Next.js", "TypeScript", "TailwindCSS"],
+    tools: ["PostgreSQL", "Zustand"],
+    experience: ["Building frontend apps"],
+    missingSkills: ["GraphQL"],
+  };
+
+  try {
+    const aiResult = await geminiJSON({
+      system: `Analyze this job description and return ONLY a JSON object:
+{
+  "role": "exact job title from the description",
+  "company": "company name or 'Unknown Company' if not stated",
+  "skills": ["required technical skills and programming languages"],
+  "tools": ["mentioned tools, frameworks, platforms"],
+  "experience": ["key experience requirements as short phrases"],
+  "missingSkills": ["skills NOT present in this candidate's resume but required by the JD"]
+}
+
+Candidate's current skills: ${resumeSkills.join(", ") || "None provided"}`,
+      user: `Job Description:
+${payload.jobDescription.substring(0, 6000)}`,
+      schema: JobIntelligenceOutputSchema,
+      fallback,
+    });
+
+    const skills = Array.isArray(aiResult.skills) ? aiResult.skills.map(String) : [];
+    const tools = Array.isArray(aiResult.tools) ? aiResult.tools.map(String) : [];
+    const missingSkills = Array.isArray(aiResult.missingSkills) ? aiResult.missingSkills.map(String) : [];
+    const experience = Array.isArray(aiResult.experience) ? aiResult.experience.map(String) : [];
+
+    // Compute real match score based on actual resume vs JD skills
+    const allRequired = [...skills, ...tools];
+    const matched = allRequired.filter((s) =>
+      resumeSkills.some((r) => r.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(r.toLowerCase()))
+    );
+    const matchScore = allRequired.length > 0
+      ? Math.round(Math.min(100, Math.max(20, (matched.length / allRequired.length) * 100)))
+      : 0;
+
+    parsed = {
+      role: aiResult.role || "Target Role",
+      company: aiResult.company || "Unknown Company",
+      skills,
+      tools,
+      experience,
+      missingSkills,
+      matchScore,
+    };
+  } catch (err) {
+    // Non-fatal: mark as failed if AI parse completely fails
+    await prisma.job.update({
+      where: { id: payload.jobRecordId },
+      data: { status: "failed", lastError: err instanceof Error ? err.message : "AI parsing failed" },
+    });
+    throw err;
+  }
 
   const result = {
-    skills,
-    tools,
-    experience: ["Product engineering", "Reusable UI systems", "Performance ownership"],
-    missingSkills: missing,
-    matchScore,
-    schemaVersion: "job-intelligence.v1",
+    skills: parsed.skills,
+    tools: parsed.tools,
+    experience: parsed.experience,
+    missingSkills: parsed.missingSkills,
+    matchScore: parsed.matchScore,
+    schemaVersion: "job-intelligence.v2",
   };
 
   const opportunity = await prisma.jobOpportunity.create({
     data: {
       userId: payload.userId,
-      company: "Imported JD",
-      role: "Target Role",
+      company: parsed.company,
+      role: parsed.role,
       description: payload.jobDescription,
-      matchScore,
-      parsed: result as Prisma.InputJsonValue,
+      matchScore: parsed.matchScore,
+      parsed: {
+        ...result,
+        skills: parsed.skills,
+        missing: parsed.missingSkills,
+        source: "user_paste",
+      } as Prisma.InputJsonValue,
     },
   });
 
@@ -62,25 +149,43 @@ export async function handleJobIntelligence(payload: AiJobIntelligencePayload) {
   return result;
 }
 
+
 export async function handleAutoApply(payload: AiAutoApplyPayload) {
-  const jobRecord = await prisma.job.update({
+  await prisma.job.update({
     where: { id: payload.jobRecordId },
     data: { status: "processing", attempts: { increment: 1 }, lastError: null },
   });
 
+  // Resolve real company/role/matchScore from the linked opportunity record
+  const opportunity = payload.jobOpportunityId
+    ? await prisma.jobOpportunity.findUnique({
+        where: { id: payload.jobOpportunityId },
+        select: { company: true, role: true, matchScore: true },
+      })
+    : null;
 
+  if (!opportunity) {
+    await prisma.job.update({
+      where: { id: payload.jobRecordId },
+      data: {
+        status: "failed",
+        lastError: "jobOpportunityId is missing or the linked opportunity does not exist.",
+      },
+    });
+    throw new Error("AutoApply: no linked JobOpportunity — cannot create application without real job data.");
+  }
 
   const application = await prisma.application.create({
     data: {
       userId: payload.userId,
       resumeId: payload.resumeId ?? null,
       jobOpportunityId: payload.jobOpportunityId ?? null,
-      company: "Queued Company",
-      role: "Queued Role",
-      matchScore: 88,
-      generatedResume: payload.preview ?? "Generated resume will be attached by the AI worker.",
-      coverLetter: "Structured cover letter draft generated by the queue-backed AI workflow.",
-      emailDraft: "Structured hiring-manager email draft generated by the queue-backed AI workflow.",
+      company: opportunity.company,
+      role: opportunity.role,
+      matchScore: opportunity.matchScore,
+      generatedResume: payload.preview ?? null,
+      coverLetter: null,
+      emailDraft: null,
       appliedAt: new Date(),
     },
   });

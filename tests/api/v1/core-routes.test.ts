@@ -41,7 +41,7 @@ const AUTHED_ROUTES: Array<{ method: string; path: string; body?: object }> = [
   { method: "GET", path: "/api/v1/market/weather" },
   { method: "GET", path: "/api/v1/memory" },
   { method: "GET", path: "/api/v1/approvals/pending" },
-  { method: "GET", path: "/api/v1/workflows" },
+  { method: "GET", path: "/api/v1/opportunities" },
   { method: "PATCH", path: "/api/v1/users/profile", body: { name: "Test User" } },
   {
     method: "POST",

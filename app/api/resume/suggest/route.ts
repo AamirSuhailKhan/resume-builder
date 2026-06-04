@@ -399,36 +399,16 @@ ${jobDescription}
 }
 
 async function requireUserId() {
-  console.log("requireUserId validation started");
-  let session = null;
-  let error = null;
-  try {
-    session = await auth();
-  } catch (err) {
-    error = err;
-  }
+  const session = await auth().catch(() => null);
   const userId = session?.user?.id;
-  console.log("User:", session?.user);
-  console.log("Session:", session);
-  console.log("Auth error:", error);
   if (!userId) throw new Error("UNAUTHENTICATED");
   return userId;
 }
 
 export async function POST(req: NextRequest) {
   try {
-    console.log("Request received");
-    let authSession = null;
-    let authError = null;
-    try {
-      authSession = await auth();
-    } catch (err) {
-      authError = err;
-    }
+    const authSession = await auth().catch(() => null);
     const userId = authSession?.user?.id;
-    console.log("User:", authSession?.user);
-    console.log("Session:", authSession);
-    console.log("Auth error:", authError);
     const body = await req.json().catch(() => null);
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) return apiError("Invalid suggestion request.", 400);

@@ -136,7 +136,7 @@ export function AutonomousAgentDashboard() {
   const done = allTasks.filter(t => t.completed).length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  const TabBtn = ({ id, label }: { id: Tab; label: string }) => (
+  const renderTabBtn = (id: Tab, label: string) => (
     <button onClick={() => setTab(id)}
       className={`px-4 py-2 text-xs font-extrabold rounded-xl border transition-all ${tab === id ? "bg-purple-950/60 text-purple-200 border-purple-500/40" : "bg-transparent text-slate-400 border-transparent hover:text-white"}`}>
       {label}
@@ -232,10 +232,10 @@ export function AutonomousAgentDashboard() {
         <div className="space-y-6">
           {/* TAB BAR */}
           <div className="flex flex-wrap items-center gap-2">
-            <TabBtn id="roadmap" label="Weekly Roadmap" />
-            <TabBtn id="analysis" label="Deep Analysis" />
-            <TabBtn id="memory" label="Memory Vault" />
-            <TabBtn id="log" label="Agent Log" />
+            {renderTabBtn("roadmap", "Weekly Roadmap")}
+            {renderTabBtn("analysis", "Deep Analysis")}
+            {renderTabBtn("memory", "Memory Vault")}
+            {renderTabBtn("log", "Agent Log")}
           </div>
 
           {/* ROADMAP TAB */}

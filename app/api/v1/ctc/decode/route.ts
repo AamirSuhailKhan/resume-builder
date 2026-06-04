@@ -150,20 +150,18 @@ async function extractFromRawText(rawText: string): Promise<ExtractedOffer> {
   }
 }
 
-export async function POST(req: NextRequest) {
-  const session = await auth();
-  const userId = session?.user?.id;
+import { requireUser } from "@/lib/auth/session";
+import { errorToResponse } from "@/lib/api/response";
 
-  // Rate limit checks
-  if (userId) {
+export async function POST(req: NextRequest) {
+  try {
+    const user = await requireUser();
+    const userId = user.id;
+
+    // Rate limit checks
     const limited = await checkDailyRateLimit(userId, 20, "ctc_decode");
     if (!limited.allowed) return NextResponse.json({ error: "Daily CTC decode limit reached." }, { status: 429 });
-  } else {
-    // Guest mode rate limit based on IP
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "anonymous";
-    const limited = await checkDailyRateLimit(ip, 5, "ctc_decode_guest");
-    if (!limited.allowed) return NextResponse.json({ error: "Daily CTC guest limit reached. Please sign up to unlock unlimited scans." }, { status: 429 });
-  }
+
 
   const parsed = requestSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid request payload.", details: parsed.error.flatten() }, { status: 400 });
@@ -194,11 +192,6 @@ export async function POST(req: NextRequest) {
     taxRegime: input.taxRegime as TaxRegime,
   });
 
-  if (!userId) {
-    // Guest mode: Return decoded payload immediately without database insert
-    return NextResponse.json({ id: "guest-decode", guestMode: true, ...decoded });
-  }
-
   const record = await prisma.ctcDecoding.create({
     data: {
       userId,
@@ -226,4 +219,7 @@ export async function POST(req: NextRequest) {
   });
 
   return NextResponse.json({ id: record.id, ...decoded });
+  } catch (error) {
+    return errorToResponse(error);
+  }
 }

@@ -48,7 +48,6 @@ export async function POST(req: NextRequest) {
   try {
     const user = await requireUser();
     const body = await req.json().catch(() => null);
-    console.log("REQUEST BODY", body);
     const parsed = profileSchema.safeParse(body);
     if (!parsed.success) {
       return apiError(parsed.error.issues[0]?.message ?? "Invalid profile request.", 400);

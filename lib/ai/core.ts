@@ -229,10 +229,13 @@ export async function executeAI<T>(
 
   if (isMock) {
     const mockData = generateMockResponse(system || "", user || "", schema, fallback);
+    const validatedData = schema 
+      ? (schema.safeParse(mockData).success ? mockData : fallback)
+      : mockData;
     const latencyMs = 150;
     return {
       success: true,
-      data: mockData,
+      data: validatedData,
       error: null,
       meta: {
         model,
@@ -242,7 +245,7 @@ export async function executeAI<T>(
         outputTokens: 200,
         retries: 0,
         usedFallback: false,
-        rawLength: JSON.stringify(mockData).length,
+        rawLength: JSON.stringify(validatedData).length,
         truncationDetected: false,
       },
     };

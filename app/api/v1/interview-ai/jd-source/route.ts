@@ -82,9 +82,6 @@ export async function POST(req: NextRequest) {
       if (!isPdf && !isDocx) return apiError("Only PDF and DOCX JD uploads are supported.", 400);
 
       const buffer = Buffer.from(await file.arrayBuffer());
-      if (isPdf) {
-        console.log("PDF uploaded");
-      }
       const parseResult = isPdf 
         ? await ResumeParserService.parsePdf(buffer)
         : await ResumeParserService.parseDocx(buffer);
@@ -102,7 +99,6 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => null);
-    console.log("REQUEST BODY", body);
 
     if (!body || typeof body !== "object") {
       return apiError("Request body must be a non-empty JSON object.", 400);

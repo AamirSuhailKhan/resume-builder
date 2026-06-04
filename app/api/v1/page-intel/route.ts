@@ -25,14 +25,15 @@ export async function GET(req: NextRequest) {
     ]);
 
     const userName = user?.name || "Candidate";
-    const targetRoles = (profile?.goals as any)?.targetRoles || ["Software Engineer"];
+    const goals = (profile?.goals as Record<string, any>) || {};
+    const targetRoles: string[] = Array.isArray(goals.targetRoles) ? goals.targetRoles : ["Software Engineer"];
     const targetRole = targetRoles[0] || "Software Engineer";
-    const targetCompanies = (profile?.goals as any)?.targetCompanies || ["Razorpay", "Swiggy"];
+    const targetCompanies: string[] = Array.isArray(goals.targetCompanies) ? goals.targetCompanies : ["Razorpay", "Swiggy"];
     const targetCompany = targetCompanies[0] || "Razorpay";
-    const targetSalary = (profile?.goals as any)?.targetSalary || 800000;
+    const targetSalary = typeof goals.targetSalary === "number" ? goals.targetSalary : 800000;
     const readinessScoreVal = readiness?.overallScore || 72;
-    const strengths = twin?.strengths || ["Core Development"];
-    const gaps = readiness?.keyGaps || ["Distributed Systems"];
+    const strengths: string[] = Array.isArray(twin?.strengths) ? (twin.strengths as string[]) : ["Core Development"];
+    const gaps: string[] = Array.isArray(readiness?.keyGaps) ? (readiness.keyGaps as string[]) : ["Distributed Systems"];
 
     const data: Record<string, any> = {
       "/dashboard": {

@@ -1,8 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { requireUser } from "@/lib/auth/session";
 
-export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
+import { errorToResponse } from "@/lib/api/response";
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
+    const user = await requireUser();
     const { slug } = await params;
     const company = await prisma.indiaCompanyTrack.findUnique({
       where: { companySlug: slug },
@@ -14,7 +18,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
 
     return NextResponse.json({ data: company });
   } catch (error) {
-    console.error("[INDIA_TRACK_DETAIL_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return errorToResponse(error);
   }
 }

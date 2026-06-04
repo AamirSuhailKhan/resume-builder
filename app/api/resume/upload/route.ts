@@ -200,15 +200,19 @@ export async function POST(request: Request) {
     const storagePath = `${userId}/${resumeId}.pdf`;
     const supabase = await createClient();
 
-    const { error: uploadError } = await supabase.storage
-      .from("resumes")
-      .upload(storagePath, buffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("resumes")
+        .upload(storagePath, buffer, {
+          contentType: "application/pdf",
+          upsert: true,
+        });
 
-    if (uploadError) {
-      throw uploadError;
+      if (uploadError) {
+        console.warn("[ResumeUpload] Supabase upload failed, proceeding to parsing:", uploadError.message);
+      }
+    } catch (storageErr) {
+      console.warn("[ResumeUpload] Supabase storage client error, proceeding to parsing:", storageErr instanceof Error ? storageErr.message : storageErr);
     }
 
     const parseResult = await ResumeParserService.parsePdf(buffer);

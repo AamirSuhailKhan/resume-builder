@@ -1,9 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { Prisma } from "@prisma/client";
+import { requireUser } from "@/lib/auth/session";
 
-export async function GET(req: Request) {
+import { errorToResponse } from "@/lib/api/response";
+
+export async function GET(req: NextRequest) {
   try {
+    const user = await requireUser();
     const { searchParams } = new URL(req.url);
     const tier = searchParams.get("tier");
     const hiringStatus = searchParams.get("hiringStatus");
@@ -57,7 +61,6 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ data: sorted });
   } catch (error) {
-    console.error("[INDIA_TRACK_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return errorToResponse(error);
   }
 }

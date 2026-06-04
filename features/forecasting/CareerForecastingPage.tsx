@@ -70,7 +70,7 @@ export function CareerForecastingPage() {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  async function fetchData() {
     setLoading(true);
     try {
       const res = await fetch("/api/career-forecasting");
@@ -83,7 +83,7 @@ export function CareerForecastingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const triggerRefresh = async () => {
     setRefreshing(true);
